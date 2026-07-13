@@ -19,7 +19,7 @@ class StoreImplementationRequest extends FormRequest
             'production_impact' => ['nullable', 'string'],
             'required_effort' => ['nullable', 'string'],
             'cost_needed' => ['nullable', 'boolean'],
-            'cost_amount' => ['nullable', 'numeric', 'required_if:cost_needed,true'],
+            'cost_amount' => ['nullable', 'numeric', 'required_if:cost_needed,1,true,on,yes'],
             'resources' => ['nullable', 'string'],
             'test_plan' => ['nullable', 'string'],
             'change_type_ids' => ['nullable', 'array'],

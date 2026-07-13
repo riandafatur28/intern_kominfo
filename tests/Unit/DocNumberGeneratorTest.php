@@ -2,10 +2,10 @@
 
 namespace Tests\Unit;
 
-use App\Domains\ChangeManagement\Services\DocNumberGenerator;
 use App\Domains\ChangeManagement\Models\ChangeInitiation;
-use App\Models\User;
+use App\Domains\ChangeManagement\Services\DocNumberGenerator;
 use App\Models\Field;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -14,7 +14,9 @@ class DocNumberGeneratorTest extends TestCase
     use RefreshDatabase;
 
     private DocNumberGenerator $generator;
+
     private User $user;
+
     private Field $field;
 
     protected function setUp(): void
@@ -35,9 +37,15 @@ class DocNumberGeneratorTest extends TestCase
 
     public function test_increments_sequence_with_existing_initiations(): void
     {
-        ChangeInitiation::factory()->count(2)->create([
+        ChangeInitiation::factory()->create([
             'field_id' => $this->field->id,
             'initiator_id' => $this->user->id,
+            'doc_number' => '001/9/1.1/114/'.date('Y'),
+        ]);
+        ChangeInitiation::factory()->create([
+            'field_id' => $this->field->id,
+            'initiator_id' => $this->user->id,
+            'doc_number' => '002/9/1.1/114/'.date('Y'),
         ]);
 
         $docNumber = $this->generator->generate();

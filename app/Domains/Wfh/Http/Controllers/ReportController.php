@@ -22,7 +22,7 @@ class ReportController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->integer('per_page', 15);
+        $perPage = min($request->integer('per_page', 15), 100);
         $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage);
 
         return response()->json([

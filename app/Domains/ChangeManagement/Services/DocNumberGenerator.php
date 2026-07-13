@@ -3,6 +3,7 @@
 namespace App\Domains\ChangeManagement\Services;
 
 use App\Domains\ChangeManagement\Models\ChangeInitiation;
+use Illuminate\Support\Facades\DB;
 
 class DocNumberGenerator
 {
@@ -11,12 +12,22 @@ class DocNumberGenerator
         $year = now()->year;
         $prefix = config('change-mgmt.doc_prefix', '9/1.1/114');
 
-        $lastNumber = ChangeInitiation::whereYear('created_at', $year)
-            ->withTrashed()
-            ->count();
+        return DB::transaction(function () use ($year, $prefix) {
+            $lastDoc = ChangeInitiation::whereYear('created_at', $year)
+                ->withTrashed()
+                ->orderByDesc('doc_number')
+                ->lockForUpdate()
+                ->first();
 
-        $sequence = str_pad($lastNumber + 1, 3, '0', STR_PAD_LEFT);
+            $sequence = 1;
+            if ($lastDoc) {
+                preg_match('/^(\d{3})\//', $lastDoc->doc_number, $matches);
+                $sequence = (isset($matches[1]) ? (int) $matches[1] : 0) + 1;
+            }
 
-        return "{$sequence}/{$prefix}/{$year}";
+            $sequence = str_pad($sequence, 3, '0', STR_PAD_LEFT);
+
+            return "{$sequence}/{$prefix}/{$year}";
+        });
     }
 }

@@ -66,10 +66,12 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/wfh/reports/{report}/pdf', [ReportPdfController::class, 'export'])
         ->middleware('permission:wfh.report.export_pdf');
     // Change Management Module
-    Route::get('/changes/initiations', [InitiationController::class, 'index']);
+    Route::get('/changes/initiations', [InitiationController::class, 'index'])
+        ->middleware('permission:change.initiation.view');
     Route::post('/changes/initiations', [InitiationController::class, 'store'])
         ->middleware('permission:change.initiation.create');
-    Route::get('/changes/initiations/{id}', [InitiationController::class, 'show']);
+    Route::get('/changes/initiations/{id}', [InitiationController::class, 'show'])
+        ->middleware('permission:change.initiation.view');
     Route::post('/changes/initiations/{id}/submit', [InitiationController::class, 'submit'])
         ->middleware('permission:change.initiation.submit');
     Route::post('/changes/initiations/{id}/approve', [InitiationController::class, 'approve'])
@@ -79,7 +81,8 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('/changes/initiations/{id}/implementations', [ImplementationController::class, 'store'])
         ->middleware('permission:change.implementation.create');
-    Route::get('/changes/implementations/{id}', [ImplementationController::class, 'show']);
+    Route::get('/changes/implementations/{id}', [ImplementationController::class, 'show'])
+        ->middleware('permission:change.implementation.view');
     Route::put('/changes/implementations/{id}', [ImplementationController::class, 'update'])
         ->middleware('permission:change.implementation.update');
     Route::post('/changes/implementations/{id}/attachments', [ImplementationController::class, 'uploadAttachments'])

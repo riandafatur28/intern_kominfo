@@ -28,6 +28,7 @@ class ChangeInitiation extends Model
         'reviewed_at',
         'review_reason',
         'initiator_signed_at',
+        'verification_token',
     ];
 
     protected $casts = [

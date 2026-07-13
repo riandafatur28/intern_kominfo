@@ -36,6 +36,7 @@ class WfhReportStateMachine
             'status' => 'approved',
             'supervisor_id' => $supervisor->id,
             'supervisor_signed_at' => now(),
+            'verification_token' => $report->verification_token ?? bin2hex(random_bytes(32)),
         ]);
 
         return $report->fresh();

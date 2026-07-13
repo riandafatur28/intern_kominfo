@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
@@ -29,7 +29,7 @@ class UserController extends Controller
         $this->authorize('user.manage');
 
         $users = $this->userRepository->paginateWithRelations(
-            perPage: $request->integer('per_page', 15),
+            perPage: min($request->integer('per_page', 15), 100),
             relations: ['team.field', 'roles'],
         );
 
@@ -49,7 +49,8 @@ class UserController extends Controller
         $this->authorize('user.manage');
 
         $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone']);
-        $data['password'] = Hash::make(Str::random(12));
+        $password = Str::random(12);
+        $data['password'] = $password;
         $data['is_active'] = true;
 
         $user = $this->userRepository->create($data);
@@ -63,6 +64,7 @@ class UserController extends Controller
             'success' => true,
             'message' => 'User berhasil dibuat.',
             'data' => new UserResource($user->load(['team.field', 'roles'])),
+            'temp_password' => $password,
         ], 201);
     }
 
@@ -151,9 +153,11 @@ class UserController extends Controller
                 'data' => $import->results,
             ]);
         } catch (\Throwable $e) {
+            Log::error('User import failed', ['error' => $e->getMessage()]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Import gagal: '.$e->getMessage(),
+                'message' => 'Import gagal. Silakan periksa format file.',
             ], 422);
         }
     }

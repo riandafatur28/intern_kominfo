@@ -39,17 +39,19 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.export_pdf',
 
             // Change Management
+            'change.initiation.view',
             'change.initiation.create',
             'change.initiation.update',
             'change.initiation.submit',
             'change.initiation.approve',
             'change.initiation.reject',
+            'change.initiation.export_pdf',
+            'change.implementation.view',
             'change.implementation.create',
             'change.implementation.update',
             'change.implementation.submit',
             'change.implementation.review',
             'change.implementation.export_pdf',
-            'change.initiation.export_pdf',
         ];
 
         foreach ($permissions as $perm) {
@@ -76,17 +78,19 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.reject',
             'wfh.monitoring.view',
             'wfh.report.export_pdf',
+            'change.initiation.view',
             'change.initiation.create',
             'change.initiation.update',
             'change.initiation.submit',
             'change.initiation.approve',
             'change.initiation.reject',
+            'change.initiation.export_pdf',
+            'change.implementation.view',
             'change.implementation.create',
             'change.implementation.update',
             'change.implementation.submit',
             'change.implementation.review',
             'change.implementation.export_pdf',
-            'change.initiation.export_pdf',
         ]);
 
         // Staf: create own records, submit, no approval power
@@ -96,9 +100,11 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.update',
             'wfh.report.submit',
             'wfh.report.export_pdf',
+            'change.initiation.view',
             'change.initiation.create',
             'change.initiation.update',
             'change.initiation.submit',
+            'change.implementation.view',
             'change.implementation.create',
             'change.implementation.update',
             'change.implementation.submit',

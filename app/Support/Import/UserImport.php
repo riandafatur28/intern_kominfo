@@ -80,9 +80,9 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
     public function rules(): array
     {
         return [
-            'nama' => 'nullable|string',
-            'nip' => 'nullable|string',
-            'email' => 'nullable|string',
+            'nama' => 'required|string',
+            'nip' => 'required|string',
+            'email' => 'required|email',
         ];
     }
 }

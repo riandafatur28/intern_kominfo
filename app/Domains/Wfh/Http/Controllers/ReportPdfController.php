@@ -52,9 +52,8 @@ class ReportPdfController extends Controller
             ];
         })->toArray();
 
-        // Generate QR code with verification hash
-        $contentHash = hash('sha256', $report->id.'|'.$report->report_date.'|'.$report->status);
-        $verifyUrl = $this->qrCodeService->generateVerificationUrl('WFH-'.$report->id, $contentHash);
+        // Generate QR code with stored verification token
+        $verifyUrl = $this->qrCodeService->generateVerificationUrl($report->verification_token);
         $qrSvg = $this->qrCodeService->generate($verifyUrl);
 
         // Signature paths (absolute for dompdf)

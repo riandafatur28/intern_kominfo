@@ -2,6 +2,7 @@
 
 namespace App\Domains\Organization\Http\Requests;
 
+use App\Support\Constants\Roles;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -24,7 +25,7 @@ class UpdateUserRequest extends FormRequest
             'rank' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['sometimes', 'string', Rule::in(['admin', 'kepala_tim', 'staf'])],
+            'role' => ['sometimes', 'string', Rule::in(Roles::ALL)],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
