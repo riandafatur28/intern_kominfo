@@ -23,5 +23,9 @@ interface ChangeManagementRepositoryInterface extends RepositoryInterface
 
     public function updateImplementation(int $id, array $data, array $typeIds): bool;
 
+    public function submitImplementation(int $id, int $evaluatorId): void;
+
+    public function reviewImplementation(int $id, array $data): void;
+
     public function addAttachments(int $implementationId, array $paths): void;
 }

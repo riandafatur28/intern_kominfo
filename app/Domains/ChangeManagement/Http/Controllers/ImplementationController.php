@@ -4,7 +4,6 @@ namespace App\Domains\ChangeManagement\Http\Controllers;
 
 use App\Domains\ChangeManagement\Http\Requests\StoreImplementationRequest;
 use App\Domains\ChangeManagement\Http\Resources\ImplementationResource;
-use App\Domains\ChangeManagement\Models\ChangeImplementation;
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -143,7 +142,7 @@ class ImplementationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => count($paths).' file berhasil diunggah.',
+            'message' => count($paths) . ' file berhasil diunggah.',
             'data' => new ImplementationResource($this->repo->findImplementationWithRelations($id)),
         ]);
     }
@@ -166,10 +165,7 @@ class ImplementationController extends Controller
             ], 422);
         }
 
-        ChangeImplementation::where('id', $id)->update([
-            'status' => 'submitted',
-            'evaluator_signed_at' => now(),
-        ]);
+        $this->repo->submitImplementation($id, $request->user()->id);
 
         return response()->json([
             'success' => true,
