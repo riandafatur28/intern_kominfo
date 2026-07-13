@@ -4,7 +4,6 @@ namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Http\Resources\WfhReportResource;
 use App\Domains\Wfh\Models\WfhReport;
-use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Domains\Wfh\Services\WfhReportStateMachine;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -16,7 +15,6 @@ class ReportApprovalController extends Controller
     use AuthorizesRequests;
 
     public function __construct(
-        private WfhRepositoryInterface $wfhRepository,
         private WfhReportStateMachine $stateMachine,
     ) {}
 

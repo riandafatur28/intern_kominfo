@@ -4,7 +4,6 @@ namespace App\Domains\ChangeManagement\Http\Controllers;
 
 use App\Domains\ChangeManagement\Http\Requests\ReviewImplementationRequest;
 use App\Domains\ChangeManagement\Http\Resources\ImplementationResource;
-use App\Domains\ChangeManagement\Models\ChangeImplementation;
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -43,8 +42,7 @@ class ImplementationReviewController extends Controller
         $now = now();
 
         if ($reviewStatus === 'diterima') {
-            // 1 action: reviewer = responsible = same kepala tim
-            ChangeImplementation::where('id', $id)->update([
+            $this->repo->reviewImplementation($id, [
                 'review_status' => 'diterima',
                 'review_response' => $request->input('review_response'),
                 'execution_date' => $request->input('execution_date'),
@@ -58,15 +56,14 @@ class ImplementationReviewController extends Controller
                 'status' => 'completed',
             ]);
         } elseif ($reviewStatus === 'ditolak') {
-            ChangeImplementation::where('id', $id)->update([
+            $this->repo->reviewImplementation($id, [
                 'review_status' => 'ditolak',
                 'review_response' => $request->input('review_response'),
                 'reviewer_id' => $userId,
                 'status' => 'rejected',
             ]);
         } else {
-            // revisi
-            ChangeImplementation::where('id', $id)->update([
+            $this->repo->reviewImplementation($id, [
                 'review_status' => 'revisi',
                 'review_response' => $request->input('review_response'),
                 'reviewer_id' => $userId,

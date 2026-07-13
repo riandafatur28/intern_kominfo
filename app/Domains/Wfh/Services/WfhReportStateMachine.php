@@ -3,15 +3,10 @@
 namespace App\Domains\Wfh\Services;
 
 use App\Domains\Wfh\Models\WfhReport;
-use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\User;
 
 class WfhReportStateMachine
 {
-    public function __construct(
-        private WfhRepositoryInterface $wfhRepository,
-    ) {}
-
     public function submit(WfhReport $report, User $maker): WfhReport
     {
         if ($report->status !== 'draft') {
@@ -23,7 +18,6 @@ class WfhReportStateMachine
             'maker_signed_at' => now(),
         ]);
 
-        // Auto-assign supervisor = team leader
         $leaderId = $maker->team?->leader_id;
         if ($leaderId && $leaderId !== $maker->id) {
             $report->update(['supervisor_id' => $leaderId]);

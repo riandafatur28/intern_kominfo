@@ -98,4 +98,16 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
             }
         });
     }
+    public function submitImplementation(int $id, int $evaluatorId): void
+    {
+        ChangeImplementation::where('id', $id)->update([
+            'status' => 'submitted',
+            'evaluator_signed_at' => now(),
+        ]);
+    }
+
+    public function reviewImplementation(int $id, array $data): void
+    {
+        ChangeImplementation::where('id', $id)->update($data);
+    }
 }
