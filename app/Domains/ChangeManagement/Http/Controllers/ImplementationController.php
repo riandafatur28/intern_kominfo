@@ -3,6 +3,7 @@
 namespace App\Domains\ChangeManagement\Http\Controllers;
 
 use App\Domains\ChangeManagement\Http\Requests\StoreImplementationRequest;
+use App\Domains\ChangeManagement\Http\Requests\UploadAttachmentsRequest;
 use App\Domains\ChangeManagement\Http\Resources\ImplementationResource;
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -119,14 +120,9 @@ class ImplementationController extends Controller
         ]);
     }
 
-    public function uploadAttachments(Request $request, int $id): JsonResponse
+    public function uploadAttachments(UploadAttachmentsRequest $request, int $id): JsonResponse
     {
         $this->authorize('change.implementation.update');
-
-        $request->validate([
-            'files' => ['required', 'array'],
-            'files.*' => ['image', 'mimes:jpg,jpeg,png', 'max:5120'],
-        ]);
 
         $impl = $this->repo->findImplementationWithRelations($id);
 

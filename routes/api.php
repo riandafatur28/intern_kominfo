@@ -15,7 +15,7 @@ use App\Http\Controllers\QrVerificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login']);
-Route::get('/verify/{hash}', [QrVerificationController::class, 'verify']);
+Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
