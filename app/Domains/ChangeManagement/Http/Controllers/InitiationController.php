@@ -131,6 +131,12 @@ class InitiationController extends Controller
             ], 404);
         }
 
+        if ($initiation->initiator_id === $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Inisiator tidak dapat menyetujui inisiasinya sendiri.',
+            ], 422);
+        }
         if ($initiation->status !== 'pending') {
             return response()->json([
                 'success' => false,
@@ -168,6 +174,12 @@ class InitiationController extends Controller
             ], 404);
         }
 
+        if ($initiation->initiator_id === $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Inisiator tidak dapat menolak inisiasinya sendiri.',
+            ], 422);
+        }
         if ($initiation->status !== 'pending') {
             return response()->json([
                 'success' => false,
@@ -186,6 +198,49 @@ class InitiationController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Inisiasi ditolak.',
+            'data' => new InitiationResource($this->repo->findInitiationWithRelations($id)),
+        ]);
+    }
+
+    public function revise(Request $request, int $id): JsonResponse
+    {
+        $this->authorize('change.initiation.submit');
+
+        $initiation = $this->repo->find($id);
+
+        if (! $initiation) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Inisiasi tidak ditemukan.',
+            ], 404);
+        }
+
+        if ($initiation->initiator_id !== $request->user()->id) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya inisiator yang dapat merevisi.',
+            ], 403);
+        }
+
+        if ($initiation->status !== 'rejected') {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya inisiasi yang ditolak yang dapat direvisi.',
+            ], 422);
+        }
+
+        $this->repo->update($id, [
+            'status' => 'draft',
+            'review_status' => null,
+            'reviewer_id' => null,
+            'reviewed_at' => null,
+            'review_reason' => null,
+            'initiator_signed_at' => null,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Inisiasi dikembalikan ke draft untuk revisi.',
             'data' => new InitiationResource($this->repo->findInitiationWithRelations($id)),
         ]);
     }

@@ -2,8 +2,8 @@
 
 namespace Tests\Unit;
 
-use App\Domains\Wfh\Services\WfhReportStateMachine;
 use App\Domains\Wfh\Models\WfhReport;
+use App\Domains\Wfh\Services\WfhReportStateMachine;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -13,13 +13,17 @@ class WfhReportStateMachineTest extends TestCase
     use RefreshDatabase;
 
     private WfhReportStateMachine $machine;
+
     private User $user;
+
+    private User $supervisor;
 
     protected function setUp(): void
     {
         parent::setUp();
         $this->machine = app(WfhReportStateMachine::class);
         $this->user = User::factory()->create();
+        $this->supervisor = User::factory()->create();
     }
 
     public function test_can_submit_draft_report(): void
@@ -67,11 +71,11 @@ class WfhReportStateMachineTest extends TestCase
             'user_id' => $this->user->id,
         ]);
 
-        $result = $this->machine->approve($report, $this->user);
+        $result = $this->machine->approve($report, $this->supervisor);
 
         $this->assertEquals('approved', $result->status);
         $this->assertNotNull($result->supervisor_signed_at);
-        $this->assertEquals($this->user->id, $result->supervisor_id);
+        $this->assertEquals($this->supervisor->id, $result->supervisor_id);
     }
 
     public function test_cannot_approve_non_pending_report(): void
@@ -83,7 +87,7 @@ class WfhReportStateMachineTest extends TestCase
             'user_id' => $this->user->id,
         ]);
 
-        $this->machine->approve($report, $this->user);
+        $this->machine->approve($report, $this->supervisor);
     }
 
     public function test_can_reject_pending_report(): void
@@ -93,7 +97,7 @@ class WfhReportStateMachineTest extends TestCase
             'user_id' => $this->user->id,
         ]);
 
-        $result = $this->machine->reject($report, $this->user, 'Dokumen kurang lengkap');
+        $result = $this->machine->reject($report, $this->supervisor, 'Dokumen kurang lengkap');
 
         $this->assertEquals('rejected', $result->status);
         $this->assertEquals('Dokumen kurang lengkap', $result->reject_reason);
