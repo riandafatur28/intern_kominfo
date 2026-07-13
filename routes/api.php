@@ -11,9 +11,11 @@ use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportController;
 use App\Domains\Wfh\Http\Controllers\ReportPdfController;
 use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
+use App\Http\Controllers\QrVerificationController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login']);
+Route::get('/verify/{hash}', [QrVerificationController::class, 'verify']);
 
 Route::middleware('auth:sanctum')->group(function () {
     // Auth
