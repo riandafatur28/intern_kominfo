@@ -16,7 +16,7 @@ class CheckInRequest extends FormRequest
         return [
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
             'session' => ['nullable', 'string', 'in:pagi,sore'],
-            'date' => ['nullable', 'date'],
+            'date' => ['nullable', 'date', 'after_or_equal:today', 'before_or_equal:today'],
         ];
     }
 

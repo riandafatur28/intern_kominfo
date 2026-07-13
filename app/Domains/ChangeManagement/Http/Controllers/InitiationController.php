@@ -22,7 +22,7 @@ class InitiationController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $perPage = $request->integer('per_page', 15);
+        $perPage = min($request->integer('per_page', 15), 100);
         $filters = $request->only(['status', 'field_id']);
 
         $initiations = $this->repo->paginateInitiations($perPage, $filters);
@@ -81,6 +81,8 @@ class InitiationController extends Controller
 
     public function submit(Request $request, int $id): JsonResponse
     {
+        $this->authorize('change.initiation.submit');
+
         $initiation = $this->repo->find($id);
 
         if (! $initiation) {
@@ -141,6 +143,7 @@ class InitiationController extends Controller
             'review_status' => 'approved',
             'reviewer_id' => $request->user()->id,
             'reviewed_at' => now(),
+            'verification_token' => $initiation->verification_token ?? bin2hex(random_bytes(32)),
         ]);
 
         return response()->json([

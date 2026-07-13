@@ -154,6 +154,9 @@ class SmokeTest extends TestCase
             ->postJson("/api/changes/implementations/{$implId}/review", [
                 'review_status' => 'diterima',
                 'execution_date' => '2026-07-15',
+                'release_date' => '2026-07-16',
+                'implementation_result' => 'Implementasi selesai',
+                'testing_result' => 'Pengujian lulus',
             ])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'completed')

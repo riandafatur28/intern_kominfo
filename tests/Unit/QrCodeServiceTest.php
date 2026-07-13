@@ -40,18 +40,14 @@ class QrCodeServiceTest extends TestCase
         $this->assertEquals($svg1, $svg2);
     }
 
-    public function test_generates_verification_url_with_hash(): void
+    public function test_generates_verification_url_with_token(): void
     {
-        $url = $this->service->generateVerificationUrl('DOC-001', 'content');
+        $token = bin2hex(random_bytes(32));
+
+        $url = $this->service->generateVerificationUrl($token);
 
         $this->assertStringContainsString('/api/verify/', $url);
         $this->assertStringContainsString(config('app.url'), $url);
-
-        // SHA256 hash = 64 hex chars
-        $parts = explode('/', $url);
-        $hash = end($parts);
-
-        $this->assertEquals(64, strlen($hash));
-        $this->assertMatchesRegularExpression('/^[a-f0-9]{64}$/', $hash);
+        $this->assertStringEndsWith("/api/verify/{$token}", $url);
     }
 }

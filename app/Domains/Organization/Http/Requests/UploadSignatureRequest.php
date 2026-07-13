@@ -14,7 +14,7 @@ class UploadSignatureRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'signature' => ['required', 'image', 'mimes:png,jpg,jpeg', 'max:2048'],
+            'signature' => ['required', 'image', 'mimes:png,jpg,jpeg', 'max:2048', 'dimensions:max_width=2000,max_height=2000'],
         ];
     }
 
@@ -25,6 +25,7 @@ class UploadSignatureRequest extends FormRequest
             'signature.image' => 'File harus berupa gambar.',
             'signature.mimes' => 'Format file harus PNG, JPG, atau JPEG.',
             'signature.max' => 'Ukuran file maksimal 2MB.',
+            'signature.dimensions' => 'Dimensi gambar maksimal 2000x2000 pixel.',
         ];
     }
 }

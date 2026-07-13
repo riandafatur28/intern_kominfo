@@ -22,6 +22,7 @@ class WfhReport extends Model
         'supervisor_id',
         'supervisor_signed_at',
         'reject_reason',
+        'verification_token',
     ];
 
     protected $casts = [

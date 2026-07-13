@@ -24,6 +24,10 @@ class AttendanceController extends Controller
         $date = $request->input('date', now()->toDateString());
         $session = $request->input('session', 'pagi');
 
+        if ($date !== now()->toDateString()) {
+            return response()->json(['success' => false, 'message' => 'Absensi hanya dapat dilakukan pada hari ini.'], 422);
+        }
+
         // Validate allowed day (default: Friday only)
         $allowedDays = config('wfh.allowed_days', [5]); // 0=Sun..6=Sat
         $dayOfWeek = now()->parse($date)->dayOfWeekIso(); // 1=Mon..7=Sun

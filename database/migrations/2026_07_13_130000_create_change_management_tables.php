@@ -60,7 +60,7 @@ return new class extends Migration
             $table->date('release_date')->nullable();
             $table->foreignId('responsible_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('responsible_signed_at')->nullable();
-            $table->string('status', 20)->default('draft'); // draft, submitted, completed, revision
+            $table->string('status', 20)->default('draft'); // draft, submitted, completed, revision, rejected
             $table->timestamps();
             $table->softDeletes();
 

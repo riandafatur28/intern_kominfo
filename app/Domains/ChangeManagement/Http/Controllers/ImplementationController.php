@@ -89,6 +89,10 @@ class ImplementationController extends Controller
             ], 404);
         }
 
+        if ($impl->evaluator_id !== $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Hanya evaluator yang dapat mengubah implementasi ini.'], 403);
+        }
+
         if (! in_array($impl->status, ['draft', 'revision'])) {
             return response()->json([
                 'success' => false,
@@ -133,6 +137,10 @@ class ImplementationController extends Controller
             ], 404);
         }
 
+        if ($impl->evaluator_id !== $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Hanya evaluator yang dapat mengubah implementasi ini.'], 403);
+        }
+
         $paths = [];
         foreach ($request->file('files') as $file) {
             $paths[] = $file->store("change-attachments/{$id}", 'public');
@@ -142,13 +150,15 @@ class ImplementationController extends Controller
 
         return response()->json([
             'success' => true,
-            'message' => count($paths) . ' file berhasil diunggah.',
+            'message' => count($paths).' file berhasil diunggah.',
             'data' => new ImplementationResource($this->repo->findImplementationWithRelations($id)),
         ]);
     }
 
     public function submit(Request $request, int $id): JsonResponse
     {
+        $this->authorize('change.implementation.submit');
+
         $impl = $this->repo->findImplementationWithRelations($id);
 
         if (! $impl) {
@@ -156,6 +166,10 @@ class ImplementationController extends Controller
                 'success' => false,
                 'message' => 'Implementasi tidak ditemukan.',
             ], 404);
+        }
+
+        if ($impl->evaluator_id !== $request->user()->id) {
+            return response()->json(['success' => false, 'message' => 'Hanya evaluator yang dapat mengubah implementasi ini.'], 403);
         }
 
         if (! in_array($impl->status, ['draft', 'revision'])) {

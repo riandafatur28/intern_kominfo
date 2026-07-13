@@ -27,16 +27,13 @@ class QrCodeService
     }
 
     /**
-     * Generate a verification payload for document integrity.
+     * Generate a verification URL for a document using its stored verification token.
      *
-     * @param  string  $docNumber  Document identifier
-     * @param  string  $content  Document content hash
+     * @param  string  $token  Per-document random verification token
      * @return string Verification URL
      */
-    public function generateVerificationUrl(string $docNumber, string $content): string
+    public function generateVerificationUrl(string $token): string
     {
-        $hash = hash('sha256', $docNumber.'|'.$content);
-
-        return config('app.url')."/api/verify/{$hash}";
+        return config('app.url')."/api/verify/{$token}";
     }
 }

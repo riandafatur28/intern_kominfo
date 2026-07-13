@@ -2,6 +2,7 @@
 
 namespace App\Domains\Organization\Http\Requests;
 
+use App\Support\Constants\Roles;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -22,7 +23,7 @@ class StoreUserRequest extends FormRequest
             'rank' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['required', 'string', Rule::in(['admin', 'kepala_tim', 'staf'])],
+            'role' => ['required', 'string', Rule::in(Roles::ALL)],
         ];
     }
 }

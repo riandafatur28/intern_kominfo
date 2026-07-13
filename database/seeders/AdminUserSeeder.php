@@ -6,6 +6,7 @@ use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class AdminUserSeeder extends Seeder
 {
@@ -15,11 +16,11 @@ class AdminUserSeeder extends Seeder
         $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Aplikasi']);
 
         $admin = User::create([
-            'team_id' => $field->head_id ? null : $team->id,
+            'team_id' => $team->id,
             'name' => 'Administrator',
             'nip' => '0000000000',
             'email' => 'admin@kominfo.go.id',
-            'password' => 'password',
+            'password' => config('app.admin_password', Str::random(24)),
             'is_active' => true,
         ]);
 
