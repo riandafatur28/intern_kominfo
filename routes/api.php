@@ -78,6 +78,8 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:change.initiation.approve');
     Route::post('/changes/initiations/{id}/reject', [InitiationController::class, 'reject'])
         ->middleware('permission:change.initiation.reject');
+    Route::post('/changes/initiations/{id}/revise', [InitiationController::class, 'revise'])
+        ->middleware('permission:change.initiation.submit');
 
     Route::post('/changes/initiations/{id}/implementations', [ImplementationController::class, 'store'])
         ->middleware('permission:change.implementation.create');

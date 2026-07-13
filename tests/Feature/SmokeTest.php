@@ -7,6 +7,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class SmokeTest extends TestCase
@@ -41,6 +42,23 @@ class SmokeTest extends TestCase
         return $admin;
     }
 
+    private function createSupervisor(): User
+    {
+        $team = Team::first();
+
+        $supervisor = User::create([
+            'team_id' => $team->id,
+            'name' => 'Supervisor Test',
+            'nip' => '0000000002',
+            'email' => 'supervisor@test.com',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+        ]);
+        $supervisor->assignRole('admin');
+
+        return $supervisor;
+    }
+
     public function test_auth_flow(): void
     {
         $this->createAdmin();
@@ -69,13 +87,10 @@ class SmokeTest extends TestCase
 
     public function test_wfh_report_full_flow(): void
     {
-        $this->createAdmin();
-        $token = $this->postJson('/api/auth/login', [
-            'email' => 'admin@test.com',
-            'password' => 'password',
-        ])->json('data.token');
+        $admin = $this->createAdmin();
+        Sanctum::actingAs($admin);
 
-        $response = $this->withToken($token)->postJson('/api/wfh/reports', [
+        $response = $this->postJson('/api/wfh/reports', [
             'report_date' => '2026-07-10',
             'activities' => [
                 [
@@ -90,34 +105,33 @@ class SmokeTest extends TestCase
         $response->assertStatus(201)->assertJsonPath('success', true);
         $reportId = $response->json('data.id');
 
-        $this->withToken($token)
-            ->postJson("/api/wfh/reports/{$reportId}/submit")
+        $this->postJson("/api/wfh/reports/{$reportId}/submit")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'pending');
 
-        $this->withToken($token)
-            ->postJson("/api/wfh/reports/{$reportId}/approve")
+        $supervisor = $this->createSupervisor();
+        Sanctum::actingAs($supervisor);
+
+        $this->postJson("/api/wfh/reports/{$reportId}/approve")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'approved');
 
-        $this->withToken($token)
-            ->putJson("/api/wfh/reports/{$reportId}", [
-                'report_date' => '2026-07-10',
-                'activities' => [['start_time' => '08:00', 'end_time' => '09:00', 'activity' => 'Changed']],
-            ])
+        Sanctum::actingAs($admin);
+
+        $this->putJson("/api/wfh/reports/{$reportId}", [
+            'report_date' => '2026-07-10',
+            'activities' => [['start_time' => '08:00', 'end_time' => '09:00', 'activity' => 'Changed']],
+        ])
             ->assertStatus(422);
     }
 
     public function test_change_management_full_flow(): void
     {
-        $this->createAdmin();
+        $admin = $this->createAdmin();
         $field = Field::first();
-        $token = $this->postJson('/api/auth/login', [
-            'email' => 'admin@test.com',
-            'password' => 'password',
-        ])->json('data.token');
+        Sanctum::actingAs($admin);
 
-        $response = $this->withToken($token)->postJson('/api/changes/initiations', [
+        $response = $this->postJson('/api/changes/initiations', [
             'field_id' => $field->id,
             'description' => 'Test change',
             'reason' => 'Testing',
@@ -126,17 +140,20 @@ class SmokeTest extends TestCase
         $response->assertStatus(201)->assertJsonPath('success', true);
         $initId = $response->json('data.id');
 
-        $this->withToken($token)
-            ->postJson("/api/changes/initiations/{$initId}/submit")
+        $this->postJson("/api/changes/initiations/{$initId}/submit")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'pending');
 
-        $this->withToken($token)
-            ->postJson("/api/changes/initiations/{$initId}/approve")
+        $supervisor = $this->createSupervisor();
+        Sanctum::actingAs($supervisor);
+
+        $this->postJson("/api/changes/initiations/{$initId}/approve")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'approved');
 
-        $implResponse = $this->withToken($token)->postJson("/api/changes/initiations/{$initId}/implementations", [
+        Sanctum::actingAs($admin);
+
+        $implResponse = $this->postJson("/api/changes/initiations/{$initId}/implementations", [
             'priority' => 'medium',
             'impact' => 'low',
             'resources' => '2 org',
@@ -145,19 +162,17 @@ class SmokeTest extends TestCase
         $implResponse->assertStatus(201);
         $implId = $implResponse->json('data.id');
 
-        $this->withToken($token)
-            ->postJson("/api/changes/implementations/{$implId}/submit")
+        $this->postJson("/api/changes/implementations/{$implId}/submit")
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'submitted');
 
-        $this->withToken($token)
-            ->postJson("/api/changes/implementations/{$implId}/review", [
-                'review_status' => 'diterima',
-                'execution_date' => '2026-07-15',
-                'release_date' => '2026-07-16',
-                'implementation_result' => 'Implementasi selesai',
-                'testing_result' => 'Pengujian lulus',
-            ])
+        $this->postJson("/api/changes/implementations/{$implId}/review", [
+            'review_status' => 'diterima',
+            'execution_date' => '2026-07-15',
+            'release_date' => '2026-07-16',
+            'implementation_result' => 'Implementasi selesai',
+            'testing_result' => 'Pengujian lulus',
+        ])
             ->assertStatus(200)
             ->assertJsonPath('data.status', 'completed')
             ->assertJsonPath('data.review_status', 'diterima');
