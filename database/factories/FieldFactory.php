@@ -3,7 +3,6 @@
 namespace Database\Factories;
 
 use App\Models\Field;
-use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 class FieldFactory extends Factory
@@ -13,7 +12,7 @@ class FieldFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => $this->faker->word() . ' Bidang',
+            'name' => $this->faker->word().' Bidang',
         ];
     }
 }

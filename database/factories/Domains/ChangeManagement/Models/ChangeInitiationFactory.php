@@ -16,7 +16,7 @@ class ChangeInitiationFactory extends Factory
         return [
             'field_id' => Field::factory(),
             'initiator_id' => User::factory(),
-            'doc_number' => str_pad((string) fake()->unique()->numberBetween(1, 999), 3, '0', STR_PAD_LEFT) . '/9/1.1/114/' . date('Y'),
+            'doc_number' => str_pad((string) fake()->unique()->numberBetween(1, 999), 3, '0', STR_PAD_LEFT).'/9/1.1/114/'.date('Y'),
             'initiation_date' => now()->toDateString(),
             'description' => $this->faker->sentence(),
             'reason' => $this->faker->paragraph(),
