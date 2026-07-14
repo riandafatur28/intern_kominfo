@@ -13,7 +13,9 @@ class ChangeInitiationStateMachineTest extends TestCase
     use RefreshDatabase;
 
     private User $initiator;
+
     private User $reviewer;
+
     private Field $field;
 
     protected function setUp(): void
