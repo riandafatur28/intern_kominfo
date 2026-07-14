@@ -1,0 +1,231 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Field;
+use App\Models\Team;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class SecurityHardeningTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->artisan('db:seed', ['--class' => 'RolePermissionSeeder']);
+        Cache::flush();
+    }
+
+    private function createAdmin(): User
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $admin = User::create([
+            'team_id' => $team->id,
+            'name' => 'Admin Test',
+            'nip' => '0000000001',
+            'email' => 'admin@test.com',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+        ]);
+        $admin->assignRole('admin');
+
+        $field->update(['head_id' => $admin->id]);
+        $team->update(['leader_id' => $admin->id]);
+
+        return $admin;
+    }
+
+    private function createStaf(): User
+    {
+        $team = Team::first();
+
+        $staf = User::create([
+            'team_id' => $team->id,
+            'name' => 'Staf Test',
+            'nip' => '0000000002',
+            'email' => 'staf@test.com',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+        ]);
+        $staf->assignRole('staf');
+
+        return $staf;
+    }
+
+    public function test_security_headers_are_present_on_api_responses(): void
+    {
+        $this->getJson('/api/auth/login', [])
+            ->assertHeader('X-Content-Type-Options', 'nosniff')
+            ->assertHeader('X-Frame-Options', 'DENY')
+            ->assertHeader('Referrer-Policy', 'strict-origin-when-cross-origin')
+            ->assertHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    }
+
+    public function test_login_rate_limited_after_five_attempts(): void
+    {
+        $this->createAdmin();
+
+        for ($i = 0; $i < 5; $i++) {
+            $this->postJson('/api/auth/login', [
+                'email' => 'admin@test.com',
+                'password' => 'wrong-password',
+            ])->assertStatus(401);
+        }
+
+        // 6th attempt should be rate-limited (429)
+        $this->postJson('/api/auth/login', [
+            'email' => 'admin@test.com',
+            'password' => 'wrong-password',
+        ])->assertStatus(429);
+    }
+
+    public function test_user_creation_response_does_not_expose_temp_password(): void
+    {
+        $admin = $this->createAdmin();
+        Sanctum::actingAs($admin);
+
+        $response = $this->postJson('/api/admin/users', [
+            'name' => 'New User',
+            'nip' => '1234567890',
+            'email' => 'newuser@test.com',
+            'password' => 'SecurePass123',
+            'role' => 'staf',
+        ]);
+
+        $response->assertStatus(201)
+            ->assertJsonMissingPath('temp_password')
+            ->assertJsonStructure(['data' => ['name', 'email']]);
+    }
+
+    public function test_staf_cannot_view_other_users_initiation(): void
+    {
+        $admin = $this->createAdmin();
+        $field = Field::first();
+        Sanctum::actingAs($admin);
+
+        $response = $this->postJson('/api/changes/initiations', [
+            'field_id' => $field->id,
+            'description' => 'Test change',
+            'reason' => 'Testing',
+        ]);
+        $initId = $response->json('data.id');
+
+        // Admin (initiator) can view
+        $this->getJson("/api/changes/initiations/{$initId}")
+            ->assertStatus(200);
+
+        // Staf (no approve permission) cannot view another user's initiation
+        $staf = $this->createStaf();
+        Sanctum::actingAs($staf);
+
+        $this->getJson("/api/changes/initiations/{$initId}")
+            ->assertStatus(403);
+    }
+
+    public function test_staf_cannot_view_other_users_implementation(): void
+    {
+        $admin = $this->createAdmin();
+        $field = Field::first();
+        Sanctum::actingAs($admin);
+
+        // Create + approve initiation
+        $initResponse = $this->postJson('/api/changes/initiations', [
+            'field_id' => $field->id,
+            'description' => 'Test change',
+            'reason' => 'Testing',
+        ]);
+        $initId = $initResponse->json('data.id');
+
+        $this->postJson("/api/changes/initiations/{$initId}/submit")
+            ->assertStatus(200);
+
+        $supervisor = User::create([
+            'team_id' => Team::first()->id,
+            'name' => 'Supervisor',
+            'nip' => '0000000003',
+            'email' => 'sup@test.com',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+        ]);
+        $supervisor->assignRole('admin');
+        Sanctum::actingAs($supervisor);
+
+        $this->postJson("/api/changes/initiations/{$initId}/approve")
+            ->assertStatus(200);
+
+        // Create implementation as admin
+        Sanctum::actingAs($admin);
+        $implResponse = $this->postJson("/api/changes/initiations/{$initId}/implementations", [
+            'priority' => 'medium',
+            'impact' => 'low',
+            'resources' => '2 org',
+        ]);
+        $implId = $implResponse->json('data.id');
+
+        // Admin (evaluator) can view
+        $this->getJson("/api/changes/implementations/{$implId}")
+            ->assertStatus(200);
+
+        // Staf (no review permission) cannot view another user's implementation
+        $staf = $this->createStaf();
+        Sanctum::actingAs($staf);
+
+        $this->getJson("/api/changes/implementations/{$implId}")
+            ->assertStatus(403);
+    }
+
+    public function test_attachment_upload_rejects_more_than_ten_files(): void
+    {
+        $admin = $this->createAdmin();
+        $field = Field::first();
+        Sanctum::actingAs($admin);
+
+        // Create approved initiation + implementation
+        $initResponse = $this->postJson('/api/changes/initiations', [
+            'field_id' => $field->id,
+            'description' => 'Test',
+            'reason' => 'Testing',
+        ]);
+        $initId = $initResponse->json('data.id');
+
+        $this->postJson("/api/changes/initiations/{$initId}/submit")->assertStatus(200);
+
+        $supervisor = User::create([
+            'team_id' => Team::first()->id,
+            'name' => 'Supervisor',
+            'nip' => '0000000003',
+            'email' => 'sup@test.com',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+        ]);
+        $supervisor->assignRole('admin');
+        Sanctum::actingAs($supervisor);
+        $this->postJson("/api/changes/initiations/{$initId}/approve")->assertStatus(200);
+
+        Sanctum::actingAs($admin);
+        $implResponse = $this->postJson("/api/changes/initiations/{$initId}/implementations", [
+            'priority' => 'medium',
+            'impact' => 'low',
+            'resources' => '2 org',
+        ]);
+        $implId = $implResponse->json('data.id');
+
+        // Upload 11 fake files — should fail validation
+        $files = [];
+        for ($i = 0; $i < 11; $i++) {
+            $files[$i] = UploadedFile::fake()->image("file{$i}.png", 100, 100);
+        }
+
+        $this->postJson("/api/changes/implementations/{$implId}/attachments", ['files' => $files])
+            ->assertStatus(422);
+    }
+}

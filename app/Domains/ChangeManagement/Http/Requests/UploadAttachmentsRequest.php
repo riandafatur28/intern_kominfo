@@ -14,7 +14,7 @@ class UploadAttachmentsRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'files' => ['required', 'array'],
+            'files' => ['required', 'array', 'max:10'],
             'files.*' => ['image', 'mimes:jpg,jpeg,png', 'max:5120', 'dimensions:max_width=2000,max_height=2000'],
         ];
     }
