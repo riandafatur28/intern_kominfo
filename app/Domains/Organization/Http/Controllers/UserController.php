@@ -12,7 +12,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Facades\Excel;
 use Spatie\Permission\Models\Role;
 
@@ -48,9 +47,7 @@ class UserController extends Controller
     {
         $this->authorize('user.manage');
 
-        $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone']);
-        $password = Str::random(12);
-        $data['password'] = $password;
+        $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone', 'password']);
         $data['is_active'] = true;
 
         $user = $this->userRepository->create($data);
@@ -64,7 +61,6 @@ class UserController extends Controller
             'success' => true,
             'message' => 'User berhasil dibuat.',
             'data' => new UserResource($user->load(['team.field', 'roles'])),
-            'temp_password' => $password,
         ], 201);
     }
 
@@ -137,7 +133,7 @@ class UserController extends Controller
         $this->authorize('user.import');
 
         $request->validate([
-            'file' => ['required', 'file', 'mimes:xlsx,xls,csv'],
+            'file' => ['required', 'file', 'mimes:xlsx,xls,csv', 'max:10240'],
         ]);
 
         $import = new UserImport;

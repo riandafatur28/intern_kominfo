@@ -14,7 +14,7 @@ use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
 use App\Http\Controllers\QrVerificationController;
 use Illuminate\Support\Facades\Route;
 
-Route::post('/auth/login', [AuthController::class, 'login']);
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
 
 Route::middleware('auth:sanctum')->group(function () {

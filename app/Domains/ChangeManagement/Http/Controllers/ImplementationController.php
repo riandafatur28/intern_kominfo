@@ -70,6 +70,9 @@ class ImplementationController extends Controller
                 'message' => 'Implementasi tidak ditemukan.',
             ], 404);
         }
+        if ($impl->evaluator_id !== request()->user()->id) {
+            $this->authorize('change.implementation.review');
+        }
 
         return response()->json([
             'success' => true,

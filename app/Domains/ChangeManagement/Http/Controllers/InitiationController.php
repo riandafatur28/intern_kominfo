@@ -72,6 +72,9 @@ class InitiationController extends Controller
                 'message' => 'Inisiasi tidak ditemukan.',
             ], 404);
         }
+        if ($initiation->initiator_id !== request()->user()->id) {
+            $this->authorize('change.initiation.approve');
+        }
 
         return response()->json([
             'success' => true,

@@ -15,7 +15,11 @@ class AuthController extends Controller
     {
         $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
+        // Always perform a hash comparison to prevent timing-based email enumeration
+        $hashToCheck = $user?->password ?? '$2y$12$'.str_repeat('a', 53);
+        $passwordValid = Hash::check($request->password, $hashToCheck);
+
+        if (! $user || ! $passwordValid) {
             return response()->json([
                 'success' => false,
                 'message' => 'Email atau password salah.',

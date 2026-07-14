@@ -1,0 +1,3989 @@
+openapi: 3.0.3
+info:
+  title: Intern Kominfo API
+  version: 1.1.0
+  description: |
+    API for the Intern Kominfo application — a government intern management
+    platform with Work-From-Home (WFH) reporting, change management workflows,
+    user administration, and QR-based document verification.
+
+    Authentication uses Laravel Sanctum bearer tokens.
+    Authorization uses Spatie permission-based roles (admin, kepala_tim, staf).
+servers:
+  - url: http://localhost
+    description: Local development server
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: Sanctum
+  schemas:
+    # ── Envelope wrappers ──────────────────────────────────────────
+    ErrorResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Email atau password salah.
+    SuccessResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Logout berhasil.
+    PaginationMeta:
+      type: object
+      required: [current_page, last_page, total]
+      properties:
+        current_page:
+          type: integer
+          example: 1
+        last_page:
+          type: integer
+          example: 5
+        total:
+          type: integer
+          example: 72
+    # ── Auth ────────────────────────────────────────────────────────
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          example: budi@kominfo.go.id
+        password:
+          type: string
+          format: password
+          example: rahasia123
+      example:
+        email: budi@kominfo.go.id
+        password: rahasia123
+    LoginResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Login berhasil.
+        data:
+          type: object
+          required: [token, user]
+          properties:
+            token:
+              type: string
+              example: "1|abcdef1234567890abcdef1234567890abcdef12"
+            user:
+              $ref: "#/components/schemas/AuthUser"
+      example:
+        success: true
+        message: Login berhasil.
+        data:
+          token: "1|abcdef1234567890abcdef1234567890abcdef12"
+          user:
+            id: 1
+            name: Budi Santoso
+            nip: "199001012023011001"
+            email: budi@kominfo.go.id
+            rank: Pengatur Muda
+            position: Staf Pelaksana
+            phone: "081234567890"
+            signature_path: signatures/budi-signature.png
+            is_active: true
+            roles: [staf]
+            permissions: [wfh.attendance.create, wfh.report.create]
+            team:
+              id: 3
+              name: Tim Aplikasi
+              leader:
+                id: 5
+                name: Siti Nurhaliza
+              field:
+                id: 1
+                name: Bidang Teknologi Informasi
+    AuthUser:
+      type: object
+      required: [id, name, nip, email, is_active, roles, permissions]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Budi Santoso
+        nip:
+          type: string
+          example: "199001012023011001"
+        email:
+          type: string
+          format: email
+          example: budi@kominfo.go.id
+        rank:
+          type: string
+          nullable: true
+          example: Pengatur Muda
+        position:
+          type: string
+          nullable: true
+          example: Staf Pelaksana
+        phone:
+          type: string
+          nullable: true
+          example: "081234567890"
+        signature_path:
+          type: string
+          nullable: true
+          example: signatures/budi-signature.png
+        is_active:
+          type: boolean
+          example: true
+        roles:
+          type: array
+          items:
+            type: string
+          example: [staf]
+        permissions:
+          type: array
+          items:
+            type: string
+          example: [wfh.attendance.create, wfh.report.create]
+        team:
+          $ref: "#/components/schemas/TeamNested"
+    # ── Profile ─────────────────────────────────────────────────────
+    ProfileData:
+      type: object
+      required: [id, name, nip, email, is_active, roles]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Budi Santoso
+        nip:
+          type: string
+          example: "199001012023011001"
+        email:
+          type: string
+          format: email
+          example: budi@kominfo.go.id
+        rank:
+          type: string
+          nullable: true
+          example: Pengatur Muda
+        position:
+          type: string
+          nullable: true
+          example: Staf Pelaksana
+        phone:
+          type: string
+          nullable: true
+          example: "081234567890"
+        signature_path:
+          type: string
+          nullable: true
+          example: signatures/budi-signature.png
+        signature_url:
+          type: string
+          nullable: true
+          format: uri
+          example: http://localhost/storage/signatures/budi-signature.png
+        is_active:
+          type: boolean
+          example: true
+        roles:
+          type: array
+          items:
+            type: string
+          example: [staf]
+      example:
+        id: 1
+        name: Budi Santoso
+        nip: "199001012023011001"
+        email: budi@kominfo.go.id
+        rank: Pengatur Muda
+        position: Staf Pelaksana
+        phone: "081234567890"
+        signature_path: signatures/budi-signature.png
+        signature_url: http://localhost/storage/signatures/budi-signature.png
+        is_active: true
+        roles: [staf]
+    UpdateProfileRequest:
+      type: object
+      properties:
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+          example: "081298765432"
+        position:
+          type: string
+          maxLength: 255
+          nullable: true
+          example: Analis Sistem Informasi
+        rank:
+          type: string
+          maxLength: 255
+          nullable: true
+          example: Penata Muda
+      example:
+        phone: "081298765432"
+        position: Analis Sistem Informasi
+        rank: Penata Muda
+    SignatureUploadResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Tanda tangan berhasil diunggah.
+        data:
+          type: object
+          required: [signature_path, signature_url]
+          properties:
+            signature_path:
+              type: string
+              example: signatures/1-signature.png
+            signature_url:
+              type: string
+              format: uri
+              example: http://localhost/storage/signatures/1-signature.png
+      example:
+        success: true
+        message: Tanda tangan berhasil diunggah.
+        data:
+          signature_path: signatures/1-signature.png
+          signature_url: http://localhost/storage/signatures/1-signature.png
+    # ── User Management ─────────────────────────────────────────────
+    StoreUserRequest:
+      type: object
+      required: [name, nip, email, password, role]
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: Dewi Lestari
+        nip:
+          type: string
+          maxLength: 50
+          example: "199503152024011002"
+        email:
+          type: string
+          format: email
+          example: dewi@kominfo.go.id
+        team_id:
+          type: integer
+          nullable: true
+          example: 3
+        rank:
+          type: string
+          maxLength: 255
+          nullable: true
+          example: Pengatur Muda
+        position:
+          type: string
+          maxLength: 255
+          nullable: true
+          example: Staf Pelaksana
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+          example: "081345678901"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          maxLength: 255
+          example: passwordbaru123
+        role:
+          type: string
+          enum: [admin, kepala_tim, staf]
+          example: staf
+      example:
+        name: Dewi Lestari
+        nip: "199503152024011002"
+        email: dewi@kominfo.go.id
+        team_id: 3
+        rank: Pengatur Muda
+        position: Staf Pelaksana
+        phone: "081345678901"
+        password: passwordbaru123
+        role: staf
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          maxLength: 255
+          example: Dewi Lestari Wijaya
+        nip:
+          type: string
+          maxLength: 50
+          example: "199503152024011002"
+        email:
+          type: string
+          format: email
+          example: dewi.wijaya@kominfo.go.id
+        team_id:
+          type: integer
+          nullable: true
+          example: 5
+        rank:
+          type: string
+          maxLength: 255
+          nullable: true
+          example: Penata Muda
+        position:
+          type: string
+          maxLength: 255
+          nullable: true
+          example: Analis Sistem Informasi
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+          example: "081345678901"
+        role:
+          type: string
+          enum: [admin, kepala_tim, staf]
+          example: kepala_tim
+        is_active:
+          type: boolean
+          example: true
+      example:
+        name: Dewi Lestari Wijaya
+        position: Analis Sistem Informasi
+        rank: Penata Muda
+        role: kepala_tim
+        is_active: true
+    UserResource:
+      type: object
+      required: [id, name, nip, email, is_active]
+      properties:
+        id:
+          type: integer
+          example: 12
+        name:
+          type: string
+          example: Dewi Lestari
+        nip:
+          type: string
+          example: "199503152024011002"
+        email:
+          type: string
+          format: email
+          example: dewi@kominfo.go.id
+        rank:
+          type: string
+          nullable: true
+          example: Pengatur Muda
+        position:
+          type: string
+          nullable: true
+          example: Staf Pelaksana
+        phone:
+          type: string
+          nullable: true
+          example: "081345678901"
+        is_active:
+          type: boolean
+          example: true
+        signature_path:
+          type: string
+          nullable: true
+          example: signatures/12-signature.png
+        roles:
+          type: array
+          items:
+            type: string
+          example: [staf]
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-14T08:30:00.000000Z"
+        team:
+          $ref: "#/components/schemas/TeamNested"
+      example:
+        id: 12
+        name: Dewi Lestari
+        nip: "199503152024011002"
+        email: dewi@kominfo.go.id
+        rank: Pengatur Muda
+        position: Staf Pelaksana
+        phone: "081345678901"
+        is_active: true
+        signature_path: null
+        roles: [staf]
+        created_at: "2025-07-14T08:30:00.000000Z"
+        team:
+          id: 3
+          name: Tim Aplikasi
+          leader:
+            id: 5
+            name: Siti Nurhaliza
+          field:
+            id: 1
+            name: Bidang Teknologi Informasi
+    TeamNested:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          example: 3
+        name:
+          type: string
+          example: Tim Aplikasi
+        leader:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 5
+            name:
+              type: string
+              example: Siti Nurhaliza
+        field:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            name:
+              type: string
+              example: Bidang Teknologi Informasi
+      example:
+        id: 3
+        name: Tim Aplikasi
+        leader:
+          id: 5
+          name: Siti Nurhaliza
+        field:
+          id: 1
+          name: Bidang Teknologi Informasi
+    UserListResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserResource"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      example:
+        success: true
+        data:
+          - id: 1
+            name: Budi Santoso
+            nip: "199001012023011001"
+            email: budi@kominfo.go.id
+            rank: Pengatur Muda
+            position: Staf Pelaksana
+            phone: "081234567890"
+            is_active: true
+            signature_path: signatures/1-signature.png
+            roles: [staf]
+            created_at: "2025-07-01T08:00:00.000000Z"
+            team:
+              id: 3
+              name: Tim Aplikasi
+              leader:
+                id: 5
+                name: Siti Nurhaliza
+              field:
+                id: 1
+                name: Bidang Teknologi Informasi
+          - id: 12
+            name: Dewi Lestari
+            nip: "199503152024011002"
+            email: dewi@kominfo.go.id
+            rank: Pengatur Muda
+            position: Staf Pelaksana
+            phone: "081345678901"
+            is_active: true
+            signature_path: null
+            roles: [staf]
+            created_at: "2025-07-14T08:30:00.000000Z"
+            team:
+              id: 3
+              name: Tim Aplikasi
+              leader:
+                id: 5
+                name: Siti Nurhaliza
+              field:
+                id: 1
+                name: Bidang Teknologi Informasi
+        meta:
+          current_page: 1
+          last_page: 5
+          total: 72
+    # ── WFH Attendance ──────────────────────────────────────────────
+    AttendanceResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Absensi WFH berhasil.
+        data:
+          type: object
+          required: [id, date, session, photo_url, check_in_at]
+          properties:
+            id:
+              type: integer
+              example: 45
+            date:
+              type: string
+              format: date
+              example: "2025-07-11"
+            session:
+              type: string
+              enum: [pagi, sore]
+              example: pagi
+            photo_url:
+              type: string
+              format: uri
+              example: http://localhost/storage/attendances/1/2025-07-11/photo.jpg
+            check_in_at:
+              type: string
+              format: date-time
+              example: "2025-07-11T08:15:30.000000Z"
+      example:
+        success: true
+        message: Absensi WFH berhasil.
+        data:
+          id: 45
+          date: "2025-07-11"
+          session: pagi
+          photo_url: http://localhost/storage/attendances/1/2025-07-11/photo.jpg
+          check_in_at: "2025-07-11T08:15:30.000000Z"
+    # ── WFH Reports ─────────────────────────────────────────────────
+    StoreReportRequest:
+      type: object
+      required: [report_date, activities]
+      properties:
+        wfh_attendance_id:
+          type: integer
+          nullable: true
+          description: Must belong to the authenticated user.
+          example: 45
+        report_date:
+          type: string
+          format: date
+          example: "2025-07-11"
+        activities:
+          type: array
+          minItems: 1
+          items:
+            $ref: "#/components/schemas/ReportActivityInput"
+      example:
+        wfh_attendance_id: 45
+        report_date: "2025-07-11"
+        activities:
+          - start_time: "08:00"
+            end_time: "10:00"
+            activity: "Menyusun dokumentasi API modul WFH"
+            links:
+              - https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+          - start_time: "10:00"
+            end_time: "12:00"
+            activity: "Review kode fitur change management"
+          - start_time: "13:00"
+            end_time: "15:30"
+            activity: "Perbaikan bug validasi tanggal absensi"
+            links:
+              - https://git.kominfo.go.id/intern/wfh-api/-/issues/34
+    ReportActivityInput:
+      type: object
+      required: [start_time, end_time, activity]
+      properties:
+        start_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "08:00"
+        end_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          example: "10:00"
+        activity:
+          type: string
+          example: "Menyusun dokumentasi API modul WFH"
+        links:
+          type: array
+          nullable: true
+          items:
+            type: string
+            format: uri
+          example:
+            - https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+      example:
+        start_time: "08:00"
+        end_time: "10:00"
+        activity: "Menyusun dokumentasi API modul WFH"
+        links:
+          - https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+    WfhReportResource:
+      type: object
+      required: [id, user_id, report_date, status]
+      properties:
+        id:
+          type: integer
+          example: 23
+        user_id:
+          type: integer
+          example: 1
+        wfh_attendance_id:
+          type: integer
+          nullable: true
+          example: 45
+        report_date:
+          type: string
+          format: date
+          example: "2025-07-11"
+        status:
+          type: string
+          enum: [draft, submitted, approved, rejected]
+          example: draft
+        maker_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-11T15:45:00.000000Z"
+        supervisor_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        reject_reason:
+          type: string
+          nullable: true
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-11T14:00:00.000000Z"
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-11T14:30:00.000000Z"
+        user:
+          $ref: "#/components/schemas/ReportUserNested"
+        supervisor:
+          $ref: "#/components/schemas/ReportUserNested"
+        activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/WfhReportActivity"
+      example:
+        id: 23
+        user_id: 1
+        wfh_attendance_id: 45
+        report_date: "2025-07-11"
+        status: submitted
+        maker_signed_at: "2025-07-11T15:45:00.000000Z"
+        supervisor_signed_at: null
+        reject_reason: null
+        created_at: "2025-07-11T14:00:00.000000Z"
+        updated_at: "2025-07-11T15:45:00.000000Z"
+        user:
+          id: 1
+          name: Budi Santoso
+          nip: "199001012023011001"
+          position: Staf Pelaksana
+          rank: Pengatur Muda
+          signature_path: signatures/1-signature.png
+        supervisor:
+          id: 5
+          name: Siti Nurhaliza
+          nip: "198505202015011001"
+          position: Kepala Sub Bagian
+          rank: Penata Muda
+          signature_path: signatures/5-signature.png
+        activities:
+          - id: 67
+            start_time: "08:00"
+            end_time: "10:00"
+            activity: "Menyusun dokumentasi API modul WFH"
+            sort_order: 1
+            links:
+              - id: 89
+                url: https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+                sort_order: 1
+          - id: 68
+            start_time: "10:00"
+            end_time: "12:00"
+            activity: "Review kode fitur change management"
+            sort_order: 2
+            links: []
+          - id: 69
+            start_time: "13:00"
+            end_time: "15:30"
+            activity: "Perbaikan bug validasi tanggal absensi"
+            sort_order: 3
+            links:
+              - id: 90
+                url: https://git.kominfo.go.id/intern/wfh-api/-/issues/34
+                sort_order: 1
+    ReportUserNested:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Budi Santoso
+        nip:
+          type: string
+          example: "199001012023011001"
+        position:
+          type: string
+          nullable: true
+          example: Staf Pelaksana
+        rank:
+          type: string
+          nullable: true
+          example: Pengatur Muda
+        signature_path:
+          type: string
+          nullable: true
+          example: signatures/1-signature.png
+      example:
+        id: 1
+        name: Budi Santoso
+        nip: "199001012023011001"
+        position: Staf Pelaksana
+        rank: Pengatur Muda
+        signature_path: signatures/1-signature.png
+    WfhReportActivity:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 67
+        start_time:
+          type: string
+          example: "08:00"
+        end_time:
+          type: string
+          example: "10:00"
+        activity:
+          type: string
+          example: "Menyusun dokumentasi API modul WFH"
+        sort_order:
+          type: integer
+          example: 1
+        links:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 89
+              url:
+                type: string
+                format: uri
+                example: https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+              sort_order:
+                type: integer
+                example: 1
+      example:
+        id: 67
+        start_time: "08:00"
+        end_time: "10:00"
+        activity: "Menyusun dokumentasi API modul WFH"
+        sort_order: 1
+        links:
+          - id: 89
+            url: https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+            sort_order: 1
+    WfhReportListResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WfhReportResource"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      example:
+        success: true
+        data:
+          - id: 23
+            user_id: 1
+            wfh_attendance_id: 45
+            report_date: "2025-07-11"
+            status: submitted
+            maker_signed_at: "2025-07-11T15:45:00.000000Z"
+            supervisor_signed_at: null
+            reject_reason: null
+            created_at: "2025-07-11T14:00:00.000000Z"
+            updated_at: "2025-07-11T15:45:00.000000Z"
+            user:
+              id: 1
+              name: Budi Santoso
+              nip: "199001012023011001"
+              position: Staf Pelaksana
+              rank: Pengatur Muda
+              signature_path: signatures/1-signature.png
+            activities:
+              - id: 67
+                start_time: "08:00"
+                end_time: "10:00"
+                activity: "Menyusun dokumentasi API modul WFH"
+                sort_order: 1
+                links: []
+        meta:
+          current_page: 1
+          last_page: 2
+          total: 18
+    RejectReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          example: "Rincian aktivitas kurang detail, mohon lengkapi deskripsi pekerjaan untuk sesi 10:00-12:00."
+      example:
+        reason: "Rincian aktivitas kurang detail, mohon lengkapi deskripsi pekerjaan untuk sesi 10:00-12:00."
+    # ── WFH Monitoring ──────────────────────────────────────────────
+    MonitoringUser:
+      type: object
+      properties:
+        id:
+          type: integer
+          example: 7
+        name:
+          type: string
+          example: Ahmad Wijaya
+        nip:
+          type: string
+          example: "198811202020011003"
+        email:
+          type: string
+          format: email
+          example: ahmad@kominfo.go.id
+        rank:
+          type: string
+          nullable: true
+          example: Penata Muda
+        position:
+          type: string
+          nullable: true
+          example: Staf Pelaksana
+        phone:
+          type: string
+          nullable: true
+          example: "082156789012"
+        is_active:
+          type: boolean
+          example: true
+        team_id:
+          type: integer
+          nullable: true
+          example: 3
+        team:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 3
+            name:
+              type: string
+              example: Tim Aplikasi
+      example:
+        id: 7
+        name: Ahmad Wijaya
+        nip: "198811202020011003"
+        email: ahmad@kominfo.go.id
+        rank: Penata Muda
+        position: Staf Pelaksana
+        phone: "082156789012"
+        is_active: true
+        team_id: 3
+        team:
+          id: 3
+          name: Tim Aplikasi
+    WfhMonitoringResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required: [date, team_id, not_checked_in, no_report]
+          properties:
+            date:
+              type: string
+              format: date
+              example: "2025-07-11"
+            team_id:
+              type: integer
+              nullable: true
+              example: 3
+            not_checked_in:
+              type: array
+              items:
+                $ref: "#/components/schemas/MonitoringUser"
+            no_report:
+              type: array
+              items:
+                $ref: "#/components/schemas/MonitoringUser"
+      example:
+        success: true
+        data:
+          date: "2025-07-11"
+          team_id: 3
+          not_checked_in:
+            - id: 7
+              name: Ahmad Wijaya
+              nip: "198811202020011003"
+              email: ahmad@kominfo.go.id
+              rank: Penata Muda
+              position: Staf Pelaksana
+              phone: "082156789012"
+              is_active: true
+              team_id: 3
+              team:
+                id: 3
+                name: Tim Aplikasi
+          no_report:
+            - id: 9
+              name: Rudi Hartono
+              nip: "199207102022011005"
+              email: rudi@kominfo.go.id
+              rank: Pengatur Muda
+              position: Staf Pelaksana
+              phone: "081345678901"
+              is_active: true
+              team_id: 3
+              team:
+                id: 3
+                name: Tim Aplikasi
+    # ── QR Verification ─────────────────────────────────────────────
+    QrVerificationResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required: [doc_type, doc_number, status, message]
+          properties:
+            doc_type:
+              type: string
+              example: WFH Report
+            doc_number:
+              type: string
+              example: WFH-23
+            report_date:
+              type: string
+              format: date
+              nullable: true
+              description: Present only when doc_type is "WFH Report".
+              example: "2025-07-11"
+            status:
+              type: string
+              example: terverifikasi
+            message:
+              type: string
+              example: Dokumen telah ditandatangani secara elektronik.
+      example:
+        success: true
+        data:
+          doc_type: WFH Report
+          doc_number: WFH-23
+          report_date: "2025-07-11"
+          status: terverifikasi
+          message: Dokumen telah ditandatangani secara elektronik.
+    # ── Change Management ───────────────────────────────────────────
+    StoreInitiationRequest:
+      type: object
+      required: [field_id, description, reason]
+      properties:
+        field_id:
+          type: integer
+          example: 1
+        needed_by_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-08-15"
+        description:
+          type: string
+          example: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+        reason:
+          type: string
+          example: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+      example:
+        field_id: 1
+        needed_by_date: "2025-08-15"
+        description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+        reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+    InitiationResource:
+      type: object
+      required: [id, field_id, initiator_id, doc_number, status]
+      properties:
+        id:
+          type: integer
+          example: 8
+        field_id:
+          type: integer
+          example: 1
+        initiator_id:
+          type: integer
+          example: 1
+        reviewer_id:
+          type: integer
+          nullable: true
+          example: 5
+        doc_number:
+          type: string
+          example: CHG-2025-008
+        initiation_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-07-14"
+        needed_by_date:
+          type: string
+          format: date
+          nullable: true
+          example: "2025-08-15"
+        description:
+          type: string
+          example: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+        reason:
+          type: string
+          example: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+        status:
+          type: string
+          enum: [draft, pending, approved, rejected]
+          example: pending
+        review_status:
+          type: string
+          nullable: true
+          example: null
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        review_reason:
+          type: string
+          nullable: true
+          example: null
+        initiator_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-14T10:30:00.000000Z"
+        created_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-14T10:00:00.000000Z"
+        field:
+          type: object
+          properties:
+            id:
+              type: integer
+              example: 1
+            name:
+              type: string
+              example: Bidang Teknologi Informasi
+        initiator:
+          $ref: "#/components/schemas/ReportUserNested"
+        implementations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImplementationResource"
+      example:
+        id: 8
+        field_id: 1
+        initiator_id: 1
+        reviewer_id: 5
+        doc_number: CHG-2025-008
+        initiation_date: "2025-07-14"
+        needed_by_date: "2025-08-15"
+        description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+        reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+        status: pending
+        review_status: null
+        reviewed_at: null
+        review_reason: null
+        initiator_signed_at: "2025-07-14T10:30:00.000000Z"
+        created_at: "2025-07-14T10:00:00.000000Z"
+        field:
+          id: 1
+          name: Bidang Teknologi Informasi
+        initiator:
+          id: 1
+          name: Budi Santoso
+          nip: "199001012023011001"
+          position: Staf Pelaksana
+          rank: Pengatur Muda
+          signature_path: signatures/1-signature.png
+        implementations: []
+    InitiationListResponse:
+      type: object
+      required: [success, data, meta]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/InitiationResource"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+      example:
+        success: true
+        data:
+          - id: 8
+            field_id: 1
+            initiator_id: 1
+            reviewer_id: 5
+            doc_number: CHG-2025-008
+            initiation_date: "2025-07-14"
+            needed_by_date: "2025-08-15"
+            description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+            reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+            status: pending
+            review_status: null
+            reviewed_at: null
+            review_reason: null
+            initiator_signed_at: "2025-07-14T10:30:00.000000Z"
+            created_at: "2025-07-14T10:00:00.000000Z"
+            field:
+              id: 1
+              name: Bidang Teknologi Informasi
+            initiator:
+              id: 1
+              name: Budi Santoso
+              nip: "199001012023011001"
+              position: Staf Pelaksana
+              rank: Pengatur Muda
+              signature_path: signatures/1-signature.png
+            implementations: []
+        meta:
+          current_page: 1
+          last_page: 1
+          total: 3
+    StoreImplementationRequest:
+      type: object
+      properties:
+        priority:
+          type: string
+          enum: [low, medium, high, critical]
+          nullable: true
+          example: high
+        impact:
+          type: string
+          enum: [low, medium, high]
+          nullable: true
+          example: high
+        production_impact:
+          type: string
+          nullable: true
+          example: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+        required_effort:
+          type: string
+          nullable: true
+          example: "3 orang x 5 hari kerja"
+        cost_needed:
+          type: boolean
+          nullable: true
+          example: true
+        cost_amount:
+          type: number
+          format: double
+          nullable: true
+          example: 15000000
+        resources:
+          type: string
+          nullable: true
+          example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+        test_plan:
+          type: string
+          nullable: true
+          example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+        change_type_ids:
+          type: array
+          nullable: true
+          items:
+            type: integer
+          example: [1, 3]
+        implementation_result:
+          type: string
+          nullable: true
+          example: null
+        testing_result:
+          type: string
+          nullable: true
+          example: null
+      example:
+        priority: high
+        impact: high
+        production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+        required_effort: "3 orang x 5 hari kerja"
+        cost_needed: true
+        cost_amount: 15000000
+        resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+        test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+        change_type_ids: [1, 3]
+    ImplementationResource:
+      type: object
+      required: [id, change_initiation_id, status]
+      properties:
+        id:
+          type: integer
+          example: 4
+        change_initiation_id:
+          type: integer
+          example: 8
+        priority:
+          type: string
+          nullable: true
+          example: high
+        impact:
+          type: string
+          nullable: true
+          example: high
+        production_impact:
+          type: string
+          nullable: true
+          example: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+        required_effort:
+          type: string
+          nullable: true
+          example: "3 orang x 5 hari kerja"
+        cost_needed:
+          type: boolean
+          nullable: true
+          example: true
+        cost_amount:
+          type: number
+          format: double
+          nullable: true
+          example: 15000000
+        resources:
+          type: string
+          nullable: true
+          example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+        test_plan:
+          type: string
+          nullable: true
+          example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+        evaluator_id:
+          type: integer
+          nullable: true
+          example: 5
+        evaluator_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-14T11:00:00.000000Z"
+        review_status:
+          type: string
+          nullable: true
+          example: null
+        review_response:
+          type: string
+          nullable: true
+          example: null
+        execution_date:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        reviewer_id:
+          type: integer
+          nullable: true
+          example: null
+        reviewer_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        implementation_result:
+          type: string
+          nullable: true
+          example: null
+        testing_result:
+          type: string
+          nullable: true
+          example: null
+        release_date:
+          type: string
+          format: date
+          nullable: true
+          example: null
+        responsible_id:
+          type: integer
+          nullable: true
+          example: null
+        responsible_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        status:
+          type: string
+          enum: [draft, submitted, completed, rejected, revision]
+          example: submitted
+        change_types:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 1
+              name:
+                type: string
+                example: Perubahan Infrastruktur
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 15
+              path:
+                type: string
+                example: implementations/4/diagram-arsitektur.png
+              url:
+                type: string
+                format: uri
+                example: http://localhost/storage/implementations/4/diagram-arsitektur.png
+              sort_order:
+                type: integer
+                example: 1
+      example:
+        id: 4
+        change_initiation_id: 8
+        priority: high
+        impact: high
+        production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+        required_effort: "3 orang x 5 hari kerja"
+        cost_needed: true
+        cost_amount: 15000000
+        resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+        test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+        evaluator_id: 5
+        evaluator_signed_at: "2025-07-14T11:00:00.000000Z"
+        review_status: null
+        review_response: null
+        execution_date: null
+        reviewer_id: null
+        reviewer_signed_at: null
+        implementation_result: null
+        testing_result: null
+        release_date: null
+        responsible_id: null
+        responsible_signed_at: null
+        status: submitted
+        change_types:
+          - id: 1
+            name: Perubahan Infrastruktur
+          - id: 3
+            name: Perubahan Data
+        attachments:
+          - id: 15
+            path: implementations/4/diagram-arsitektur.png
+            url: http://localhost/storage/implementations/4/diagram-arsitektur.png
+            sort_order: 1
+    ReviewImplementationRequest:
+      type: object
+      required: [review_status]
+      properties:
+        review_status:
+          type: string
+          enum: [diterima, ditolak, revisi]
+          example: diterima
+        review_response:
+          type: string
+          nullable: true
+          example: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
+        execution_date:
+          type: string
+          format: date
+          nullable: true
+          description: Required when review_status is "diterima".
+          example: "2025-08-01"
+        release_date:
+          type: string
+          format: date
+          nullable: true
+          description: Required when review_status is "diterima". Must be on or after execution_date.
+          example: "2025-08-05"
+        implementation_result:
+          type: string
+          nullable: true
+          description: Required when review_status is "diterima".
+          example: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
+        testing_result:
+          type: string
+          nullable: true
+          description: Required when review_status is "diterima".
+          example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
+      example:
+        review_status: diterima
+        review_response: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
+        execution_date: "2025-08-01"
+        release_date: "2025-08-05"
+        implementation_result: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
+        testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
+    RejectInitiationRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          example: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
+      example:
+        reason: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
+  parameters:
+    UserIdPath:
+      name: user
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: User ID
+      example: 12
+    ReportIdPath:
+      name: report
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: WFH Report ID
+      example: 23
+    InitiationIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Change Initiation ID
+      example: 8
+    ImplementationIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Change Implementation ID
+      example: 4
+security:
+  - bearerAuth: []
+tags:
+  - name: Auth
+    description: Authentication and session management
+  - name: Profile
+    description: Self-service profile and signature management
+  - name: User Management
+    description: Admin user CRUD and import
+  - name: WFH Attendance
+    description: Work-from-home attendance check-in
+  - name: WFH Reports
+    description: WFH report CRUD and approval workflow
+  - name: WFH Monitoring
+    description: Admin monitoring of WFH attendance and reports
+  - name: Change Initiation
+    description: Change initiation workflow (draft → pending → approved/rejected)
+  - name: Change Implementation
+    description: Change implementation, review, and attachments
+  - name: Verification
+    description: Public QR token document verification
+paths:
+  # ── Auth ─────────────────────────────────────────────────────────
+  /api/auth/login:
+    post:
+      tags: [Auth]
+      summary: Login and obtain bearer token
+      operationId: login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+            example:
+              email: budi@kominfo.go.id
+              password: rahasia123
+      responses:
+        "200":
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+              example:
+                success: true
+                message: Login berhasil.
+                data:
+                  token: "1|abcdef1234567890abcdef1234567890abcdef12"
+                  user:
+                    id: 1
+                    name: Budi Santoso
+                    nip: "199001012023011001"
+                    email: budi@kominfo.go.id
+                    rank: Pengatur Muda
+                    position: Staf Pelaksana
+                    phone: "081234567890"
+                    signature_path: signatures/budi-signature.png
+                    is_active: true
+                    roles: [staf]
+                    permissions: [wfh.attendance.create, wfh.report.create]
+                    team:
+                      id: 3
+                      name: Tim Aplikasi
+                      leader:
+                        id: 5
+                        name: Siti Nurhaliza
+                      field:
+                        id: 1
+                        name: Bidang Teknologi Informasi
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Email atau password salah.
+        "403":
+          description: Account inactive
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Akun tidak aktif. Hubungi administrator.
+        "429":
+          description: Too many login attempts (throttle:auth)
+  /api/auth/me:
+    get:
+      tags: [Auth]
+      summary: Get authenticated user
+      operationId: getMe
+      responses:
+        "200":
+          description: Authenticated user data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/AuthUser"
+              example:
+                success: true
+                data:
+                  id: 1
+                  name: Budi Santoso
+                  nip: "199001012023011001"
+                  email: budi@kominfo.go.id
+                  rank: Pengatur Muda
+                  position: Staf Pelaksana
+                  phone: "081234567890"
+                  signature_path: signatures/budi-signature.png
+                  is_active: true
+                  roles: [staf]
+                  permissions: [wfh.attendance.create, wfh.report.create]
+                  team:
+                    id: 3
+                    name: Tim Aplikasi
+                    leader:
+                      id: 5
+                      name: Siti Nurhaliza
+                    field:
+                      id: 1
+                      name: Bidang Teknologi Informasi
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+  /api/auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout and revoke current token
+      operationId: logout
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: Logout berhasil.
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+  # ── Profile ──────────────────────────────────────────────────────
+  /api/profile:
+    get:
+      tags: [Profile]
+      summary: Get current user profile
+      operationId: getProfile
+      responses:
+        "200":
+          description: Profile data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/ProfileData"
+              example:
+                success: true
+                data:
+                  id: 1
+                  name: Budi Santoso
+                  nip: "199001012023011001"
+                  email: budi@kominfo.go.id
+                  rank: Pengatur Muda
+                  position: Staf Pelaksana
+                  phone: "081234567890"
+                  signature_path: signatures/budi-signature.png
+                  signature_url: http://localhost/storage/signatures/budi-signature.png
+                  is_active: true
+                  roles: [staf]
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+    put:
+      tags: [Profile]
+      summary: Update current user profile
+      operationId: updateProfile
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+            example:
+              phone: "081298765432"
+              position: Analis Sistem Informasi
+              rank: Penata Muda
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Profil berhasil diperbarui.
+                  data:
+                    $ref: "#/components/schemas/ProfileData"
+              example:
+                success: true
+                message: Profil berhasil diperbarui.
+                data:
+                  id: 1
+                  name: Budi Santoso
+                  nip: "199001012023011001"
+                  email: budi@kominfo.go.id
+                  rank: Penata Muda
+                  position: Analis Sistem Informasi
+                  phone: "081298765432"
+                  signature_path: signatures/budi-signature.png
+                  signature_url: http://localhost/storage/signatures/budi-signature.png
+                  is_active: true
+                  roles: [staf]
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The phone must not be greater than 20 characters."
+  /api/profile/signature:
+    post:
+      tags: [Profile]
+      summary: Upload signature image
+      operationId: uploadSignature
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [signature]
+              properties:
+                signature:
+                  type: string
+                  format: binary
+                  description: PNG/JPG/JPEG, max 2MB, max 2000x2000px
+      responses:
+        "200":
+          description: Signature uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignatureUploadResponse"
+              example:
+                success: true
+                message: Tanda tangan berhasil diunggah.
+                data:
+                  signature_path: signatures/1-signature.png
+                  signature_url: http://localhost/storage/signatures/1-signature.png
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The signature must be a file of type: png, jpg, jpeg."
+  # ── User Management ──────────────────────────────────────────────
+  /api/admin/users:
+    get:
+      tags: [User Management]
+      summary: List users (paginated)
+      operationId: listUsers
+      parameters:
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 15
+            maximum: 100
+          example: 15
+      responses:
+        "200":
+          description: Paginated user list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission user.manage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+    post:
+      tags: [User Management]
+      summary: Create a new user
+      operationId: createUser
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreUserRequest"
+            example:
+              name: Dewi Lestari
+              nip: "199503152024011002"
+              email: dewi@kominfo.go.id
+              team_id: 3
+              rank: Pengatur Muda
+              position: Staf Pelaksana
+              phone: "081345678901"
+              password: passwordbaru123
+              role: staf
+      responses:
+        "201":
+          description: User created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User berhasil dibuat.
+                  data:
+                    $ref: "#/components/schemas/UserResource"
+              example:
+                success: true
+                message: User berhasil dibuat.
+                data:
+                  id: 12
+                  name: Dewi Lestari
+                  nip: "199503152024011002"
+                  email: dewi@kominfo.go.id
+                  rank: Pengatur Muda
+                  position: Staf Pelaksana
+                  phone: "081345678901"
+                  is_active: true
+                  signature_path: null
+                  roles: [staf]
+                  created_at: "2025-07-14T08:30:00.000000Z"
+                  team:
+                    id: 3
+                    name: Tim Aplikasi
+                    leader:
+                      id: 5
+                      name: Siti Nurhaliza
+                    field:
+                      id: 1
+                      name: Bidang Teknologi Informasi
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission user.manage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The email has already been taken."
+  /api/admin/users/{user}:
+    get:
+      tags: [User Management]
+      summary: Get user by ID
+      operationId: getUserById
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: User data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/UserResource"
+              example:
+                success: true
+                data:
+                  id: 12
+                  name: Dewi Lestari
+                  nip: "199503152024011002"
+                  email: dewi@kominfo.go.id
+                  rank: Pengatur Muda
+                  position: Staf Pelaksana
+                  phone: "081345678901"
+                  is_active: true
+                  signature_path: null
+                  roles: [staf]
+                  created_at: "2025-07-14T08:30:00.000000Z"
+                  team:
+                    id: 3
+                    name: Tim Aplikasi
+                    leader:
+                      id: 5
+                      name: Siti Nurhaliza
+                    field:
+                      id: 1
+                      name: Bidang Teknologi Informasi
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission user.manage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: User tidak ditemukan.
+    put:
+      tags: [User Management]
+      summary: Update user
+      operationId: updateUser
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserRequest"
+            example:
+              name: Dewi Lestari Wijaya
+              position: Analis Sistem Informasi
+              rank: Penata Muda
+              role: kepala_tim
+              is_active: true
+      responses:
+        "200":
+          description: User updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: User berhasil diperbarui.
+                  data:
+                    $ref: "#/components/schemas/UserResource"
+              example:
+                success: true
+                message: User berhasil diperbarui.
+                data:
+                  id: 12
+                  name: Dewi Lestari Wijaya
+                  nip: "199503152024011002"
+                  email: dewi@kominfo.go.id
+                  rank: Penata Muda
+                  position: Analis Sistem Informasi
+                  phone: "081345678901"
+                  is_active: true
+                  signature_path: null
+                  roles: [kepala_tim]
+                  created_at: "2025-07-14T08:30:00.000000Z"
+                  team:
+                    id: 3
+                    name: Tim Aplikasi
+                    leader:
+                      id: 5
+                      name: Siti Nurhaliza
+                    field:
+                      id: 1
+                      name: Bidang Teknologi Informasi
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission user.manage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: User tidak ditemukan.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The email has already been taken."
+    delete:
+      tags: [User Management]
+      summary: Delete user
+      operationId: deleteUser
+      parameters:
+        - $ref: "#/components/parameters/UserIdPath"
+      responses:
+        "200":
+          description: User deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: User berhasil dihapus.
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission user.manage
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: User tidak ditemukan.
+  /api/admin/users/import:
+    post:
+      tags: [User Management]
+      summary: Import users from spreadsheet
+      operationId: importUsers
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: XLSX, XLS, or CSV file, max 10MB
+      responses:
+        "200":
+          description: Import completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Import selesai.
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          example: Rina Marlina
+                        nip:
+                          type: string
+                          example: "199712102024011008"
+                        email:
+                          type: string
+                          example: rina@kominfo.go.id
+                        status:
+                          type: string
+                          example: created
+              example:
+                success: true
+                message: Import selesai.
+                data:
+                  - name: Rina Marlina
+                    nip: "199712102024011008"
+                    email: rina@kominfo.go.id
+                    status: created
+                  - name: Joko Susilo
+                    nip: "198904052024011009"
+                    email: joko@kominfo.go.id
+                    status: created
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission user.import
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "422":
+          description: Import failed or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Import gagal. Silakan periksa format file.
+  # ── WFH Attendance ───────────────────────────────────────────────
+  /api/wfh/attendance:
+    post:
+      tags: [WFH Attendance]
+      summary: Check in for WFH attendance
+      operationId: checkInAttendance
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: JPG/JPEG/PNG, max 2MB
+                session:
+                  type: string
+                  enum: [pagi, sore]
+                  nullable: true
+                  default: pagi
+                  example: pagi
+                date:
+                  type: string
+                  format: date
+                  nullable: true
+                  description: Must be today. Defaults to today.
+                  example: "2025-07-11"
+      responses:
+        "201":
+          description: Attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceResponse"
+              example:
+                success: true
+                message: Absensi WFH berhasil.
+                data:
+                  id: 45
+                  date: "2025-07-11"
+                  session: pagi
+                  photo_url: http://localhost/storage/attendances/1/2025-07-11/photo.jpg
+                  check_in_at: "2025-07-11T08:15:30.000000Z"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission wfh.attendance.create
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "422":
+          description: Validation error, wrong day, or duplicate check-in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Anda sudah melakukan absensi untuk sesi ini.
+  # ── WFH Reports ──────────────────────────────────────────────────
+  /api/wfh/reports:
+    get:
+      tags: [WFH Reports]
+      summary: List WFH reports for current user
+      operationId: listWfhReports
+      parameters:
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 15
+            maximum: 100
+          example: 15
+      responses:
+        "200":
+          description: Paginated report list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WfhReportListResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+    post:
+      tags: [WFH Reports]
+      summary: Create a WFH report
+      operationId: createWfhReport
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreReportRequest"
+            example:
+              wfh_attendance_id: 45
+              report_date: "2025-07-11"
+              activities:
+                - start_time: "08:00"
+                  end_time: "10:00"
+                  activity: "Menyusun dokumentasi API modul WFH"
+                  links:
+                    - https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+                - start_time: "10:00"
+                  end_time: "12:00"
+                  activity: "Review kode fitur change management"
+                - start_time: "13:00"
+                  end_time: "15:30"
+                  activity: "Perbaikan bug validasi tanggal absensi"
+                  links:
+                    - https://git.kominfo.go.id/intern/wfh-api/-/issues/34
+      responses:
+        "201":
+          description: Report created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Laporan WFH berhasil dibuat.
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
+              example:
+                success: true
+                message: Laporan WFH berhasil dibuat.
+                data:
+                  id: 23
+                  user_id: 1
+                  wfh_attendance_id: 45
+                  report_date: "2025-07-11"
+                  status: draft
+                  maker_signed_at: null
+                  supervisor_signed_at: null
+                  reject_reason: null
+                  created_at: "2025-07-11T14:00:00.000000Z"
+                  updated_at: "2025-07-11T14:00:00.000000Z"
+                  user:
+                    id: 1
+                    name: Budi Santoso
+                    nip: "199001012023011001"
+                    position: Staf Pelaksana
+                    rank: Pengatur Muda
+                    signature_path: signatures/1-signature.png
+                  activities:
+                    - id: 67
+                      start_time: "08:00"
+                      end_time: "10:00"
+                      activity: "Menyusun dokumentasi API modul WFH"
+                      sort_order: 1
+                      links:
+                        - id: 89
+                          url: https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+                          sort_order: 1
+                    - id: 68
+                      start_time: "10:00"
+                      end_time: "12:00"
+                      activity: "Review kode fitur change management"
+                      sort_order: 2
+                      links: []
+                    - id: 69
+                      start_time: "13:00"
+                      end_time: "15:30"
+                      activity: "Perbaikan bug validasi tanggal absensi"
+                      sort_order: 3
+                      links:
+                        - id: 90
+                          url: https://git.kominfo.go.id/intern/wfh-api/-/issues/34
+                          sort_order: 1
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission wfh.report.create
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The activities field is required."
+  /api/wfh/reports/{report}:
+    get:
+      tags: [WFH Reports]
+      summary: Get WFH report by ID
+      operationId: getWfhReportById
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      responses:
+        "200":
+          description: Report data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not owner and missing permission wfh.monitoring.view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+    put:
+      tags: [WFH Reports]
+      summary: Update WFH report
+      operationId: updateWfhReport
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreReportRequest"
+            example:
+              wfh_attendance_id: 45
+              report_date: "2025-07-11"
+              activities:
+                - start_time: "08:00"
+                  end_time: "10:00"
+                  activity: "Menyusun dokumentasi API modul WFH"
+                  links:
+                    - https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+                - start_time: "10:00"
+                  end_time: "12:00"
+                  activity: "Review kode fitur change management"
+                - start_time: "13:00"
+                  end_time: "16:00"
+                  activity: "Perbaikan bug validasi tanggal absensi dan testing"
+                  links:
+                    - https://git.kominfo.go.id/intern/wfh-api/-/issues/34
+      responses:
+        "200":
+          description: Report updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Laporan WFH berhasil diperbarui.
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not owner or missing permission wfh.report.update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Report already approved or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan yang sudah disetujui tidak dapat diubah.
+    delete:
+      tags: [WFH Reports]
+      summary: Delete WFH report
+      operationId: deleteWfhReport
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      responses:
+        "200":
+          description: Report deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: Laporan WFH berhasil dihapus.
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not owner or missing permission wfh.report.delete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Report already approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan yang sudah disetujui tidak dapat dihapus.
+  /api/wfh/reports/{report}/submit:
+    post:
+      tags: [WFH Reports]
+      summary: Submit report for approval
+      operationId: submitWfhReport
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      responses:
+        "200":
+          description: Report submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Laporan berhasil disubmit untuk persetujuan.
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan dengan status approved tidak dapat disubmit."
+  /api/wfh/reports/{report}/approve:
+    post:
+      tags: [WFH Reports]
+      summary: Approve a WFH report
+      operationId: approveWfhReport
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      responses:
+        "200":
+          description: Report approved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Laporan berhasil disetujui.
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission wfh.report.approve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan dengan status draft tidak dapat disetujui."
+  /api/wfh/reports/{report}/reject:
+    post:
+      tags: [WFH Reports]
+      summary: Reject a WFH report
+      operationId: rejectWfhReport
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectReportRequest"
+            example:
+              reason: "Rincian aktivitas kurang detail, mohon lengkapi deskripsi pekerjaan untuk sesi 10:00-12:00."
+      responses:
+        "200":
+          description: Report rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Laporan ditolak.
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission wfh.report.reject
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Validation error or invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan dengan status draft tidak dapat ditolak."
+  /api/wfh/reports/{report}/revise:
+    post:
+      tags: [WFH Reports]
+      summary: Return report to draft for revision
+      operationId: reviseWfhReport
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      responses:
+        "200":
+          description: Report returned to draft
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Laporan dikembalikan ke draft untuk revisi.
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Invalid state transition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan dengan status draft tidak dapat direvisi."
+  /api/wfh/reports/{report}/pdf:
+    get:
+      tags: [WFH Reports]
+      summary: Export WFH report as PDF
+      operationId: exportWfhReportPdf
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      responses:
+        "200":
+          description: PDF file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission wfh.report.export_pdf
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Report not approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan belum disetujui, tidak dapat diekspor.
+  # ── WFH Monitoring ───────────────────────────────────────────────
+  /api/admin/wfh/monitoring:
+    get:
+      tags: [WFH Monitoring]
+      summary: Monitor WFH attendance and reports
+      operationId: getWfhMonitoring
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Defaults to today.
+          example: "2025-07-11"
+        - name: team_id
+          in: query
+          schema:
+            type: integer
+          description: Filter by team. Non-admins without this param default to their own team.
+          example: 3
+      responses:
+        "200":
+          description: Monitoring data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WfhMonitoringResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission wfh.monitoring.view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+  # ── QR Verification ──────────────────────────────────────────────
+  /api/verify/{token}:
+    get:
+      tags: [Verification]
+      summary: Verify a document by QR token
+      operationId: verifyQrToken
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-f0-9]{64}$'
+          description: 64-character hex verification token.
+          example: a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2
+      responses:
+        "200":
+          description: Document verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QrVerificationResponse"
+        "404":
+          description: Invalid or unknown token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Token verifikasi tidak ditemukan.
+  # ── Change Initiation ────────────────────────────────────────────
+  /api/changes/initiations:
+    get:
+      tags: [Change Initiation]
+      summary: List change initiations (paginated)
+      operationId: listInitiations
+      parameters:
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 15
+            maximum: 100
+          example: 15
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, pending, approved, rejected]
+          example: pending
+        - name: field_id
+          in: query
+          schema:
+            type: integer
+          example: 1
+      responses:
+        "200":
+          description: Paginated initiation list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InitiationListResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission change.initiation.view
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+    post:
+      tags: [Change Initiation]
+      summary: Create a change initiation
+      operationId: createInitiation
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreInitiationRequest"
+            example:
+              field_id: 1
+              needed_by_date: "2025-08-15"
+              description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+              reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+      responses:
+        "201":
+          description: Initiation created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Inisiasi perubahan berhasil dibuat.
+                  data:
+                    $ref: "#/components/schemas/InitiationResource"
+              example:
+                success: true
+                message: Inisiasi perubahan berhasil dibuat.
+                data:
+                  id: 8
+                  field_id: 1
+                  initiator_id: 1
+                  reviewer_id: null
+                  doc_number: CHG-2025-008
+                  initiation_date: "2025-07-14"
+                  needed_by_date: "2025-08-15"
+                  description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+                  reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+                  status: draft
+                  review_status: null
+                  reviewed_at: null
+                  review_reason: null
+                  initiator_signed_at: null
+                  created_at: "2025-07-14T10:00:00.000000Z"
+                  field:
+                    id: 1
+                    name: Bidang Teknologi Informasi
+                  initiator:
+                    id: 1
+                    name: Budi Santoso
+                    nip: "199001012023011001"
+                    position: Staf Pelaksana
+                    rank: Pengatur Muda
+                    signature_path: signatures/1-signature.png
+                  implementations: []
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission change.initiation.create
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The description field is required."
+  /api/changes/initiations/{id}:
+    get:
+      tags: [Change Initiation]
+      summary: Get initiation by ID
+      operationId: getInitiationById
+      parameters:
+        - $ref: "#/components/parameters/InitiationIdPath"
+      responses:
+        "200":
+          description: Initiation data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/InitiationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not initiator and missing permission change.initiation.approve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Initiation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Inisiasi tidak ditemukan.
+  /api/changes/initiations/{id}/submit:
+    post:
+      tags: [Change Initiation]
+      summary: Submit initiation for approval
+      operationId: submitInitiation
+      parameters:
+        - $ref: "#/components/parameters/InitiationIdPath"
+      responses:
+        "200":
+          description: Initiation submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Inisiasi berhasil disubmit untuk persetujuan.
+                  data:
+                    $ref: "#/components/schemas/InitiationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the initiator or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Initiation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Inisiasi tidak ditemukan.
+        "422":
+          description: Initiation not in draft status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Inisiasi dengan status approved tidak dapat disubmit."
+  /api/changes/initiations/{id}/approve:
+    post:
+      tags: [Change Initiation]
+      summary: Approve a change initiation
+      operationId: approveInitiation
+      parameters:
+        - $ref: "#/components/parameters/InitiationIdPath"
+      responses:
+        "200":
+          description: Initiation approved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Inisiasi berhasil disetujui.
+                  data:
+                    $ref: "#/components/schemas/InitiationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission change.initiation.approve
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Initiation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Inisiasi tidak ditemukan.
+        "422":
+          description: Cannot self-approve or initiation not pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat menyetujui inisiasi sendiri."
+  /api/changes/initiations/{id}/reject:
+    post:
+      tags: [Change Initiation]
+      summary: Reject a change initiation
+      operationId: rejectInitiation
+      parameters:
+        - $ref: "#/components/parameters/InitiationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectInitiationRequest"
+            example:
+              reason: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
+      responses:
+        "200":
+          description: Initiation rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Inisiasi ditolak.
+                  data:
+                    $ref: "#/components/schemas/InitiationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission change.initiation.reject
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Initiation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Inisiasi tidak ditemukan.
+        "422":
+          description: Cannot self-reject or initiation not pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat menolak inisiasi sendiri."
+  /api/changes/initiations/{id}/revise:
+    post:
+      tags: [Change Initiation]
+      summary: Return rejected initiation to draft for revision
+      operationId: reviseInitiation
+      parameters:
+        - $ref: "#/components/parameters/InitiationIdPath"
+      responses:
+        "200":
+          description: Initiation returned to draft
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Inisiasi dikembalikan ke draft untuk revisi.
+                  data:
+                    $ref: "#/components/schemas/InitiationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the initiator or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Initiation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Inisiasi tidak ditemukan.
+        "422":
+          description: Initiation not rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Inisiasi dengan status draft tidak dapat direvisi."
+  /api/changes/initiations/{id}/implementations:
+    post:
+      tags: [Change Implementation]
+      summary: Create an implementation under an initiation
+      operationId: createImplementation
+      parameters:
+        - $ref: "#/components/parameters/InitiationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreImplementationRequest"
+            example:
+              priority: high
+              impact: high
+              production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+              required_effort: "3 orang x 5 hari kerja"
+              cost_needed: true
+              cost_amount: 15000000
+              resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+              test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+              change_type_ids: [1, 3]
+      responses:
+        "201":
+          description: Implementation created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Implementasi perubahan berhasil dibuat.
+                  data:
+                    $ref: "#/components/schemas/ImplementationResource"
+              example:
+                success: true
+                message: Implementasi perubahan berhasil dibuat.
+                data:
+                  id: 4
+                  change_initiation_id: 8
+                  priority: high
+                  impact: high
+                  production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+                  required_effort: "3 orang x 5 hari kerja"
+                  cost_needed: true
+                  cost_amount: 15000000
+                  resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+                  test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+                  evaluator_id: null
+                  evaluator_signed_at: null
+                  review_status: null
+                  review_response: null
+                  execution_date: null
+                  reviewer_id: null
+                  reviewer_signed_at: null
+                  implementation_result: null
+                  testing_result: null
+                  release_date: null
+                  responsible_id: null
+                  responsible_signed_at: null
+                  status: draft
+                  change_types:
+                    - id: 1
+                      name: Perubahan Infrastruktur
+                    - id: 3
+                      name: Perubahan Data
+                  attachments: []
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission change.implementation.create
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Initiation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Inisiasi tidak ditemukan.
+        "422":
+          description: Initiation not approved or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Inisiasi belum disetujui, tidak dapat membuat implementasi."
+  /api/changes/implementations/{id}:
+    get:
+      tags: [Change Implementation]
+      summary: Get implementation by ID
+      operationId: getImplementationById
+      parameters:
+        - $ref: "#/components/parameters/ImplementationIdPath"
+      responses:
+        "200":
+          description: Implementation data
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/ImplementationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not evaluator and missing permission change.implementation.review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Implementation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Implementasi tidak ditemukan.
+    put:
+      tags: [Change Implementation]
+      summary: Update implementation
+      operationId: updateImplementation
+      parameters:
+        - $ref: "#/components/parameters/ImplementationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreImplementationRequest"
+            example:
+              priority: critical
+              impact: high
+              production_impact: "Aplikasi akan tidak dapat diakses selama 3 jam pada saat migrasi data."
+              required_effort: "4 orang x 5 hari kerja"
+              cost_needed: true
+              cost_amount: 18000000
+              resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps, backup server"
+              test_plan: "Smoke test semua endpoint API, load test dengan 200 concurrent users, uji rollback ke server lama."
+              change_type_ids: [1, 3]
+      responses:
+        "200":
+          description: Implementation updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Implementasi perubahan berhasil diperbarui.
+                  data:
+                    $ref: "#/components/schemas/ImplementationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not evaluator or missing permission change.implementation.update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Implementation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Implementasi tidak ditemukan.
+        "422":
+          description: Not in draft/revision status or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Implementasi dengan status completed tidak dapat diperbarui."
+  /api/changes/implementations/{id}/attachments:
+    post:
+      tags: [Change Implementation]
+      summary: Upload attachment files to an implementation
+      operationId: uploadImplementationAttachments
+      parameters:
+        - $ref: "#/components/parameters/ImplementationIdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [files]
+              properties:
+                files:
+                  type: array
+                  maxItems: 10
+                  items:
+                    type: string
+                    format: binary
+                  description: JPG/JPEG/PNG images, max 5MB each, max 2000x2000px
+      responses:
+        "200":
+          description: Attachments uploaded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Lampiran berhasil diunggah.
+                  data:
+                    $ref: "#/components/schemas/ImplementationResource"
+              example:
+                success: true
+                message: Lampiran berhasil diunggah.
+                data:
+                  id: 4
+                  change_initiation_id: 8
+                  priority: high
+                  impact: high
+                  production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+                  required_effort: "3 orang x 5 hari kerja"
+                  cost_needed: true
+                  cost_amount: 15000000
+                  resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+                  test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+                  evaluator_id: 5
+                  evaluator_signed_at: "2025-07-14T11:00:00.000000Z"
+                  review_status: null
+                  review_response: null
+                  execution_date: null
+                  reviewer_id: null
+                  reviewer_signed_at: null
+                  implementation_result: null
+                  testing_result: null
+                  release_date: null
+                  responsible_id: null
+                  responsible_signed_at: null
+                  status: draft
+                  change_types:
+                    - id: 1
+                      name: Perubahan Infrastruktur
+                    - id: 3
+                      name: Perubahan Data
+                  attachments:
+                    - id: 15
+                      path: implementations/4/diagram-arsitektur.png
+                      url: http://localhost/storage/implementations/4/diagram-arsitektur.png
+                      sort_order: 1
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not evaluator or missing permission change.implementation.update
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Implementation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Implementasi tidak ditemukan.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The files may not have more than 10 items."
+  /api/changes/implementations/{id}/submit:
+    post:
+      tags: [Change Implementation]
+      summary: Submit implementation for review
+      operationId: submitImplementation
+      parameters:
+        - $ref: "#/components/parameters/ImplementationIdPath"
+      responses:
+        "200":
+          description: Implementation submitted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Implementasi berhasil disubmit untuk review.
+                  data:
+                    $ref: "#/components/schemas/ImplementationResource"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not evaluator or missing permission change.implementation.submit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Implementation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Implementasi tidak ditemukan.
+        "422":
+          description: Not in draft/revision status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Implementasi dengan status completed tidak dapat disubmit."
+  /api/changes/implementations/{id}/review:
+    post:
+      tags: [Change Implementation]
+      summary: Review an implementation (accept, reject, or revise)
+      operationId: reviewImplementation
+      parameters:
+        - $ref: "#/components/parameters/ImplementationIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewImplementationRequest"
+            example:
+              review_status: diterima
+              review_response: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
+              execution_date: "2025-08-01"
+              release_date: "2025-08-05"
+              implementation_result: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
+              testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
+      responses:
+        "200":
+          description: Review completed
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Review berhasil: diterima."
+                  data:
+                    $ref: "#/components/schemas/ImplementationResource"
+              example:
+                success: true
+                message: "Review berhasil: diterima."
+                data:
+                  id: 4
+                  change_initiation_id: 8
+                  priority: high
+                  impact: high
+                  production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
+                  required_effort: "3 orang x 5 hari kerja"
+                  cost_needed: true
+                  cost_amount: 15000000
+                  resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+                  test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+                  evaluator_id: 5
+                  evaluator_signed_at: "2025-07-14T11:00:00.000000Z"
+                  review_status: diterima
+                  review_response: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
+                  execution_date: "2025-08-01"
+                  reviewer_id: 5
+                  reviewer_signed_at: "2025-07-14T14:00:00.000000Z"
+                  implementation_result: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
+                  testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
+                  release_date: "2025-08-05"
+                  responsible_id: null
+                  responsible_signed_at: null
+                  status: completed
+                  change_types:
+                    - id: 1
+                      name: Perubahan Infrastruktur
+                    - id: 3
+                      name: Perubahan Data
+                  attachments:
+                    - id: 15
+                      path: implementations/4/diagram-arsitektur.png
+                      url: http://localhost/storage/implementations/4/diagram-arsitektur.png
+                      sort_order: 1
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission change.implementation.review
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Implementation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Implementasi tidak ditemukan.
+        "422":
+          description: Not in submitted status or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Implementasi dengan status draft tidak dapat direview."

@@ -23,6 +23,7 @@ class StoreUserRequest extends FormRequest
             'rank' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
+            'password' => ['required', 'string', 'min:8', 'max:255'],
             'role' => ['required', 'string', Rule::in(Roles::ALL)],
         ];
     }
