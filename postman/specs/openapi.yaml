@@ -667,7 +667,7 @@ components:
           example: "2025-07-11"
         status:
           type: string
-          enum: [draft, submitted, approved, rejected]
+          enum: [draft, pending, approved, rejected]
           example: draft
         maker_signed_at:
           type: string
@@ -706,7 +706,7 @@ components:
         user_id: 1
         wfh_attendance_id: 45
         report_date: "2025-07-11"
-        status: submitted
+        status: pending
         maker_signed_at: "2025-07-11T15:45:00.000000Z"
         supervisor_signed_at: null
         reject_reason: null
@@ -845,7 +845,7 @@ components:
             user_id: 1
             wfh_attendance_id: 45
             report_date: "2025-07-11"
-            status: submitted
+            status: pending
             maker_signed_at: "2025-07-11T15:45:00.000000Z"
             supervisor_signed_at: null
             reject_reason: null

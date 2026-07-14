@@ -29,8 +29,8 @@ class AttendanceController extends Controller
         }
 
         // Validate allowed day (default: Friday only)
-        $allowedDays = config('wfh.allowed_days', [5]); // 0=Sun..6=Sat
-        $dayOfWeek = now()->parse($date)->dayOfWeekIso(); // 1=Mon..7=Sun
+        $allowedDays = config('wfh.allowed_days', [5]); // 1=Mon..7=Sun, 5=Friday
+        $dayOfWeek = now()->parse($date)->dayOfWeekIso; // 1=Mon..7=Sun
 
         // Friday in IsoWeek = 5
         if (! in_array($dayOfWeek, $allowedDays)) {
