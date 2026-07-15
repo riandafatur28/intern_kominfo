@@ -253,7 +253,9 @@
     <div class="footer-bar">
         <div class="tanggal">Surabaya, {{ $tanggalPelaksanaan }}</div>
         <div class="qr-box">
-            {!! $qrSvg !!}
+            @if ($isApproved && $qrSvg)
+                {!! $qrSvg !!}
+            @endif
         </div>
     </div>
 
@@ -272,7 +274,9 @@
                 <td>
                     <div class="signature-role">Atasan Langsung</div>
                     <div class="signature-box">
-                        <img src="{{ $signatureSupervisorPath }}" alt="signature">
+                        @if ($isApproved && $signatureSupervisorPath)
+                            <img src="{{ $signatureSupervisorPath }}" alt="signature">
+                        @endif
                     </div>
                     <div class="signature-name">{{ $supervisorName }}</div>
                     <div class="signature-nip">NIP. {{ $supervisorNip }}</div>

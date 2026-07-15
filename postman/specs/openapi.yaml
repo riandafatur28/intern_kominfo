@@ -1,14 +1,17 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 1.1.0
+  version: 2.0.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
     user administration, and QR-based document verification.
 
     Authentication uses Laravel Sanctum bearer tokens.
-    Authorization uses Spatie permission-based roles (admin, kepala_tim, staf).
+    Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+    The `kepala_bidang` role (field head) approves WFH reports as "atasan langsung".
+    The `kepala_tim` role (team leader) approves change initiations and reviews implementations.
+    Admin is scoped to their own field (bidang).
 servers:
   - url: http://localhost
     description: Local development server
@@ -311,21 +314,30 @@ components:
           format: password
           minLength: 8
           maxLength: 255
-          example: passwordbaru123
-        role:
-          type: string
-          enum: [admin, kepala_tim, staf]
-          example: staf
+          example: rahasiaBudi123
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [admin, kepala_bidang, kepala_tim, staf]
+          example: [staf]
+        permissions:
+          type: array
+          nullable: true
+          description: Direct permissions assigned to the user (overrides role defaults).
+          items:
+            type: string
+          example: [wfh.report.approve]
       example:
-        name: Dewi Lestari
+        name: Budi Santoso
         nip: "199503152024011002"
-        email: dewi@kominfo.go.id
+        email: budi@kominfo.go.id
         team_id: 3
-        rank: Pengatur Muda
-        position: Staf Pelaksana
-        phone: "081345678901"
-        password: passwordbaru123
-        role: staf
+        rank: Penata Muda
+        position: Programmer
+        phone: "081234567890"
+        password: rahasiaBudi123
+        roles: [staf]
     UpdateUserRequest:
       type: object
       properties:
@@ -359,19 +371,27 @@ components:
           type: string
           maxLength: 20
           nullable: true
-          example: "081345678901"
-        role:
-          type: string
-          enum: [admin, kepala_tim, staf]
-          example: kepala_tim
+          example: "081334455667"
+        roles:
+          type: array
+          items:
+            type: string
+            enum: [admin, kepala_bidang, kepala_tim, staf]
+          example: [kepala_tim]
+        permissions:
+          type: array
+          description: Direct permissions (syncs — replaces all direct permissions).
+          items:
+            type: string
+          example: [change.implementation.review]
         is_active:
           type: boolean
           example: true
       example:
-        name: Dewi Lestari Wijaya
+        name: Andi Wijaya
         position: Analis Sistem Informasi
         rank: Penata Muda
-        role: kepala_tim
+        roles: [kepala_tim]
         is_active: true
     UserResource:
       type: object
@@ -414,6 +434,12 @@ components:
           items:
             type: string
           example: [staf]
+        direct_permissions:
+          type: array
+          description: Direct permissions assigned specifically to this user (not via role).
+          items:
+            type: string
+          example: []
         created_at:
           type: string
           format: date-time
@@ -1259,6 +1285,13 @@ components:
           type: string
           nullable: true
           example: null
+        evaluator_id:
+          type: integer
+          nullable: true
+          description: |
+            ID of the evaluator (defaults to the creator if omitted).
+            Evaluator must be an active user in the same field (bidang).
+          example: 15
       example:
         priority: high
         impact: high
@@ -1482,6 +1515,101 @@ components:
           example: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
       example:
         reason: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
+    # ── RBAC Management ────────────────────────────────────────────
+    RoleResource:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          example: 2
+        name:
+          type: string
+          example: kepala_bidang
+        permissions:
+          type: array
+          items:
+            type: string
+          example: [wfh.report.approve, wfh.report.reject, wfh.monitoring.view]
+      example:
+        id: 2
+        name: kepala_bidang
+        permissions: [wfh.report.approve, wfh.report.reject, wfh.monitoring.view, wfh.report.export_pdf]
+    PermissionResource:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          example: 7
+        name:
+          type: string
+          example: wfh.report.approve
+      example:
+        id: 7
+        name: wfh.report.approve
+    UpdateRolePermissionsRequest:
+      type: object
+      required: [permissions]
+      properties:
+        permissions:
+          type: array
+          items:
+            type: string
+          description: |
+            Full list of permission names to sync to this role.
+            Protected roles (admin) cannot lose critical permissions (role.manage, permission.manage, user.manage).
+          example: [wfh.report.create, wfh.report.submit, wfh.report.export_pdf]
+      example:
+        permissions: [wfh.report.create, wfh.report.submit, wfh.report.export_pdf]
+    RoleListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RoleResource"
+      example:
+        success: true
+        data:
+          - id: 1
+            name: admin
+            permissions: [user.manage, role.manage, permission.manage, wfh.report.create]
+          - id: 2
+            name: kepala_bidang
+            permissions: [wfh.report.approve, wfh.report.reject, wfh.monitoring.view]
+          - id: 3
+            name: kepala_tim
+            permissions: [change.initiation.approve, change.implementation.review]
+          - id: 4
+            name: staf
+            permissions: [wfh.report.create, wfh.report.submit, change.initiation.create]
+    PermissionListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PermissionResource"
+      example:
+        success: true
+        data:
+          - id: 1
+            name: user.manage
+          - id: 2
+            name: role.manage
+          - id: 3
+            name: permission.manage
+          - id: 4
+            name: wfh.report.approve
   parameters:
     UserIdPath:
       name: user
@@ -1524,6 +1652,8 @@ tags:
     description: Self-service profile and signature management
   - name: User Management
     description: Admin user CRUD and import
+  - name: RBAC Management
+    description: Dynamic role-permission management (view roles, toggle permissions)
   - name: WFH Attendance
     description: Work-from-home attendance check-in
   - name: WFH Reports
@@ -2260,6 +2390,130 @@ paths:
               example:
                 success: false
                 message: Import gagal. Silakan periksa format file.
+  # ── RBAC Management ──────────────────────────────────────────────
+  /api/admin/roles:
+    get:
+      tags: [RBAC Management]
+      summary: List all roles with their permissions
+      operationId: listRoles
+      security:
+        - bearerAuth: []
+      description: |
+        Returns all roles (admin, kepala_bidang, kepala_tim, staf) with their
+        currently assigned permissions. Requires `role.manage` permission.
+      responses:
+        "200":
+          description: Role list with permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RoleListResponse"
+        "403":
+          description: Missing role.manage permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+  /api/admin/roles/{id}/permissions:
+    put:
+      tags: [RBAC Management]
+      summary: Sync permissions for a role
+      operationId: updateRolePermissions
+      security:
+        - bearerAuth: []
+      description: |
+        Replaces the full set of permissions for a role.
+        Protected roles (admin) cannot lose critical permissions
+        (role.manage, permission.manage, user.manage) — prevents system lockout.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Role ID
+          example: 4
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRolePermissionsRequest"
+      responses:
+        "200":
+          description: Permissions updated successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Permission untuk role berhasil diperbarui.
+                  data:
+                    $ref: "#/components/schemas/RoleResource"
+        "403":
+          description: Missing role.manage permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Role not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Role tidak ditemukan.
+        "422":
+          description: Validation error or protected role lockout prevention
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                invalidPermission:
+                  summary: Permission name does not exist
+                  value:
+                    success: false
+                    message: "The selected permissions.1 is invalid."
+                lockoutPrevention:
+                  summary: Cannot strip critical permissions from admin
+                  value:
+                    success: false
+                    message: "Role 'admin' tidak boleh kehilangan permission kritis: role.manage, permission.manage, user.manage."
+  /api/admin/permissions:
+    get:
+      tags: [RBAC Management]
+      summary: List all available permissions
+      operationId: listPermissions
+      security:
+        - bearerAuth: []
+      description: |
+        Returns all registered permissions in the system.
+        Requires `permission.manage` permission.
+      responses:
+        "200":
+          description: Permission list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PermissionListResponse"
+        "403":
+          description: Missing permission.manage permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   # ── WFH Attendance ───────────────────────────────────────────────
   /api/wfh/attendance:
     post:
@@ -2913,8 +3167,14 @@ paths:
   /api/wfh/reports/{report}/pdf:
     get:
       tags: [WFH Reports]
-      summary: Export WFH report as PDF
+      summary: Export WFH report as PDF (personal)
       operationId: exportWfhReportPdf
+      security:
+        - bearerAuth: []
+      description: |
+        Generates a personal WFH report PDF (Laporan Pelaksanaan Tugas WFH).
+        Available from `pending` status — staff signature auto-filled from profile.
+        Kepala Bidang signature + QR code appear only when `approved`.
       parameters:
         - $ref: "#/components/parameters/ReportIdPath"
       responses:
@@ -2960,7 +3220,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: Laporan belum disetujui, tidak dapat diekspor.
+                message: PDF hanya dapat di-generate untuk laporan yang sudah disubmit atau disetujui.
   # ── WFH Monitoring ───────────────────────────────────────────────
   /api/admin/wfh/monitoring:
     get:
@@ -3007,6 +3267,114 @@ paths:
                 success: false
                 message: This action is unauthorized.
   # ── QR Verification ──────────────────────────────────────────────
+  /api/admin/wfh/reports:
+    get:
+      tags: [WFH Monitoring]
+      summary: List WFH reports within admin\'s field (bidang-scoped)
+      operationId: adminListWfhReports
+      security:
+        - bearerAuth: []
+      description: |
+        Returns paginated WFH reports from all staff within the admin\'s own
+        field (bidang). Auto-filtered by field_id. Supports optional filters.
+        Requires `wfh.monitoring.view` permission.
+      parameters:
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 15
+          example: 15
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, pending, approved, rejected]
+          example: approved
+        - name: team_id
+          in: query
+          schema:
+            type: integer
+          example: 3
+        - name: date_from
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2026-07-01"
+        - name: date_to
+          in: query
+          schema:
+            type: string
+            format: date
+          example: "2026-07-15"
+      responses:
+        "200":
+          description: Paginated WFH reports within the admin\'s field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WfhReportListResponse"
+        "403":
+          description: Missing wfh.monitoring.view permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Admin user has no field association
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: User tidak terhubung dengan bidang manapun.
+  /api/admin/wfh/teams/{team}/pdf:
+    get:
+      tags: [WFH Reports]
+      summary: Export team WFH summary as PDF (admin bidang)
+      operationId: exportTeamWfhPdf
+      security:
+        - bearerAuth: []
+      description: |
+        Generates a combined PDF report for all staff in a team for a specific date.
+        The admin (maker) signs from their profile.
+        The Kepala Bidang (field head) appears as "Atasan Langsung".
+        Requires `wfh.report.export_pdf` permission. Team must belong to admin\'s field.
+      parameters:
+        - name: team
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Team ID (must be within admin\'s field)
+          example: 3
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Date of the WFH reports to include
+          example: "2026-07-15"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Team not in admin\'s field or missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Tim tidak ditemukan dalam bidang Anda.
+
   /api/verify/{token}:
     get:
       tags: [Verification]
@@ -3987,3 +4355,97 @@ paths:
               example:
                 success: false
                 message: "Implementasi dengan status draft tidak dapat direview."
+
+  # ── Change Management PDF Export ──────────────────────────────────
+  /api/changes/initiations/{id}/pdf:
+    get:
+      tags: [Change Initiation]
+      summary: Export initiation as PDF
+      operationId: exportInitiationPdf
+      security:
+        - bearerAuth: []
+      description: |
+        Generates a PDF of an approved change initiation (Form Inisiasi Perubahan).
+        Contains initiator signature and reviewer (kepala tim) signature.
+        Requires `change.initiation.export_pdf` permission.
+        Initiation must be in `approved` status.
+      parameters:
+        - $ref: "#/components/parameters/InitiationIdPath"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Initiation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Inisiasi tidak ditemukan.
+        "422":
+          description: Initiation not yet approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: PDF hanya dapat di-generate untuk inisiasi yang sudah disetujui.
+  /api/changes/implementations/{id}/pdf:
+    get:
+      tags: [Change Implementation]
+      summary: Export implementation as PDF
+      operationId: exportImplementationPdf
+      security:
+        - bearerAuth: []
+      description: |
+        Generates a PDF of a completed change implementation (Form Implementasi Perubahan).
+        Contains evaluator, reviewer (kepala tim), and responsible (kepala tim) signatures.
+        Requires `change.implementation.export_pdf` permission.
+        Implementation must be in `completed` status.
+      parameters:
+        - $ref: "#/components/parameters/ImplementationIdPath"
+      responses:
+        "200":
+          description: PDF binary
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "403":
+          description: Missing permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Implementation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Implementasi tidak ditemukan.
+        "422":
+          description: Implementation not yet completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: PDF hanya dapat di-generate untuk implementasi yang sudah selesai (diterima).

@@ -1,10 +1,13 @@
 <?php
 
 use App\Domains\Auth\Http\Controllers\AuthController;
+use App\Domains\ChangeManagement\Http\Controllers\ChangeManagementPdfController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationReviewController;
 use App\Domains\ChangeManagement\Http\Controllers\InitiationController;
+use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
+use App\Domains\Organization\Http\Controllers\RoleController;
 use App\Domains\Organization\Http\Controllers\UserController;
 use App\Domains\Wfh\Http\Controllers\AttendanceController;
 use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
@@ -39,6 +42,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('permission:user.import')->group(function () {
         Route::post('/admin/users/import', [UserController::class, 'import']);
     });
+    // RBAC Management
+    Route::middleware('permission:role.manage')->group(function () {
+        Route::get('/admin/roles', [RoleController::class, 'index']);
+        Route::put('/admin/roles/{id}/permissions', [RoleController::class, 'updatePermissions']);
+    });
+
+    Route::middleware('permission:permission.manage')->group(function () {
+        Route::get('/admin/permissions', [PermissionController::class, 'index']);
+    });
 
     // WFH Module
     Route::post('/wfh/attendance', [AttendanceController::class, 'checkIn'])
@@ -63,7 +75,13 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/admin/wfh/monitoring', [WfhMonitoringController::class, 'index'])
         ->middleware('permission:wfh.monitoring.view');
 
+    Route::get('/admin/wfh/reports', [ReportController::class, 'adminIndex'])
+        ->middleware('permission:wfh.monitoring.view');
+
     Route::get('/wfh/reports/{report}/pdf', [ReportPdfController::class, 'export'])
+        ->middleware('permission:wfh.report.export_pdf');
+
+    Route::get('/admin/wfh/teams/{team}/pdf', [ReportPdfController::class, 'exportTeam'])
         ->middleware('permission:wfh.report.export_pdf');
     // Change Management Module
     Route::get('/changes/initiations', [InitiationController::class, 'index'])
@@ -93,4 +111,10 @@ Route::middleware('auth:sanctum')->group(function () {
         ->middleware('permission:change.implementation.submit');
     Route::post('/changes/implementations/{id}/review', [ImplementationReviewController::class, 'review'])
         ->middleware('permission:change.implementation.review');
+
+    // Change Management PDF Export
+    Route::get('/changes/initiations/{id}/pdf', [ChangeManagementPdfController::class, 'exportInitiation'])
+        ->middleware('permission:change.initiation.export_pdf');
+    Route::get('/changes/implementations/{id}/pdf', [ChangeManagementPdfController::class, 'exportImplementation'])
+        ->middleware('permission:change.implementation.export_pdf');
 });

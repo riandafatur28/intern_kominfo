@@ -44,7 +44,7 @@ class ImplementationController extends Controller
             'cost_needed', 'cost_amount', 'resources', 'test_plan',
             'implementation_result', 'testing_result',
         ]);
-        $data['evaluator_id'] = $request->user()->id;
+        $data['evaluator_id'] = $request->input('evaluator_id', $request->user()->id);
         $data['status'] = 'draft';
 
         $impl = $this->repo->createImplementation(
@@ -107,7 +107,7 @@ class ImplementationController extends Controller
         $data = $request->only([
             'priority', 'impact', 'production_impact', 'required_effort',
             'cost_needed', 'cost_amount', 'resources', 'test_plan',
-            'implementation_result', 'testing_result',
+            'implementation_result', 'testing_result', 'evaluator_id',
         ]);
 
         $this->repo->updateImplementation(
@@ -138,6 +138,12 @@ class ImplementationController extends Controller
 
         if ($impl->evaluator_id !== $request->user()->id) {
             return response()->json(['success' => false, 'message' => 'Hanya evaluator yang dapat mengubah implementasi ini.'], 403);
+        }
+        if (! in_array($impl->status, ['draft', 'revision'])) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Hanya implementasi dengan status draft atau revision yang dapat diunggah lampirannya.',
+            ], 422);
         }
 
         $paths = [];

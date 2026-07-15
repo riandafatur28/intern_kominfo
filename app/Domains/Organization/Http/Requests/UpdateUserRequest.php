@@ -2,9 +2,9 @@
 
 namespace App\Domains\Organization\Http\Requests;
 
-use App\Support\Constants\Roles;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Spatie\Permission\Models\Role;
 
 class UpdateUserRequest extends FormRequest
 {
@@ -16,6 +16,7 @@ class UpdateUserRequest extends FormRequest
     public function rules(): array
     {
         $userId = $this->route('user');
+        $roleNames = Role::pluck('name')->toArray();
 
         return [
             'name' => ['sometimes', 'string', 'max:255'],
@@ -25,7 +26,10 @@ class UpdateUserRequest extends FormRequest
             'rank' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'role' => ['sometimes', 'string', Rule::in(Roles::ALL)],
+            'roles' => ['sometimes', 'array'],
+            'roles.*' => ['string', Rule::in($roleNames)],
+            'permissions' => ['sometimes', 'array'],
+            'permissions.*' => ['string', 'exists:permissions,name'],
             'is_active' => ['sometimes', 'boolean'],
         ];
     }
