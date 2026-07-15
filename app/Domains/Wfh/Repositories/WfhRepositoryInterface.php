@@ -6,6 +6,7 @@ use App\Domains\Shared\Contracts\RepositoryInterface;
 use App\Domains\Wfh\Models\WfhAttendance;
 use App\Domains\Wfh\Models\WfhReport;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 
 interface WfhRepositoryInterface extends RepositoryInterface
 {
@@ -24,6 +25,8 @@ interface WfhRepositoryInterface extends RepositoryInterface
     public function createReportWithRelations(array $reportData, array $activities): WfhReport;
 
     public function updateReportWithRelations(int $id, array $reportData, array $activities): bool;
+
+    public function getTeamReportsForDate(int $teamId, string $date): Collection;
 
     // Monitoring
     public function getUsersWithoutAttendance(string $date, ?int $teamId = null): array;

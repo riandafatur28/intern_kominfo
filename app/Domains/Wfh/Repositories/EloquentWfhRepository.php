@@ -7,6 +7,7 @@ use App\Domains\Wfh\Models\WfhReport;
 use App\Models\User;
 use App\Repositories\EloquentRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryInterface
@@ -55,6 +56,9 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         if (isset($filters['team_id'])) {
             $query->whereHas('user', fn ($q) => $q->where('team_id', $filters['team_id']));
         }
+        if (isset($filters['field_id'])) {
+            $query->whereHas('user.team', fn ($q) => $q->where('field_id', $filters['field_id']));
+        }
 
         if (isset($filters['date_from'])) {
             $query->where('report_date', '>=', $filters['date_from']);
@@ -71,6 +75,15 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
     {
         return WfhReport::with(['user.team.field', 'attendance', 'activities.links', 'supervisor.team'])
             ->find($id);
+    }
+
+    public function getTeamReportsForDate(int $teamId, string $date): Collection
+    {
+        return WfhReport::with(['user', 'activities.links'])
+            ->where('report_date', $date)
+            ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
+            ->orderBy('status')
+            ->get();
     }
 
     public function createReportWithRelations(array $reportData, array $activities): WfhReport

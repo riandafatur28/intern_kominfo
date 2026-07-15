@@ -1,0 +1,127 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Domains\Wfh\Models\WfhReport;
+use App\Models\Field;
+use App\Models\Team;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
+use Tests\TestCase;
+
+class WfhAdminReportTest extends TestCase
+{
+    use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->artisan('db:seed', ['--class' => 'RolePermissionSeeder']);
+    }
+
+    // === Admin bidang-scoped report listing ===
+
+    public function test_admin_sees_only_reports_from_own_field(): void
+    {
+        $fieldA = Field::create(['name' => 'Bidang A']);
+        $teamA = Team::create(['field_id' => $fieldA->id, 'name' => 'Tim A']);
+        $fieldB = Field::create(['name' => 'Bidang B']);
+        $teamB = Team::create(['field_id' => $fieldB->id, 'name' => 'Tim B']);
+
+        $admin = User::factory()->create(['team_id' => $teamA->id]);
+        $admin->assignRole('admin');
+
+        $stafA = User::factory()->create(['team_id' => $teamA->id]);
+        $stafB = User::factory()->create(['team_id' => $teamB->id]);
+
+        WfhReport::factory()->create([
+            'user_id' => $stafA->id,
+            'status' => 'approved',
+        ]);
+        WfhReport::factory()->create([
+            'user_id' => $stafB->id,
+            'status' => 'approved',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/wfh/reports')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_admin_can_filter_reports_by_team(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team1 = Team::create(['field_id' => $field->id, 'name' => 'Tim 1']);
+        $team2 = Team::create(['field_id' => $field->id, 'name' => 'Tim 2']);
+
+        $admin = User::factory()->create(['team_id' => $team1->id]);
+        $admin->assignRole('admin');
+
+        $staf1 = User::factory()->create(['team_id' => $team1->id]);
+        $staf2 = User::factory()->create(['team_id' => $team2->id]);
+
+        WfhReport::factory()->create(['user_id' => $staf1->id]);
+        WfhReport::factory()->create(['user_id' => $staf2->id]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson("/api/admin/wfh/reports?team_id={$team1->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 1);
+    }
+
+    public function test_admin_without_field_gets_422(): void
+    {
+        $admin = User::factory()->create(); // no team_id
+        $admin->assignRole('admin');
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/wfh/reports')
+            ->assertStatus(422);
+    }
+
+    // === WFH PDF export from pending ===
+
+    public function test_pdf_can_be_exported_from_pending_status(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $staf = User::factory()->create(['team_id' => $team->id]);
+        $staf->assignRole('staf');
+
+        $report = WfhReport::factory()->create([
+            'user_id' => $staf->id,
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($staf);
+
+        $this->getJson("/api/wfh/reports/{$report->id}/pdf")
+            ->assertStatus(200)
+            ->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_pdf_cannot_be_exported_from_draft_status(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $staf = User::factory()->create(['team_id' => $team->id]);
+        $staf->assignRole('staf');
+
+        $report = WfhReport::factory()->create([
+            'user_id' => $staf->id,
+            'status' => 'draft',
+        ]);
+
+        Sanctum::actingAs($staf);
+
+        $this->getJson("/api/wfh/reports/{$report->id}/pdf")
+            ->assertStatus(422);
+    }
+}

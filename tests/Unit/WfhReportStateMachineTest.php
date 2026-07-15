@@ -4,6 +4,8 @@ namespace Tests\Unit;
 
 use App\Domains\Wfh\Models\WfhReport;
 use App\Domains\Wfh\Services\WfhReportStateMachine;
+use App\Models\Field;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -39,6 +41,39 @@ class WfhReportStateMachineTest extends TestCase
         $this->assertNotNull($result->maker_signed_at);
     }
 
+    public function test_submit_assigns_field_head_as_supervisor(): void
+    {
+        $head = User::factory()->create();
+        $field = Field::factory()->create(['head_id' => $head->id]);
+        $team = Team::factory()->create(['field_id' => $field->id]);
+        $maker = User::factory()->create(['team_id' => $team->id]);
+
+        $report = WfhReport::factory()->create([
+            'status' => 'draft',
+            'user_id' => $maker->id,
+        ]);
+
+        $result = $this->machine->submit($report, $maker);
+
+        $this->assertEquals($head->id, $result->supervisor_id);
+    }
+
+    public function test_submit_skips_supervisor_when_maker_is_field_head(): void
+    {
+        $head = User::factory()->create();
+        $field = Field::factory()->create(['head_id' => $head->id]);
+        $team = Team::factory()->create(['field_id' => $field->id]);
+
+        $report = WfhReport::factory()->create([
+            'status' => 'draft',
+            'user_id' => $head->id,
+        ]);
+
+        $result = $this->machine->submit($report, $head);
+
+        $this->assertNull($result->supervisor_id);
+    }
+
     public function test_cannot_submit_non_draft_report(): void
     {
         $this->expectException(\DomainException::class);
@@ -69,6 +104,7 @@ class WfhReportStateMachineTest extends TestCase
         $report = WfhReport::factory()->create([
             'status' => 'pending',
             'user_id' => $this->user->id,
+            'supervisor_id' => $this->supervisor->id,
         ]);
 
         $result = $this->machine->approve($report, $this->supervisor);

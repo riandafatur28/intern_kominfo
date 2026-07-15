@@ -39,7 +39,7 @@ class SegregationOfDutiesTest extends TestCase
     public function test_wfh_maker_cannot_approve_own_report(): void
     {
         $team = Team::factory()->create();
-        $maker = $this->createUserWithRole('kepala_tim', $team);
+        $maker = $this->createUserWithRole('kepala_bidang', $team);
 
         $report = WfhReport::factory()->create([
             'user_id' => $maker->id,
@@ -59,7 +59,7 @@ class SegregationOfDutiesTest extends TestCase
     public function test_wfh_maker_cannot_reject_own_report(): void
     {
         $team = Team::factory()->create();
-        $maker = $this->createUserWithRole('kepala_tim', $team);
+        $maker = $this->createUserWithRole('kepala_bidang', $team);
 
         $report = WfhReport::factory()->create([
             'user_id' => $maker->id,
@@ -83,7 +83,8 @@ class SegregationOfDutiesTest extends TestCase
         $field = Field::factory()->create();
         $team = Team::factory()->create(['field_id' => $field->id]);
         $maker = $this->createUserWithRole('staf', $team);
-        $supervisor = $this->createUserWithRole('kepala_tim', $team);
+        $supervisor = $this->createUserWithRole('kepala_bidang', $team);
+        $field->update(['head_id' => $supervisor->id]);
 
         $report = WfhReport::factory()->create([
             'user_id' => $maker->id,
