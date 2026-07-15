@@ -98,7 +98,7 @@ class SecurityHardeningTest extends TestCase
             'nip' => '1234567890',
             'email' => 'newuser@test.com',
             'password' => 'SecurePass123',
-            'role' => 'staf',
+            'roles' => ['staf'],
         ]);
 
         $response->assertStatus(201)

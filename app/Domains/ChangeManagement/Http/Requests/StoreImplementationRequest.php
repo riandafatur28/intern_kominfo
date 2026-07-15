@@ -2,6 +2,8 @@
 
 namespace App\Domains\ChangeManagement\Http\Requests;
 
+use App\Models\User;
+use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreImplementationRequest extends FormRequest
@@ -26,6 +28,31 @@ class StoreImplementationRequest extends FormRequest
             'change_type_ids.*' => ['exists:change_types,id'],
             'implementation_result' => ['nullable', 'string'],
             'testing_result' => ['nullable', 'string'],
+            'evaluator_id' => [
+                'nullable',
+                'integer',
+                'exists:users,id',
+                function (string $attribute, mixed $value, Closure $fail) {
+                    if (! $value || $value === $this->user()->id) {
+                        return;
+                    }
+
+                    $evaluator = User::with('team')->find($value);
+
+                    if (! $evaluator?->is_active) {
+                        $fail('Evaluator tidak ditemukan atau tidak aktif.');
+
+                        return;
+                    }
+
+                    $creatorFieldId = $this->user()->team?->field_id;
+                    $evaluatorFieldId = $evaluator->team?->field_id;
+
+                    if ($creatorFieldId !== $evaluatorFieldId) {
+                        $fail('Evaluator harus berada dalam bidang yang sama.');
+                    }
+                },
+            ],
         ];
     }
 }

@@ -12,6 +12,8 @@ Backend API for Kominfo Jatimprov with two modules:
 - Intervention Image (signature normalization)
 - Maatwebsite Excel (bulk import)
 - Bacon QR Code (document verification)
+- Docker / Docker Compose (dev environment)
+- Makefile (command gateway)
 
 ## Requirements
 PHP extensions (MANDATORY):
@@ -19,7 +21,35 @@ PHP extensions (MANDATORY):
 ext-pdo_pgsql, ext-gd, ext-mbstring, ext-xml, ext-dom, ext-zip
 ```
 
+## Quick Start
+
+```bash
+make lint           # Check code style (Pint)
+make test           # Run test suite
+make ci             # Lint + test + build check
+```
+
+## Docker Development
+
+Menjalankan environment development tanpa install PHP/PostgreSQL manual:
+
+```bash
+docker compose up -d
+
+# Jalankan command di container app:
+docker compose exec app composer install
+docker compose exec app cp .env.example .env
+docker compose exec app php artisan key:generate
+docker compose exec app php artisan migrate
+docker compose exec app make test
+```
+
+PostgreSQL container exposed di host port `5433` (hindari konflik dengan local postgres).
+
 ## Setup
+
+> **Docker users:** Skip this section, gunakan `docker compose exec app` commands di section Docker Development.
+
 ```bash
 composer install
 cp .env.example .env
@@ -70,3 +100,35 @@ php artisan test
 ## Config
 - `config/wfh.php` — Allowed WFH days (default: Friday)
 - `config/change-mgmt.php` — Document number prefix format
+
+## CI/CD Pipeline
+
+GitHub Actions otomatis menjalankan pemeriksaan berikut per branch:
+
+| Branch | Trigger | Lint | Test | Build Check | Wajib Lulus |
+|---|---|---|---|---|---|
+| `devs` | Push | ✅ | ✅ | — | — |
+| `staging` | PR | ✅ | ✅ | — | ✅ |
+| `main` | PR | ✅ | ✅ | ✅ | ✅ |
+
+**Status checks** (digunakan untuk branch protection): `lint`, `test`, `build`.
+
+### Manual: Branch Protection Rules
+
+Setelah workflow pertama kali berjalan, aktifkan branch protection di GitHub:
+
+1. GitHub.com → repository → **Settings** → **Branches** → **Add branch protection rule**
+
+**Rule untuk `staging`:**
+- ✅ Require status checks to pass before merging
+- ✅ Require branches to be up to date
+- Status checks: `lint`, `test`
+- ✅ Include administrators
+
+**Rule untuk `main`:**
+- ✅ Require status checks to pass before merging
+- ✅ Require branches to be up to date
+- Status checks: `lint`, `test`, `build`
+- ✅ Include administrators
+
+Setelah rules aktif, PR dengan status merah **tidak bisa di-merge**. Hanya PR dengan semua status hijau dan base branch yang up-to-date yang bisa di-merge.

@@ -18,9 +18,9 @@ class WfhReportStateMachine
             'maker_signed_at' => now(),
         ]);
 
-        $leaderId = $maker->team?->leader_id;
-        if ($leaderId && $leaderId !== $maker->id) {
-            $report->update(['supervisor_id' => $leaderId]);
+        $headId = $maker->team?->field?->head_id;
+        if ($headId && $headId !== $maker->id) {
+            $report->update(['supervisor_id' => $headId]);
         }
 
         return $report->fresh();
@@ -37,7 +37,6 @@ class WfhReportStateMachine
 
         $report->update([
             'status' => 'approved',
-            'supervisor_id' => $supervisor->id,
             'supervisor_signed_at' => now(),
             'verification_token' => $report->verification_token ?? bin2hex(random_bytes(32)),
         ]);
@@ -56,7 +55,6 @@ class WfhReportStateMachine
 
         $report->update([
             'status' => 'rejected',
-            'supervisor_id' => $supervisor->id,
             'reject_reason' => $reason,
         ]);
 

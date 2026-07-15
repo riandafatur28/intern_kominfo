@@ -13,7 +13,6 @@ use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 use Illuminate\Support\Facades\Log;
 use Maatwebsite\Excel\Facades\Excel;
-use Spatie\Permission\Models\Role;
 
 class UserController extends Controller
 {
@@ -52,15 +51,16 @@ class UserController extends Controller
 
         $user = $this->userRepository->create($data);
 
-        $role = Role::where('name', $request->role)->first();
-        if ($role) {
-            $user->assignRole($role);
+        $user->syncRoles($request->input('roles', []));
+
+        if ($request->has('permissions')) {
+            $user->syncPermissions($request->input('permissions', []));
         }
 
         return response()->json([
             'success' => true,
             'message' => 'User berhasil dibuat.',
-            'data' => new UserResource($user->load(['team.field', 'roles'])),
+            'data' => new UserResource($user->load(['team.field', 'roles', 'permissions'])),
         ], 201);
     }
 
@@ -68,7 +68,7 @@ class UserController extends Controller
     {
         $this->authorize('user.manage');
 
-        $user = $this->userRepository->find($id, relations: ['team.field', 'roles']);
+        $user = $this->userRepository->find($id, relations: ['team.field', 'roles', 'permissions']);
 
         if (! $user) {
             return response()->json([
@@ -98,14 +98,18 @@ class UserController extends Controller
         $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone', 'is_active']);
         $this->userRepository->update($id, $data);
 
-        if ($request->has('role')) {
-            $user->syncRoles([$request->role]);
+        if ($request->has('roles')) {
+            $user->syncRoles($request->input('roles', []));
+        }
+
+        if ($request->has('permissions')) {
+            $user->syncPermissions($request->input('permissions', []));
         }
 
         return response()->json([
             'success' => true,
             'message' => 'User berhasil diperbarui.',
-            'data' => new UserResource($user->fresh(['team.field', 'roles'])),
+            'data' => new UserResource($user->fresh(['team.field', 'roles', 'permissions'])),
         ]);
     }
 

@@ -19,6 +19,7 @@ class UserResource extends JsonResource
             'is_active' => $this->is_active,
             'signature_path' => $this->signature_path,
             'roles' => $this->whenLoaded('roles', fn () => $this->getRoleNames()),
+            'direct_permissions' => $this->whenLoaded('permissions', fn () => $this->permissions->pluck('name')),
             'created_at' => $this->created_at,
         ];
 

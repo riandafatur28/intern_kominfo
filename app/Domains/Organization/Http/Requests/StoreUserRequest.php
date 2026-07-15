@@ -2,9 +2,9 @@
 
 namespace App\Domains\Organization\Http\Requests;
 
-use App\Support\Constants\Roles;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Spatie\Permission\Models\Role;
 
 class StoreUserRequest extends FormRequest
 {
@@ -15,6 +15,8 @@ class StoreUserRequest extends FormRequest
 
     public function rules(): array
     {
+        $roleNames = Role::pluck('name')->toArray();
+
         return [
             'name' => ['required', 'string', 'max:255'],
             'nip' => ['required', 'string', 'max:50', 'unique:users,nip'],
@@ -24,7 +26,10 @@ class StoreUserRequest extends FormRequest
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
             'password' => ['required', 'string', 'min:8', 'max:255'],
-            'role' => ['required', 'string', Rule::in(Roles::ALL)],
+            'roles' => ['required', 'array'],
+            'roles.*' => ['string', Rule::in($roleNames)],
+            'permissions' => ['nullable', 'array'],
+            'permissions.*' => ['string', 'exists:permissions,name'],
         ];
     }
 }
