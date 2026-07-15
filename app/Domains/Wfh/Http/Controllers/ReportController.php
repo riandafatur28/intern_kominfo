@@ -36,6 +36,41 @@ class ReportController extends Controller
         ]);
     }
 
+    public function adminIndex(Request $request): JsonResponse
+    {
+        $this->authorize('wfh.monitoring.view');
+
+        $fieldId = $request->user()->team?->field?->id;
+
+        if (! $fieldId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User tidak terhubung dengan bidang manapun.',
+            ], 422);
+        }
+
+        $perPage = min($request->integer('per_page', 15), 100);
+        $filters = array_filter([
+            'field_id' => $fieldId,
+            'status' => $request->input('status'),
+            'team_id' => $request->input('team_id'),
+            'date_from' => $request->input('date_from'),
+            'date_to' => $request->input('date_to'),
+        ], fn ($value) => $value !== null && $value !== '');
+
+        $reports = $this->wfhRepository->paginateAllReports($perPage, $filters);
+
+        return response()->json([
+            'success' => true,
+            'data' => WfhReportResource::collection($reports->items()),
+            'meta' => [
+                'current_page' => $reports->currentPage(),
+                'last_page' => $reports->lastPage(),
+                'total' => $reports->total(),
+            ],
+        ]);
+    }
+
     public function store(StoreReportRequest $request): JsonResponse
     {
         $this->authorize('wfh.report.create');

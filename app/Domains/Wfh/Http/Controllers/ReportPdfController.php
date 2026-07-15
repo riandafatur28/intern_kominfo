@@ -3,12 +3,15 @@
 namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
+use App\Models\Team;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Response;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Carbon;
 
 class ReportPdfController extends Controller
 {
@@ -31,12 +34,14 @@ class ReportPdfController extends Controller
             ], 404);
         }
 
-        if ($report->status !== 'approved') {
+        if (! in_array($report->status, ['pending', 'approved'])) {
             return response()->json([
                 'success' => false,
-                'message' => 'PDF hanya dapat di-generate untuk laporan yang sudah disetujui.',
+                'message' => 'PDF hanya dapat di-generate untuk laporan yang sudah disubmit atau disetujui.',
             ], 422);
         }
+
+        $isApproved = $report->status === 'approved';
 
         $user = $report->user;
         $supervisor = $report->supervisor;
@@ -52,23 +57,29 @@ class ReportPdfController extends Controller
             ];
         })->toArray();
 
-        // Generate QR code with stored verification token
-        $verifyUrl = $this->qrCodeService->generateVerificationUrl($report->verification_token);
-        $qrSvg = $this->qrCodeService->generate($verifyUrl);
+        // QR code only available when approved (verification_token set at approve)
+        $qrSvg = null;
+        if ($isApproved && $report->verification_token) {
+            $verifyUrl = $this->qrCodeService->generateVerificationUrl($report->verification_token);
+            $qrSvg = $this->qrCodeService->generate($verifyUrl);
+        }
 
         // Signature paths (absolute for dompdf)
         $makerSig = $user->signature_path
             ? public_path('storage/'.$user->signature_path)
             : null;
-        $supervisorSig = $supervisor?->signature_path
-            ? public_path('storage/'.$supervisor->signature_path)
-            : null;
+
+        // Supervisor signature only shown when approved
+        $supervisorSig = null;
+        if ($isApproved && $supervisor?->signature_path) {
+            $supervisorSig = public_path('storage/'.$supervisor->signature_path);
+        }
 
         // Use test signatures as fallback if user hasn't set one
         if (! $makerSig || ! file_exists($makerSig)) {
             $makerSig = public_path('storage/signatures/test-sig-1.png');
         }
-        if (! $supervisorSig || ! file_exists($supervisorSig)) {
+        if ($isApproved && (! $supervisorSig || ! file_exists($supervisorSig))) {
             $supervisorSig = public_path('storage/signatures/test-sig-2.png');
         }
 
@@ -80,6 +91,7 @@ class ReportPdfController extends Controller
             'unitKerja' => $field?->name ?? '-',
             'tanggalPelaksanaan' => $report->report_date->isoFormat('D MMMM Y'),
             'kegiatan' => $kegiatan,
+            'isApproved' => $isApproved,
             'signatureMakerPath' => $makerSig,
             'signatureSupervisorPath' => $supervisorSig,
             'makerName' => strtoupper($user->name),
@@ -92,6 +104,81 @@ class ReportPdfController extends Controller
         $pdf = $this->pdfRenderer->render('pdf.wfh-report', $data);
 
         $filename = "WFH-{$report->id}-{$report->report_date->format('Y-m-d')}.pdf";
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => "attachment; filename=\"{$filename}\"",
+        ]);
+    }
+
+    public function exportTeam(Request $request, Team $team): Response|JsonResponse
+    {
+        $this->authorize('wfh.report.export_pdf');
+
+        $admin = $request->user();
+        $fieldId = $admin->team?->field?->id;
+
+        // Verify team belongs to admin's field
+        if (! $fieldId || $team->field_id !== $fieldId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tim tidak ditemukan dalam bidang Anda.',
+            ], 403);
+        }
+
+        $date = $request->input('date', now()->format('Y-m-d'));
+        $reports = $this->wfhRepository->getTeamReportsForDate($team->id, $date);
+
+        $team->load(['field.head']);
+        $field = $team->field;
+        $head = $field?->head;
+
+        // Build staff data: name, nip, links
+        $staff = $reports->map(function ($report) {
+            $links = $report->activities->flatMap->links->pluck('url')->filter()->values();
+
+            return [
+                'name' => strtoupper($report->user->name),
+                'nip' => $report->user->nip ?? '-',
+                'links' => $links,
+            ];
+        })->values()->toArray();
+
+        // Admin (maker) signature
+        $makerSig = $admin->signature_path
+            ? public_path('storage/'.$admin->signature_path)
+            : null;
+        if (! $makerSig || ! file_exists($makerSig)) {
+            $makerSig = public_path('storage/signatures/test-sig-1.png');
+        }
+
+        // KB (atasan langsung) signature
+        $supervisorSig = null;
+        if ($head?->signature_path) {
+            $supervisorSig = public_path('storage/'.$head->signature_path);
+        }
+        if (! $supervisorSig || ! file_exists($supervisorSig)) {
+            $supervisorSig = public_path('storage/signatures/test-sig-2.png');
+        }
+
+        $tanggal = Carbon::parse($date)->isoFormat('D MMMM Y');
+
+        $data = [
+            'namaTim' => $team->name,
+            'unitKerja' => $field?->name ?? '-',
+            'tanggalPelaksanaan' => $tanggal,
+            'staff' => $staff,
+            'signatureMakerPath' => $makerSig,
+            'signatureSupervisorPath' => $supervisorSig,
+            'makerName' => strtoupper($admin->name),
+            'makerNip' => $admin->nip,
+            'supervisorName' => $head ? strtoupper($head->name) : '-',
+            'supervisorNip' => $head?->nip ?? '-',
+        ];
+
+        $pdf = $this->pdfRenderer->render('pdf.wfh-report-admin', $data);
+
+        $filename = "WFH-Team-{$team->id}-{$date}.pdf";
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
