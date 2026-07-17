@@ -16,6 +16,8 @@ services:
       DB_DATABASE: kominfo_wfh
       DB_USERNAME: kominfo
       DB_PASSWORD: kominfo
+    ports:
+      - "8000:8000"
     depends_on:
       postgres:
         condition: service_healthy
