@@ -2,6 +2,7 @@
 
 namespace App\Domains\Organization\Http\Controllers;
 
+use App\Domains\Organization\Http\Requests\ChangePasswordRequest;
 use App\Domains\Organization\Http\Requests\UpdateProfileRequest;
 use App\Domains\Organization\Http\Requests\UploadSignatureRequest;
 use App\Support\Signature\SignatureServiceInterface;
@@ -33,7 +34,18 @@ class ProfileController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Profil berhasil diperbarui.',
-            'data' => $this->formatUser($user->fresh()),
+            'data' => $this->formatUser($user->fresh()->load(['team.field'])),
+        ]);
+    }
+
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+        $user->update(['password' => $request->input('password')]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil diperbarui.',
         ]);
     }
 
@@ -75,6 +87,14 @@ class ProfileController extends Controller
                 : null,
             'is_active' => $user->is_active,
             'roles' => $user->getRoleNames(),
+            'team' => $user->team ? [
+                'id' => $user->team->id,
+                'name' => $user->team->name,
+                'field' => $user->team->field ? [
+                    'id' => $user->team->field->id,
+                    'name' => $user->team->field->name,
+                ] : null,
+            ] : null,
         ];
     }
 }
