@@ -35,6 +35,7 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
+    'admin_password' => env('APP_ADMIN_PASSWORD'),
 
     /*
     |--------------------------------------------------------------------------
