@@ -276,7 +276,7 @@ components:
     # ── User Management ─────────────────────────────────────────────
     StoreUserRequest:
       type: object
-      required: [name, nip, email, password, role]
+      required: [name, nip, email, password, roles]
       properties:
         name:
           type: string
@@ -1965,7 +1965,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "The signature must be a file of type: png, jpg, jpeg."
+                message: "Format file harus PNG, JPG, atau JPEG."
   # ── User Management ──────────────────────────────────────────────
   /api/admin/users:
     get:
@@ -2024,7 +2024,7 @@ paths:
               position: Staf Pelaksana
               phone: "081345678901"
               password: passwordbaru123
-              role: staf
+              roles: [staf]
       responses:
         "201":
           description: User created
@@ -2180,7 +2180,7 @@ paths:
               name: Dewi Lestari Wijaya
               position: Analis Sistem Informasi
               rank: Penata Muda
-              role: kepala_tim
+              roles: [kepala_tim]
               is_active: true
       responses:
         "200":
@@ -2733,7 +2733,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "The activities field is required."
+                message: "Minimal satu kegiatan harus diisi."
   /api/wfh/reports/{report}:
     get:
       tags: [WFH Reports]
@@ -2957,7 +2957,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: This action is unauthorized.
+                message: Hanya pembuat laporan yang dapat mensubmit.
         "404":
           description: Report not found
           content:
@@ -2975,7 +2975,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Laporan dengan status approved tidak dapat disubmit."
+                message: "Hanya laporan dengan status draft yang dapat disubmit."
   /api/wfh/reports/{report}/approve:
     post:
       tags: [WFH Reports]
@@ -3035,7 +3035,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Laporan dengan status draft tidak dapat disetujui."
+                message: "Hanya laporan dengan status pending yang dapat disetujui."
   /api/wfh/reports/{report}/reject:
     post:
       tags: [WFH Reports]
@@ -3103,7 +3103,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Laporan dengan status draft tidak dapat ditolak."
+                message: "Hanya laporan dengan status pending yang dapat ditolak."
   /api/wfh/reports/{report}/revise:
     post:
       tags: [WFH Reports]
@@ -3145,7 +3145,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: This action is unauthorized.
+                message: Hanya pembuat laporan yang dapat merevisi.
         "404":
           description: Report not found
           content:
@@ -3163,7 +3163,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Laporan dengan status draft tidak dapat direvisi."
+                message: "Hanya laporan yang ditolak yang dapat direvisi."
   /api/wfh/reports/{report}/pdf:
     get:
       tags: [WFH Reports]
@@ -3652,7 +3652,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Inisiasi dengan status approved tidak dapat disubmit."
+                message: "Hanya inisiasi dengan status draft yang dapat disubmit."
   /api/changes/initiations/{id}/approve:
     post:
       tags: [Change Initiation]
@@ -3712,7 +3712,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Tidak dapat menyetujui inisiasi sendiri."
+                message: "Inisiator tidak dapat menyetujui inisiasinya sendiri."
   /api/changes/initiations/{id}/reject:
     post:
       tags: [Change Initiation]
@@ -3780,7 +3780,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Tidak dapat menolak inisiasi sendiri."
+                message: "Inisiator tidak dapat menolak inisiasinya sendiri."
   /api/changes/initiations/{id}/revise:
     post:
       tags: [Change Initiation]
@@ -3840,7 +3840,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Inisiasi dengan status draft tidak dapat direvisi."
+                message: "Hanya inisiasi yang ditolak yang dapat direvisi."
   /api/changes/initiations/{id}/implementations:
     post:
       tags: [Change Implementation]
@@ -3895,7 +3895,7 @@ paths:
                   cost_amount: 15000000
                   resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
                   test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-                  evaluator_id: null
+                  evaluator_id: 1
                   evaluator_signed_at: null
                   review_status: null
                   review_response: null
@@ -3949,7 +3949,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Inisiasi belum disetujui, tidak dapat membuat implementasi."
+                message: "Implementasi hanya dapat dibuat dari inisiasi yang sudah disetujui."
   /api/changes/implementations/{id}:
     get:
       tags: [Change Implementation]
@@ -4072,7 +4072,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Implementasi dengan status completed tidak dapat diperbarui."
+                message: "Hanya implementasi dengan status draft atau revision yang dapat diubah."
   /api/changes/implementations/{id}/attachments:
     post:
       tags: [Change Implementation]
@@ -4244,7 +4244,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Implementasi dengan status completed tidak dapat disubmit."
+                message: "Hanya implementasi draft/revision yang dapat disubmit."
   /api/changes/implementations/{id}/review:
     post:
       tags: [Change Implementation]
@@ -4354,7 +4354,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "Implementasi dengan status draft tidak dapat direview."
+                message: "Hanya implementasi yang sudah disubmit yang dapat direview."
 
   # ── Change Management PDF Export ──────────────────────────────────
   /api/changes/initiations/{id}/pdf:
