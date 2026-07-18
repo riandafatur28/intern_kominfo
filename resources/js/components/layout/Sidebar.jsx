@@ -30,7 +30,7 @@ const ROLE_LABELS = {
     pegawai: 'Pegawai',
 };
 
-export default function Sidebar({ collapsed, onToggle }) {
+export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClose }) {
     const { user, logout } = useAuth();
     const [showConfirm, setShowConfirm] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
@@ -39,6 +39,10 @@ export default function Sidebar({ collapsed, onToggle }) {
     const isPegawai = PEGAWAI_ROLES.includes(roleKey);
     const navItems = isPegawai ? PEGAWAI_NAV : ADMIN_NAV;
     const roleLabel = ROLE_LABELS[roleKey] ?? (roleKey || 'Admin');
+
+    // Mini (icon-only) view is a desktop-collapsed concept; on the mobile
+    // drawer we always render the full expanded sidebar.
+    const showMini = collapsed && !mobileOpen;
 
     const handleLogout = async () => {
         setLoggingOut(true);
@@ -56,11 +60,20 @@ export default function Sidebar({ collapsed, onToggle }) {
 
     return (
         <>
-        <aside className={`bg-bg-card border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0 transition-all duration-300 z-20 ${
-            collapsed ? 'w-[72px]' : 'w-[334px]'
-        }`}>
+        {/* Mobile overlay */}
+        {mobileOpen && (
+            <div
+                className="fixed inset-0 bg-black/40 z-30 lg:hidden"
+                onClick={onClose}
+                aria-hidden="true"
+            />
+        )}
+
+        <aside className={`bg-bg-card border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0 z-40 transition-all duration-300 w-[280px] ${
+            collapsed ? 'lg:w-[72px]' : 'lg:w-[334px]'
+        } ${mobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:translate-x-0`}>
             <div className="pt-8 pb-6 flex flex-col items-center border-b border-gray-100">
-                {collapsed ? (
+                {showMini ? (
                     <div className="w-11 h-11 flex items-center justify-center">
                         <img src="/images/logo.png" alt="Logo" className="h-full object-contain" />
                     </div>
@@ -78,28 +91,29 @@ export default function Sidebar({ collapsed, onToggle }) {
                 )}
             </div>
 
-            <nav className="flex-1 px-4 py-6 space-y-1 overflow-hidden">
+            <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
                 {navItems.map(({ to, icon: Icon, label }) => (
                     <NavLink
                         key={to}
                         to={to}
+                        onClick={onClose}
                         className={({ isActive }) =>
                             `flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap ${
                                 isActive
                                     ? 'bg-brand-100 text-brand-600 font-bold'
                                     : 'text-text-secondary hover:bg-gray-50 font-medium'
-                            } ${collapsed ? 'justify-center px-0' : ''}`
+                            } ${showMini ? 'justify-center px-0' : ''}`
                         }
-                        title={collapsed ? label : undefined}
+                        title={showMini ? label : undefined}
                     >
                         <Icon size={20} strokeWidth={2} className="shrink-0" />
-                        {!collapsed && <span>{label}</span>}
+                        {!showMini && <span>{label}</span>}
                     </NavLink>
                 ))}
             </nav>
 
             <div className="p-6 border-t border-sidebar-border mt-auto">
-                {collapsed ? (
+                {showMini ? (
                     <div className="flex justify-center">
                         {user?.photo_url ? (
                             <img src={user.photo_url} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm" />

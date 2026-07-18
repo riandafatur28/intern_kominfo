@@ -10,6 +10,12 @@ export default function AdminLayout() {
     const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
         return localStorage.getItem('sidebar_collapsed') === 'true';
     });
+    const [mobileOpen, setMobileOpen] = useState(false);
+
+    // Close mobile drawer on route change
+    React.useEffect(() => {
+        setMobileOpen(false);
+    }, [location.pathname]);
 
     const toggleSidebar = () => {
         setSidebarCollapsed((prev) => {
@@ -35,11 +41,20 @@ export default function AdminLayout() {
     }
 
     return (
-        <div className="min-h-screen bg-bg-page flex font-[Poppins]">
-            <Sidebar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-            <div className={`flex-1 transition-all duration-300 ${sidebarCollapsed ? 'ml-[72px]' : 'ml-[334px]'}`}>
-                <Topbar collapsed={sidebarCollapsed} onToggle={toggleSidebar} />
-                <main className="p-8">
+        <div className="min-h-screen bg-bg-page font-[Poppins]">
+            <Sidebar
+                collapsed={sidebarCollapsed}
+                onToggle={toggleSidebar}
+                mobileOpen={mobileOpen}
+                onClose={() => setMobileOpen(false)}
+            />
+            <div className={`transition-all duration-300 ${sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-[334px]'}`}>
+                <Topbar
+                    collapsed={sidebarCollapsed}
+                    onToggle={toggleSidebar}
+                    onMobileMenu={() => setMobileOpen(true)}
+                />
+                <main className="p-4 sm:p-6 lg:p-8">
                     <Outlet />
                 </main>
             </div>
