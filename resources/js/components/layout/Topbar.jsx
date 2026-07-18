@@ -3,18 +3,27 @@ import { Search, X, Menu } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
-const breadcrumbs = {
-    '/dashboard': ['Beranda', 'Admin', 'Dashboard'],
-    '/status-laporan': ['Beranda', 'Admin WFH', 'Status Laporan'],
-    '/monitor-wfh': ['Beranda', 'Admin WFH', 'Monitor WFH'],
-    '/spreadsheet': ['Beranda', 'Admin WFH', 'Google Spreadsheet'],
-    '/profil': ['Beranda', 'Admin', 'Profil Saya'],
+const PAGE_LABELS = {
+    '/dashboard': 'Dashboard',
+    '/status-laporan': 'Status Laporan',
+    '/monitor-wfh': 'Monitor WFH',
+    '/spreadsheet': 'Google Spreadsheet',
+    '/profil': 'Profil Saya',
+    '/absensi-wfh': 'Absensi WFH',
+    '/laporan-kegiatan': 'Laporan Kegiatan',
+    '/inisiasi-perubahan': 'Inisiasi Perubahan',
 };
+
+const PEGAWAI_ROLES = ['pegawai', 'staf'];
 
 export default function Topbar({ collapsed, onToggle }) {
     const { user } = useAuth();
     const location = useLocation();
-    const crumbs = breadcrumbs[location.pathname] ?? ['Beranda', 'Admin', 'Dashboard'];
+
+    const roleKey = user?.roles?.[0];
+    const section = PEGAWAI_ROLES.includes(roleKey) ? 'Pegawai' : 'Admin WFH';
+    const page = PAGE_LABELS[location.pathname] ?? 'Dashboard';
+    const crumbs = ['Beranda', section, page];
 
     const initials = user?.name
         ?.split(' ')

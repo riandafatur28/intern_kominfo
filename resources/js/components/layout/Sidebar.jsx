@@ -1,21 +1,44 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 
-const navItems = [
+const ADMIN_NAV = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH' },
     { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet' },
     { to: '/profil', icon: User, label: 'Profil Saya' },
 ];
 
+const PEGAWAI_NAV = [
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH' },
+    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan' },
+    { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan' },
+    { to: '/profil', icon: User, label: 'Profil Saya' },
+];
+
+const PEGAWAI_ROLES = ['pegawai', 'staf'];
+
+const ROLE_LABELS = {
+    admin: 'Admin WFH',
+    kepala_tim: 'Kepala Tim',
+    kepala_bidang: 'Kepala Bidang',
+    staf: 'Pegawai',
+    pegawai: 'Pegawai',
+};
+
 export default function Sidebar({ collapsed, onToggle }) {
     const { user, logout } = useAuth();
     const [showConfirm, setShowConfirm] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
+
+    const roleKey = user?.roles?.[0];
+    const isPegawai = PEGAWAI_ROLES.includes(roleKey);
+    const navItems = isPegawai ? PEGAWAI_NAV : ADMIN_NAV;
+    const roleLabel = ROLE_LABELS[roleKey] ?? (roleKey || 'Admin');
 
     const handleLogout = async () => {
         setLoggingOut(true);
@@ -48,7 +71,7 @@ export default function Sidebar({ collapsed, onToggle }) {
                         </div>
                         <div className="bg-brand-100/50 px-4 py-1.5 rounded-[10px] w-4/5 text-center">
                             <span className="text-brand-600 text-xs font-bold tracking-wide">
-                                {user?.roles?.[0] ?? 'Admin'}
+                                {roleLabel}
                             </span>
                         </div>
                     </>
