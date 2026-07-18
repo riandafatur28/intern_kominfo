@@ -76,6 +76,10 @@ class AuthController extends Controller
             'position' => $user->position,
             'phone' => $user->phone,
             'signature_path' => $user->signature_path,
+            'photo_path' => $user->photo_path,
+            'photo_url' => $user->photo_path
+                ? asset("storage/{$user->photo_path}")
+                : null,
             'is_active' => $user->is_active,
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name')->values(),

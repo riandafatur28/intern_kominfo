@@ -40,7 +40,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.approve',
             'wfh.report.reject',
             'wfh.monitoring.view',
-            'wfh.report.export_pdf',
+            'wfh.report.export',
 
             // Change Management
             'change.initiation.view',
@@ -49,13 +49,13 @@ class RolePermissionSeeder extends Seeder
             'change.initiation.submit',
             'change.initiation.approve',
             'change.initiation.reject',
-            'change.initiation.export_pdf',
+            'change.initiation.export',
             'change.implementation.view',
             'change.implementation.create',
             'change.implementation.update',
             'change.implementation.submit',
             'change.implementation.review',
-            'change.implementation.export_pdf',
+            'change.implementation.export',
         ];
 
         foreach ($permissions as $perm) {
@@ -82,11 +82,11 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.approve',
             'wfh.report.reject',
             'wfh.monitoring.view',
-            'wfh.report.export_pdf',
+            'wfh.report.export',
             'change.initiation.view',
-            'change.initiation.export_pdf',
+            'change.initiation.export',
             'change.implementation.view',
-            'change.implementation.export_pdf',
+            'change.implementation.export',
         ]);
 
         // Kepala Tim (team leader): Change initiation approve/reject + implementation review
@@ -96,20 +96,20 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.update',
             'wfh.report.submit',
             'wfh.monitoring.view',
-            'wfh.report.export_pdf',
+            'wfh.report.export',
             'change.initiation.view',
             'change.initiation.create',
             'change.initiation.update',
             'change.initiation.submit',
             'change.initiation.approve',
             'change.initiation.reject',
-            'change.initiation.export_pdf',
+            'change.initiation.export',
             'change.implementation.view',
             'change.implementation.create',
             'change.implementation.update',
             'change.implementation.submit',
             'change.implementation.review',
-            'change.implementation.export_pdf',
+            'change.implementation.export',
         ]);
 
         // Staf: create own records, submit, no approval power
@@ -118,7 +118,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.create',
             'wfh.report.update',
             'wfh.report.submit',
-            'wfh.report.export_pdf',
+            'wfh.report.export',
             'change.initiation.view',
             'change.initiation.create',
             'change.initiation.update',

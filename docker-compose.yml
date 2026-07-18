@@ -7,6 +7,8 @@ services:
     working_dir: /app
     volumes:
       - .:/app
+      - /app/vendor
+      - /app/node_modules
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
@@ -19,6 +21,9 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+    ports:
+      - "8000:8000"
+    command: sh -c "[ -f vendor/autoload.php ] || composer install --no-interaction --optimize-autoloader; php artisan serve --host=0.0.0.0 --port=8000"
     stdin_open: true
     tty: true
 

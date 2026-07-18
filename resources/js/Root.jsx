@@ -1,11 +1,12 @@
-import React from "react";
+import React from 'react';
+import { RouterProvider } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import { router } from './routes/router.jsx';
 
 export default function Root() {
     return (
-        <div className="p-8">
-            <h1 className="text-3xl font-bold text-blue-600">
-                Halo, React + Tailwind jalan! 🎉
-            </h1>
-        </div>
+        <AuthProvider>
+            <RouterProvider router={router} />
+        </AuthProvider>
     );
 }

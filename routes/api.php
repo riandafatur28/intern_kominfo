@@ -29,9 +29,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/signature', [ProfileController::class, 'uploadSignature']);
+    Route::post('/profile/photo', [ProfileController::class, 'uploadPhoto']);
 
     // Admin User Management
-    Route::middleware('permission:user.manage')->group(function () {
+    Route::middleware('permission:user.manage,sanctum')->group(function () {
         Route::get('/admin/users', [UserController::class, 'index']);
         Route::post('/admin/users', [UserController::class, 'store']);
         Route::get('/admin/users/{user}', [UserController::class, 'show']);
@@ -39,82 +40,82 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::delete('/admin/users/{user}', [UserController::class, 'destroy']);
     });
 
-    Route::middleware('permission:user.import')->group(function () {
+    Route::middleware('permission:user.import,sanctum')->group(function () {
         Route::post('/admin/users/import', [UserController::class, 'import']);
     });
     // RBAC Management
-    Route::middleware('permission:role.manage')->group(function () {
+    Route::middleware('permission:role.manage,sanctum')->group(function () {
         Route::get('/admin/roles', [RoleController::class, 'index']);
         Route::put('/admin/roles/{id}/permissions', [RoleController::class, 'updatePermissions']);
     });
 
-    Route::middleware('permission:permission.manage')->group(function () {
+    Route::middleware('permission:permission.manage,sanctum')->group(function () {
         Route::get('/admin/permissions', [PermissionController::class, 'index']);
     });
 
     // WFH Module
     Route::post('/wfh/attendance', [AttendanceController::class, 'checkIn'])
-        ->middleware('permission:wfh.attendance.create');
+        ->middleware('permission:wfh.attendance.create,sanctum');
 
     Route::get('/wfh/reports', [ReportController::class, 'index']);
     Route::post('/wfh/reports', [ReportController::class, 'store'])
-        ->middleware('permission:wfh.report.create');
+        ->middleware('permission:wfh.report.create,sanctum');
     Route::get('/wfh/reports/{report}', [ReportController::class, 'show']);
     Route::put('/wfh/reports/{report}', [ReportController::class, 'update'])
-        ->middleware('permission:wfh.report.update');
+        ->middleware('permission:wfh.report.update,sanctum');
     Route::delete('/wfh/reports/{report}', [ReportController::class, 'destroy'])
-        ->middleware('permission:wfh.report.delete');
+        ->middleware('permission:wfh.report.delete,sanctum');
 
     Route::post('/wfh/reports/{report}/submit', [ReportApprovalController::class, 'submit']);
     Route::post('/wfh/reports/{report}/approve', [ReportApprovalController::class, 'approve'])
-        ->middleware('permission:wfh.report.approve');
+        ->middleware('permission:wfh.report.approve,sanctum');
     Route::post('/wfh/reports/{report}/reject', [ReportApprovalController::class, 'reject'])
-        ->middleware('permission:wfh.report.reject');
+        ->middleware('permission:wfh.report.reject,sanctum');
     Route::post('/wfh/reports/{report}/revise', [ReportApprovalController::class, 'revise']);
 
     Route::get('/admin/wfh/monitoring', [WfhMonitoringController::class, 'index'])
-        ->middleware('permission:wfh.monitoring.view');
+        ->middleware('permission:wfh.monitoring.view,sanctum');
 
     Route::get('/admin/wfh/reports', [ReportController::class, 'adminIndex'])
-        ->middleware('permission:wfh.monitoring.view');
+        ->middleware('permission:wfh.monitoring.view,sanctum');
 
     Route::get('/wfh/reports/{report}/pdf', [ReportPdfController::class, 'export'])
-        ->middleware('permission:wfh.report.export_pdf');
+        ->middleware('permission:wfh.report.export,sanctum_pdf');
 
     Route::get('/admin/wfh/teams/{team}/pdf', [ReportPdfController::class, 'exportTeam'])
-        ->middleware('permission:wfh.report.export_pdf');
+        ->middleware('permission:wfh.report.export,sanctum_pdf');
     // Change Management Module
     Route::get('/changes/initiations', [InitiationController::class, 'index'])
-        ->middleware('permission:change.initiation.view');
+        ->middleware('permission:change.initiation.view,sanctum');
     Route::post('/changes/initiations', [InitiationController::class, 'store'])
-        ->middleware('permission:change.initiation.create');
+        ->middleware('permission:change.initiation.create,sanctum');
     Route::get('/changes/initiations/{id}', [InitiationController::class, 'show'])
-        ->middleware('permission:change.initiation.view');
+        ->middleware('permission:change.initiation.view,sanctum');
     Route::post('/changes/initiations/{id}/submit', [InitiationController::class, 'submit'])
-        ->middleware('permission:change.initiation.submit');
+        ->middleware('permission:change.initiation.submit,sanctum');
     Route::post('/changes/initiations/{id}/approve', [InitiationController::class, 'approve'])
-        ->middleware('permission:change.initiation.approve');
+        ->middleware('permission:change.initiation.approve,sanctum');
     Route::post('/changes/initiations/{id}/reject', [InitiationController::class, 'reject'])
-        ->middleware('permission:change.initiation.reject');
+        ->middleware('permission:change.initiation.reject,sanctum');
     Route::post('/changes/initiations/{id}/revise', [InitiationController::class, 'revise'])
-        ->middleware('permission:change.initiation.submit');
+        ->middleware('permission:change.initiation.submit,sanctum');
 
     Route::post('/changes/initiations/{id}/implementations', [ImplementationController::class, 'store'])
-        ->middleware('permission:change.implementation.create');
+        ->middleware('permission:change.implementation.create,sanctum');
     Route::get('/changes/implementations/{id}', [ImplementationController::class, 'show'])
-        ->middleware('permission:change.implementation.view');
+        ->middleware('permission:change.implementation.view,sanctum');
     Route::put('/changes/implementations/{id}', [ImplementationController::class, 'update'])
-        ->middleware('permission:change.implementation.update');
+        ->middleware('permission:change.implementation.update,sanctum');
     Route::post('/changes/implementations/{id}/attachments', [ImplementationController::class, 'uploadAttachments'])
-        ->middleware('permission:change.implementation.update');
+        ->middleware('permission:change.implementation.update,sanctum');
     Route::post('/changes/implementations/{id}/submit', [ImplementationController::class, 'submit'])
-        ->middleware('permission:change.implementation.submit');
+        ->middleware('permission:change.implementation.submit,sanctum');
     Route::post('/changes/implementations/{id}/review', [ImplementationReviewController::class, 'review'])
-        ->middleware('permission:change.implementation.review');
+        ->middleware('permission:change.implementation.review,sanctum');
 
     // Change Management PDF Export
     Route::get('/changes/initiations/{id}/pdf', [ChangeManagementPdfController::class, 'exportInitiation'])
-        ->middleware('permission:change.initiation.export_pdf');
+        ->middleware('permission:change.initiation.export,sanctum_pdf');
     Route::get('/changes/implementations/{id}/pdf', [ChangeManagementPdfController::class, 'exportImplementation'])
-        ->middleware('permission:change.implementation.export_pdf');
+        ->middleware('permission:change.implementation.export,sanctum_pdf');
 });
