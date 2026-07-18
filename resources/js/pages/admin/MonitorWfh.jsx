@@ -36,6 +36,7 @@ export default function MonitorWfh() {
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [status, setStatus] = useState('');
     const [page, setPage] = useState(1);
+    const [toast, setToast] = useState('');
 
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -67,6 +68,13 @@ export default function MonitorWfh() {
     useEffect(() => {
         fetchBoard();
     }, [fetchBoard]);
+
+    const handleSendReminder = (emp) => {
+        // TODO: hubungkan ke endpoint backend pengiriman notifikasi/peringatan
+        // saat sudah tersedia (misal: POST /api/admin/wfh/reminders).
+        setToast(`Peringatan untuk ${emp.name} akan dikirim setelah fitur notifikasi backend tersedia.`);
+        setTimeout(() => setToast(''), 4000);
+    };
 
     const stats = data?.stats;
     const employees = data?.employees ?? [];
@@ -213,7 +221,7 @@ export default function MonitorWfh() {
                                                 <td className="px-6 py-4 text-sm text-gray-500">{emp.catatan}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex justify-center">
-                                                        <PreviewDropdown emp={emp} date={date} />
+                                                        <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -240,7 +248,7 @@ export default function MonitorWfh() {
                                                     <p className="text-xs text-gray-400">{emp.nip}</p>
                                                 </div>
                                             </div>
-                                            <PreviewDropdown emp={emp} date={date} />
+                                            <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} />
                                         </div>
                                         <div className="flex items-center gap-4 text-xs text-gray-500">
                                             <SessionPill label="Pagi" ok={emp.sessions.pagi} />
@@ -297,6 +305,12 @@ export default function MonitorWfh() {
                     </button>
                 </div>
             </div>
+
+            {toast && (
+                <div className="fixed bottom-6 right-6 z-50 bg-amber-500 text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg max-w-sm">
+                    {toast}
+                </div>
+            )}
         </div>
     );
 }
@@ -342,7 +356,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function PreviewDropdown({ emp, date }) {
+function PreviewDropdown({ emp, date, onSendReminder }) {
     const [open, setOpen] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const ref = useRef(null);
@@ -357,9 +371,16 @@ function PreviewDropdown({ emp, date }) {
     }, []);
 
     const canPreview = !!emp.report_id;
+    const belumAbsen = emp.report_status === 'belum_absensi';
+
     const handleDownload = () => {
         if (!emp.report_id) return;
         window.open(`/api/wfh/reports/${emp.report_id}/pdf${token ? `?token=${token}` : ''}`, '_blank');
+        setOpen(false);
+    };
+
+    const handleReminder = () => {
+        onSendReminder?.(emp);
         setOpen(false);
     };
 
@@ -377,7 +398,7 @@ function PreviewDropdown({ emp, date }) {
             </button>
 
             {open && (
-                <div className="absolute right-0 top-full mt-1 w-44 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 text-left">
+                <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 text-left">
                     <button
                         onClick={() => { setShowDetail(true); setOpen(false); }}
                         disabled={!canPreview}
@@ -390,7 +411,16 @@ function PreviewDropdown({ emp, date }) {
                         disabled={!canPreview}
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                        <Download size={15} /> Unduh PDF
+                        <Download size={15} /> Unduh Laporan Perorangan
+                    </button>
+                    <div className="my-1 border-t border-gray-50" />
+                    <button
+                        onClick={handleReminder}
+                        disabled={!belumAbsen}
+                        title={!belumAbsen ? 'Hanya untuk pegawai yang belum absen' : undefined}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 disabled:text-gray-400 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        <Bell size={15} /> Kirim Peringatan
                     </button>
                 </div>
             )}

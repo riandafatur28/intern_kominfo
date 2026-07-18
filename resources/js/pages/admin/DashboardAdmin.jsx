@@ -65,9 +65,6 @@ function ComplianceChart({ chart }) {
                         {data.map((d, i) => {
                             const total = d.laporan_terkirim + d.tidak_lengkap + d.belum_absensi;
                             const h = (total / axisMax) * chartH;
-                            const segTerkirim = (d.laporan_terkirim / total) * h;
-                            const segTidak = (d.tidak_lengkap / total) * h;
-                            const segBelum = (d.belum_absensi / total) * h;
                             return (
                                 <div
                                     key={d.date}
@@ -76,11 +73,10 @@ function ComplianceChart({ chart }) {
                                     onMouseEnter={() => setHover(i)}
                                     onMouseLeave={() => setHover(null)}
                                 >
-                                    <div className="w-16 rounded-t-md overflow-hidden flex flex-col justify-end shadow-sm" style={{ height: h }}>
-                                        <div style={{ height: segBelum, background: '#EF4444' }} />
-                                        <div style={{ height: segTidak, background: '#F59E0B' }} />
-                                        <div style={{ height: segTerkirim, background: '#4F46E5' }} />
-                                    </div>
+                                    <div
+                                        className="w-16 rounded-t-md shadow-sm transition-opacity group-hover:opacity-90"
+                                        style={{ height: h, background: '#5B4FE5' }}
+                                    />
                                 </div>
                             );
                         })}
@@ -118,22 +114,6 @@ function ComplianceChart({ chart }) {
                     ))}
                 </div>
             </div>
-
-            {/* Legend */}
-            <div className="flex items-center justify-end gap-4 mt-4">
-                <LegendDot color="#4F46E5" label="Terkirim" />
-                <LegendDot color="#F59E0B" label="Tidak Lengkap" />
-                <LegendDot color="#EF4444" label="Belum" />
-            </div>
-        </div>
-    );
-}
-
-function LegendDot({ color, label }) {
-    return (
-        <div className="flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-sm" style={{ background: color }} />
-            <span className="text-[11px] text-gray-500">{label}</span>
         </div>
     );
 }
