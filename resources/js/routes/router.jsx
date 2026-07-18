@@ -4,10 +4,10 @@ import Login from '../pages/auth/Login.jsx';
 import ForgotPassword from '../pages/auth/ForgotPassword.jsx';
 import RegisterPegawai from '../pages/auth/RegisterPegawai.jsx';
 import RoleDashboard from '../pages/RoleDashboard.jsx';
+import RoleProfil from '../pages/RoleProfil.jsx';
 import StatusLaporanWfh from '../pages/admin/StatusLaporanWfh.jsx';
 import MonitorWfh from '../pages/admin/MonitorWfh.jsx';
 import GoogleSpreadsheet from '../pages/admin/GoogleSpreadsheet.jsx';
-import ProfilSaya from '../pages/admin/ProfilSaya.jsx';
 import StubPage from '../pages/pegawai/StubPage.jsx';
 import LaporanKegiatan from '../pages/pegawai/LaporanKegiatan.jsx';
 import InisiasiPerubahan from '../pages/pegawai/InisiasiPerubahan.jsx';
@@ -34,7 +34,7 @@ export const router = createBrowserRouter([
             { path: 'status-laporan', element: <StatusLaporanWfh /> },
             { path: 'monitor-wfh', element: <MonitorWfh /> },
             { path: 'spreadsheet', element: <GoogleSpreadsheet /> },
-            { path: 'profil', element: <ProfilSaya /> },
+            { path: 'profil', element: <RoleProfil /> },
             { path: 'absensi-wfh', element: <StubPage title="Absensi WFH" /> },
             { path: 'laporan-kegiatan', element: <LaporanKegiatan /> },
             { path: 'inisiasi-perubahan', element: <InisiasiPerubahan /> },
