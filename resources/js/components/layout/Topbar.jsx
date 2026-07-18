@@ -8,8 +8,6 @@ const breadcrumbs = {
     '/status-laporan': ['Beranda', 'Admin WFH', 'Status Laporan'],
     '/monitor-wfh': ['Beranda', 'Admin WFH', 'Monitor WFH'],
     '/spreadsheet': ['Beranda', 'Admin WFH', 'Google Spreadsheet'],
-    '/monitoring-inisiasi': ['Beranda', 'Admin Inisiasi', 'Monitoring Inisiasi'],
-    '/arsip': ['Beranda', 'Admin Inisiasi', 'Arsip'],
     '/profil': ['Beranda', 'Admin', 'Profil Saya'],
 };
 

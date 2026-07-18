@@ -6,8 +6,6 @@ import StatusLaporanWfh from '../pages/admin/StatusLaporanWfh.jsx';
 import MonitorWfh from '../pages/admin/MonitorWfh.jsx';
 import GoogleSpreadsheet from '../pages/admin/GoogleSpreadsheet.jsx';
 import ProfilSaya from '../pages/admin/ProfilSaya.jsx';
-import MonitoringInisiasi from '../pages/change-management/MonitoringInisiasi.jsx';
-import Arsip from '../pages/change-management/Arsip.jsx';
 
 export const router = createBrowserRouter([
     {
@@ -23,8 +21,6 @@ export const router = createBrowserRouter([
             { path: 'status-laporan', element: <StatusLaporanWfh /> },
             { path: 'monitor-wfh', element: <MonitorWfh /> },
             { path: 'spreadsheet', element: <GoogleSpreadsheet /> },
-            { path: 'monitoring-inisiasi', element: <MonitoringInisiasi /> },
-            { path: 'arsip', element: <Arsip /> },
             { path: 'profil', element: <ProfilSaya /> },
         ],
     },

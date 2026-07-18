@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Monitor, Sheet, History, User, LogOut, AlertTriangle } from 'lucide-react';
+import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -9,8 +9,6 @@ const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH' },
     { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet' },
-    { to: '/monitoring-inisiasi', icon: Monitor, label: 'Monitoring Inisiasi' },
-    { to: '/arsip', icon: History, label: 'Arsip' },
     { to: '/profil', icon: User, label: 'Profil Saya' },
 ];
 
