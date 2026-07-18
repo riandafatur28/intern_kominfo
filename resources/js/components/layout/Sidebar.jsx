@@ -39,12 +39,12 @@ export default function Sidebar({ collapsed, onToggle }) {
                 <div className="pt-8 pb-6 flex flex-col items-center border-b border-gray-100">
                     {collapsed ? (
                         <div className="w-11 h-11 flex items-center justify-center">
-                            <img src="/images/logo.svg" alt="Logo" className="h-full object-contain" />
+                            <img src="/images/logo.png" alt="Logo" className="h-full object-contain" />
                         </div>
                     ) : (
                         <>
                             <div className="w-[111px] h-20 flex items-center justify-center mb-6">
-                                <img src="/images/logo.svg" alt="Logo Kominfo Jatim" className="h-full object-contain" />
+                                <img src="/images/logo.png" alt="Logo Kominfo Jatim" className="h-full object-contain" />
                             </div>
                             <div className="bg-brand-100/50 px-4 py-1.5 rounded-[10px] w-4/5 text-center">
                                 <span className="text-brand-600 text-xs font-bold tracking-wide">
