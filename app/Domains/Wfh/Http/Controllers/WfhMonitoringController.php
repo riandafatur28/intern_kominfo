@@ -152,7 +152,7 @@ class WfhMonitoringController extends Controller
             } elseif (! empty($missing)) {
                 $status = 'tidak_lengkap';
                 $labels = array_map(fn ($s) => self::SESSION_LABEL[$s], $missing);
-                $catatan = 'Tidak Absen ' . implode(', ', $labels);
+                $catatan = 'Tidak Absen '.implode(', ', $labels);
             } elseif ($hasReport) {
                 $status = 'terkirim';
                 $catatan = 'Lengkap';

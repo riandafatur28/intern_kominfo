@@ -170,7 +170,6 @@ return [
      * See documentation to understand supported syntax.
      */
 
-
     'default_guard' => 'web',
     'enable_wildcard_permission' => false,
 

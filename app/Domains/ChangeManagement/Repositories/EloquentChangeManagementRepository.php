@@ -32,7 +32,7 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
             $search = $filters['search'];
             $query->where(function ($q) use ($search) {
                 $q->where('doc_number', 'ilike', "%{$search}%")
-                  ->orWhere('description', 'ilike', "%{$search}%");
+                    ->orWhere('description', 'ilike', "%{$search}%");
             });
         }
 

@@ -4,6 +4,7 @@ namespace App\Rules;
 
 use Closure;
 use Illuminate\Contracts\Validation\ValidationRule;
+use Illuminate\Http\UploadedFile;
 use Intervention\Image\Laravel\Facades\Image;
 
 class SignatureImage implements ValidationRule
@@ -19,12 +20,14 @@ class SignatureImage implements ValidationRule
      * Too few = blank, too many = filled/solid image.
      */
     private const MIN_DARK_RATIO = 0.005;
+
     private const MAX_DARK_RATIO = 0.55;
 
     /**
      * Min aspect ratio (width/height). Signatures typically wider than tall.
      */
     private const MIN_ASPECT_RATIO = 0.4;
+
     private const MAX_ASPECT_RATIO = 12.0;
 
     /** Brightness threshold for "light" pixel (white bg). */
@@ -36,8 +39,9 @@ class SignatureImage implements ValidationRule
     public function validate(string $attribute, mixed $value, Closure $fail): void
     {
         // Must be an uploaded file
-        if (!($value instanceof \Illuminate\Http\UploadedFile)) {
+        if (! ($value instanceof UploadedFile)) {
             $fail('Bukan file upload yang valid.');
+
             return;
         }
 
@@ -45,6 +49,7 @@ class SignatureImage implements ValidationRule
             $image = Image::decode($value->getRealPath());
         } catch (\Throwable $e) {
             $fail('Gambar tidak dapat diproses. Pastikan file gambar valid.');
+
             return;
         }
 
@@ -55,6 +60,7 @@ class SignatureImage implements ValidationRule
 
         if ($width === 0 || $height === 0) {
             $fail('Dimensi gambar tidak valid.');
+
             return;
         }
 
@@ -62,6 +68,7 @@ class SignatureImage implements ValidationRule
         $aspect = $width / $height;
         if ($aspect < self::MIN_ASPECT_RATIO || $aspect > self::MAX_ASPECT_RATIO) {
             $fail('Rasio dimensi gambar tidak sesuai untuk tanda tangan.');
+
             return;
         }
 
@@ -94,6 +101,7 @@ class SignatureImage implements ValidationRule
 
         if ($totalPixels === 0) {
             $fail('Gambar terlalu kecil untuk dianalisis.');
+
             return;
         }
 
@@ -103,18 +111,21 @@ class SignatureImage implements ValidationRule
         // 3. Must have enough white background
         if ($lightRatio < self::MIN_LIGHT_RATIO) {
             $fail('Latar belakang gambar harus didominasi warna putih/terang. Gunakan gambar tanda tangan di atas kertas putih.');
+
             return;
         }
 
         // 4. Must have enough ink strokes (dark pixels)
         if ($darkRatio < self::MIN_DARK_RATIO) {
             $fail('Gambar tidak mengandung coretan tanda tangan. Pastikan tanda tangan terlihat jelas.');
+
             return;
         }
 
         // 5. Not too much ink (rejects solid dark images, photos)
         if ($darkRatio > self::MAX_DARK_RATIO) {
             $fail('Gambar terlalu padat. Tanda tangan harus berupa coretan di atas latar putih.');
+
             return;
         }
     }

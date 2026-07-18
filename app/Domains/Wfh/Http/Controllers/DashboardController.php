@@ -90,7 +90,7 @@ class DashboardController extends Controller
 
             return [
                 'date' => $date,
-                'label' => 'Jumat ' . $c->format('d/m'),
+                'label' => 'Jumat '.$c->format('d/m'),
                 'is_current' => $date === ($latestPastFriday ?? $focusDate),
                 'is_focus' => $date === $focusDate,
             ];
