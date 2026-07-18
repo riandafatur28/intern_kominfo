@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 130" width="120" height="130">
+  <circle cx="60" cy="55" r="52" fill="#0052CC"/>
+  <path d="M30 72a30 30 0 0 1 60 0" stroke="#DBEAFF" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <path d="M41 72a19 19 0 0 1 38 0" stroke="#6366F1" stroke-width="7" stroke-linecap="round" fill="none"/>
+  <circle cx="60" cy="68" r="8" fill="#ffffff"/>
+  <text x="60" y="118" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="700" fill="#0052CC">KOMINFO JATIM</text>
+</svg>
