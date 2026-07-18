@@ -71,6 +71,28 @@ class ProfileController extends Controller
         ]);
     }
 
+    public function uploadPhoto(Request $request): JsonResponse
+    {
+        $request->validate([
+            'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
+        ]);
+
+        $user = $request->user();
+        $file = $request->file('photo');
+        $path = $file->store('photos', 'public');
+
+        $user->update(['photo_path' => $path]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Foto profil berhasil diunggah.',
+            'data' => [
+                'photo_path' => $path,
+                'photo_url' => asset("storage/{$path}"),
+            ],
+        ]);
+    }
+
     private function formatUser($user): array
     {
         return [
@@ -84,6 +106,10 @@ class ProfileController extends Controller
             'signature_path' => $user->signature_path,
             'signature_url' => $user->signature_path
                 ? asset("storage/{$user->signature_path}")
+                : null,
+            'photo_path' => $user->photo_path,
+            'photo_url' => $user->photo_path
+                ? asset("storage/{$user->photo_path}")
                 : null,
             'is_active' => $user->is_active,
             'roles' => $user->getRoleNames(),

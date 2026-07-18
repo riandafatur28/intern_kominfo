@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 
 const AuthContext = createContext(null);
@@ -7,27 +7,28 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
+    const fetchUser = useCallback(async () => {
         const token = localStorage.getItem('token');
-        if (token) {
-            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-            fetchUser();
-        } else {
+        if (!token) {
             setLoading(false);
+            return;
         }
-    }, []);
-
-    const fetchUser = async () => {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
         try {
             const res = await axios.get('/api/auth/me');
             setUser(res.data.data);
         } catch {
             localStorage.removeItem('token');
             delete axios.defaults.headers.common['Authorization'];
+            setUser(null);
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchUser();
+    }, [fetchUser]);
 
     const login = async (email, password) => {
         const res = await axios.post('/api/auth/login', { email, password });
@@ -49,8 +50,23 @@ export function AuthProvider({ children }) {
         setUser(null);
     };
 
+    const hasPermission = (perm) => {
+        if (!user) return false;
+        return user.permissions?.includes(perm) ?? false;
+    };
+
+    const hasRole = (role) => {
+        if (!user) return false;
+        return user.roles?.includes(role) ?? false;
+    };
+
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading }}>
+        <AuthContext.Provider value={{
+            user, login, logout, loading, fetchUser,
+            hasPermission, hasRole,
+            isAuthenticated: !!user,
+            demoMode: false,
+        }}>
             {children}
         </AuthContext.Provider>
     );

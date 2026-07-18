@@ -28,6 +28,14 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
             $query->where('field_id', $filters['field_id']);
         }
 
+        if (isset($filters['search'])) {
+            $search = $filters['search'];
+            $query->where(function ($q) use ($search) {
+                $q->where('doc_number', 'ilike', "%{$search}%")
+                  ->orWhere('description', 'ilike', "%{$search}%");
+            });
+        }
+
         return $query->orderByDesc('created_at')->paginate($perPage);
     }
 

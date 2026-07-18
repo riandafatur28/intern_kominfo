@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
-import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { getProfile, updateProfile, changePassword } from '../../api/profile';
+import React, { useEffect, useRef, useState } from 'react';
+import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera } from 'lucide-react';
+import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
 import { useAuth } from '../../context/AuthContext';
 
 const ROLE_LABELS = {
@@ -26,10 +26,12 @@ function initialsOf(name = '') {
 }
 
 export default function ProfilSaya() {
-    const { user: authUser } = useAuth();
+    const { user: authUser, fetchUser } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
+    const [photoLoading, setPhotoLoading] = useState(false);
+    const photoInputRef = useRef(null);
 
     // Toast notification
     const [toast, setToast] = useState(null); // { type: 'success'|'error', message }
@@ -108,6 +110,25 @@ export default function ProfilSaya() {
         }
     };
 
+    const submitPhoto = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setPhotoLoading(true);
+        try {
+            const fd = new FormData();
+            fd.append('photo', file);
+            const res = await uploadPhoto(fd);
+            hydrate(res.data);
+            await fetchUser?.();
+            showToast('success', res.message || 'Foto profil berhasil diunggah.');
+        } catch (err) {
+            showToast('error', err.response?.data?.message || 'Gagal mengunggah foto profil.');
+        } finally {
+            setPhotoLoading(false);
+            if (photoInputRef.current) photoInputRef.current.value = '';
+        }
+    };
+
     if (loading) {
         return (
             <div className="flex items-center justify-center h-96">
@@ -137,8 +158,34 @@ export default function ProfilSaya() {
                 <div className="lg:col-span-5">
                     <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 h-full">
                         <div className="flex flex-col items-center text-center pb-6">
-                            <div className="w-24 h-24 rounded-full bg-indigo-500 flex items-center justify-center text-white text-3xl font-bold">
-                                {initialsOf(p.name)}
+                            <div className="relative w-24 h-24">
+                                {p.photo_url ? (
+                                    <img src={p.photo_url} alt="Foto profil" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-100" />
+                                ) : (
+                                    <div className="w-24 h-24 rounded-full bg-indigo-500 flex items-center justify-center text-white text-3xl font-bold">
+                                        {initialsOf(p.name)}
+                                    </div>
+                                )}
+                                <button
+                                    onClick={() => photoInputRef.current?.click()}
+                                    disabled={photoLoading}
+                                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-60"
+                                    title="Ubah foto profil"
+                                >
+                                    {photoLoading ? (
+                                        <Loader2 size={14} className="animate-spin text-indigo-500" />
+                                    ) : (
+                                        <Camera size={14} className="text-gray-500" />
+                                    )}
+                                </button>
+                                <input
+                                    ref={photoInputRef}
+                                    type="file"
+                                    accept="image/jpg,image/jpeg,image/png"
+                                    className="hidden"
+                                    onChange={submitPhoto}
+                                    disabled={photoLoading}
+                                />
                             </div>
                             <h2 className="mt-4 text-lg font-bold text-gray-900">{p.name}</h2>
                             <p className="text-sm text-gray-500">{p.position || 'Pegawai'}</p>

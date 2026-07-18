@@ -33,6 +33,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/password', [ProfileController::class, 'changePassword']);
     Route::post('/profile/signature', [ProfileController::class, 'uploadSignature']);
+    Route::post('/profile/photo', [ProfileController::class, 'uploadPhoto']);
 
     // Admin User Management
     Route::middleware('permission:user.manage')->group(function () {

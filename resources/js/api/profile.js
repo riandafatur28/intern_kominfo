@@ -25,3 +25,14 @@ export async function changePassword(payload) {
     const res = await axios.post('/api/profile/password', payload);
     return res.data;
 }
+
+/**
+ * Upload/replace the current user's profile photo.
+ * @param {FormData} formData - must contain a 'photo' file field
+ */
+export async function uploadPhoto(formData) {
+    const res = await axios.post('/api/profile/photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+}

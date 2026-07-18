@@ -1,32 +1,30 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Monitor, Sheet, User, LogOut, X } from 'lucide-react';
+import { LayoutDashboard, Monitor, Sheet, History, User, LogOut, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import Modal from '../ui/Modal';
+import Button from '../ui/Button';
 
 const navItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH' },
     { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet' },
+    { to: '/monitoring-inisiasi', icon: Monitor, label: 'Monitoring Inisiasi' },
+    { to: '/arsip', icon: History, label: 'Arsip' },
     { to: '/profil', icon: User, label: 'Profil Saya' },
 ];
 
-function BrandLogo() {
-    return (
-        <div className="flex flex-col items-center">
-            <svg width="56" height="40" viewBox="0 0 56 40" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 34a24 24 0 0148 0" stroke="#1E3A8A" strokeWidth="5" strokeLinecap="round" />
-                <path d="M13 34a15 15 0 0130 0" stroke="#6366F1" strokeWidth="5" strokeLinecap="round" />
-                <circle cx="28" cy="32" r="6" fill="#2563EB" />
-            </svg>
-            <span className="mt-1 text-[11px] font-extrabold tracking-wide text-blue-900">
-                KOMINFO JATIM
-            </span>
-        </div>
-    );
-}
-
-export default function Sidebar({ mobileOpen, onClose }) {
+export default function Sidebar({ collapsed, onToggle }) {
     const { user, logout } = useAuth();
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
+
+    const handleLogout = async () => {
+        setLoggingOut(true);
+        try {
+            await logout();
+        } catch { /* ignore */ }
+    };
 
     const initials = user?.name
         ?.split(' ')
@@ -37,82 +35,108 @@ export default function Sidebar({ mobileOpen, onClose }) {
 
     return (
         <>
-            {/* Mobile overlay */}
-            {mobileOpen && (
-                <div
-                    className="fixed inset-0 bg-black/30 z-30 lg:hidden"
-                    onClick={onClose}
-                />
-            )}
-
-            <aside
-                className={`bg-white border-r border-gray-200 flex flex-col h-screen fixed left-0 top-0 w-[248px] z-40 transform transition-transform duration-300 lg:translate-x-0 ${
-                    mobileOpen ? 'translate-x-0' : '-translate-x-full'
-                }`}
-            >
-                {/* Close button (mobile) */}
-                <button
-                    onClick={onClose}
-                    className="absolute right-3 top-3 p-1 text-gray-400 hover:text-gray-600 lg:hidden"
-                >
-                    <X size={18} />
-                </button>
-
-                {/* Logo Area */}
-                <div className="pt-7 pb-5 flex justify-center border-b border-gray-100">
-                    <BrandLogo />
+            <aside className={`bg-bg-card border-r border-sidebar-border flex flex-col h-screen fixed left-0 top-0 transition-all duration-300 z-20 ${
+                collapsed ? 'w-[72px]' : 'w-[334px]'
+            }`}>
+                <div className="pt-8 pb-6 flex flex-col items-center border-b border-gray-100">
+                    {collapsed ? (
+                        <div className="w-11 h-11 flex items-center justify-center">
+                            <img src="/images/logo.png" alt="Logo" className="h-full object-contain" />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="w-[111px] h-20 flex items-center justify-center mb-6">
+                                <img src="/images/logo.png" alt="Logo Kominfo Jatim" className="h-full object-contain" />
+                            </div>
+                            <div className="bg-brand-100/50 px-4 py-1.5 rounded-[10px] w-4/5 text-center">
+                                <span className="text-brand-600 text-xs font-bold tracking-wide">
+                                    {user?.roles?.[0] ?? 'Admin'}
+                                </span>
+                            </div>
+                        </>
+                    )}
                 </div>
 
-                {/* Role badge */}
-                <div className="px-6 py-4 flex justify-center">
-                    <span className="bg-blue-100/70 text-blue-500 text-[11px] font-bold px-5 py-1.5 rounded-full">
-                        {user?.roles?.includes('admin') ? 'Admin WFH' : (user?.roles?.[0] ?? 'Pengguna')}
-                    </span>
-                </div>
-
-                {/* Navigation */}
-                <nav className="flex-1 px-3 space-y-1 overflow-y-auto">
+                <nav className="flex-1 px-4 py-6 space-y-1 overflow-hidden overflow-y-auto">
                     {navItems.map(({ to, icon: Icon, label }) => (
                         <NavLink
                             key={to}
                             to={to}
-                            onClick={onClose}
                             className={({ isActive }) =>
-                                `flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition-colors ${
+                                `flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap ${
                                     isActive
-                                        ? 'bg-blue-50 text-blue-600 font-semibold'
-                                        : 'text-gray-500 hover:bg-gray-50 font-medium'
-                                }`
+                                        ? 'bg-brand-100 text-brand-600 font-bold'
+                                        : 'text-text-secondary hover:bg-gray-50 font-medium'
+                                } ${collapsed ? 'justify-center px-0' : ''}`
                             }
+                            title={collapsed ? label : undefined}
                         >
                             <Icon size={20} strokeWidth={2} className="shrink-0" />
-                            <span className="truncate">{label}</span>
+                            {!collapsed && <span>{label}</span>}
                         </NavLink>
                     ))}
                 </nav>
 
-                {/* Footer Profile */}
-                <div className="p-4 border-t border-gray-100 flex items-center gap-3">
-                    <div className="w-11 h-11 bg-indigo-600 rounded-full flex items-center justify-center text-white font-bold text-sm shrink-0">
-                        {initials}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                        <p className="text-sm font-bold text-gray-900 leading-tight truncate">
-                            {user?.name ?? 'User'}
-                        </p>
-                        <p className="text-xs text-gray-500 truncate">
-                            {user?.team?.field?.name ?? '-'}
-                        </p>
-                        <button
-                            onClick={logout}
-                            className="flex items-center gap-1 text-red-500 hover:text-red-600 text-xs font-semibold mt-0.5"
-                        >
-                            <LogOut size={12} strokeWidth={2.5} />
-                            Keluar
-                        </button>
-                    </div>
+                <div className="p-6 border-t border-sidebar-border mt-auto">
+                    {collapsed ? (
+                        <div className="flex justify-center">
+                            {user?.photo_url ? (
+                                <img src={user.photo_url} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm" />
+                            ) : (
+                                <div className="w-12 h-12 bg-brand-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm">
+                                    {initials}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3 min-w-0">
+                                {user?.photo_url ? (
+                                    <img src={user.photo_url} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm shrink-0" />
+                                ) : (
+                                    <div className="w-12 h-12 bg-brand-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
+                                        {initials}
+                                    </div>
+                                )}
+                                <div className="min-w-0">
+                                    <p className="text-sm font-bold text-text-primary leading-none mb-1.5 truncate">
+                                        {user?.name ?? 'User'}
+                                    </p>
+                                    <p className="text-xs text-text-secondary font-medium truncate">
+                                        {user?.team?.field?.name ?? '-'}
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowConfirm(true)}
+                                className="flex flex-col items-center justify-center text-red-500 hover:text-red-600 transition-colors gap-1 shrink-0"
+                            >
+                                <LogOut size={18} strokeWidth={2} />
+                                <span className="text-[10px] font-bold">Keluar</span>
+                            </button>
+                        </div>
+                    )}
                 </div>
             </aside>
+
+            {/* Konfirmasi Logout */}
+            <Modal open={showConfirm} onClose={() => { if (!loggingOut) setShowConfirm(false); }} width="max-w-sm">
+                <div className="text-center py-4">
+                    <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <AlertTriangle size={28} className="text-red-500" />
+                    </div>
+                    <h3 className="text-lg font-bold text-text-primary">Yakin ingin keluar?</h3>
+                    <p className="text-sm text-text-secondary mt-2">Anda akan kembali ke halaman login.</p>
+                </div>
+                <div className="flex gap-3 justify-center mt-6">
+                    <Button variant="secondary" onClick={() => setShowConfirm(false)} disabled={loggingOut}>
+                        Batal
+                    </Button>
+                    <Button variant="danger" onClick={handleLogout} loading={loggingOut}>
+                        Keluar
+                    </Button>
+                </div>
+            </Modal>
         </>
     );
 }
