@@ -1,18 +1,32 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 
 export default function ForgotPassword() {
-    const [email, setEmail] = useState('');
-    const [sent, setSent] = useState(false);
+    const [password, setPassword] = useState('');
+    const [passwordConfirmation, setPasswordConfirmation] = useState('');
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState(false);
     const [loading, setLoading] = useState(false);
+    const navigate = useNavigate();
+    const location = useLocation();
+    const email = location.state?.email || '';
 
     const handleSubmit = (e) => {
         e.preventDefault();
+        setError('');
+
+        if (password !== passwordConfirmation) {
+            setError('Konfirmasi kata sandi tidak cocok.');
+            return;
+        }
+
         setLoading(true);
-        // TODO: hubungkan ke endpoint backend forgot-password saat sudah tersedia.
+        // TODO: hubungkan ke endpoint backend untuk memperbarui kata sandi
+        // berdasarkan identitas user (email) saat backend sudah tersedia.
         setTimeout(() => {
             setLoading(false);
-            setSent(true);
+            setSuccess(true);
+            setTimeout(() => navigate('/login'), 2000);
         }, 600);
     };
 
@@ -28,26 +42,47 @@ export default function ForgotPassword() {
             <div className="flex-1 flex items-center justify-center px-4 pb-16">
                 <div className="w-full max-w-md bg-white rounded-2xl shadow-xl p-8">
                     <h2 className="text-2xl font-bold text-brand-700">Lupa Kata Sandi</h2>
-                    <p className="text-sm text-text-secondary mt-1">
-                        Masukkan email Anda untuk menerima tautan reset kata sandi.
-                    </p>
+                    <p className="text-sm text-text-secondary mt-1">Silakan Perbarui Kata Sandi Anda.</p>
 
-                    {sent ? (
+                    {error && (
+                        <div className="mt-5 p-3 bg-error-bg border border-error-border rounded-lg text-error text-sm">
+                            {error}
+                        </div>
+                    )}
+
+                    {success ? (
                         <div className="mt-6 p-4 bg-success-bg border border-success-border rounded-lg text-success text-sm">
-                            Jika email terdaftar, tautan reset kata sandi telah dikirim. Silakan cek kotak masuk email Anda.
+                            Kata sandi berhasil diperbarui. Mengalihkan ke halaman masuk...
                         </div>
                     ) : (
                         <form onSubmit={handleSubmit} className="mt-6 space-y-5">
                             <div>
                                 <label className="block text-sm font-bold text-text-primary mb-1.5">
-                                    Email
+                                    Kata Sandi Baru
                                 </label>
                                 <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="nama.pengguna@gmail.com"
-                                    autoComplete="username"
+                                    type="password"
+                                    value={password}
+                                    onChange={(e) => setPassword(e.target.value)}
+                                    placeholder="Masukkan kata sandi baru"
+                                    autoComplete="new-password"
+                                    minLength={8}
+                                    required
+                                    className="w-full px-4 py-2.5 border border-border-light rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-text-primary mb-1.5">
+                                    Konfirmasi Kata sandi
+                                </label>
+                                <input
+                                    type="password"
+                                    value={passwordConfirmation}
+                                    onChange={(e) => setPasswordConfirmation(e.target.value)}
+                                    placeholder="••••••••"
+                                    autoComplete="new-password"
+                                    minLength={8}
                                     required
                                     className="w-full px-4 py-2.5 border border-border-light rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all"
                                 />
@@ -58,7 +93,7 @@ export default function ForgotPassword() {
                                 disabled={loading}
                                 className="w-full py-3 bg-brand-500 text-white font-semibold rounded-lg hover:bg-brand-600 focus:ring-4 focus:ring-brand-100 transition disabled:opacity-60 disabled:cursor-not-allowed"
                             >
-                                {loading ? 'Mengirim...' : 'Kirim Tautan Reset'}
+                                {loading ? 'Memperbarui...' : 'Perbarui Kata Sandi'}
                             </button>
                         </form>
                     )}

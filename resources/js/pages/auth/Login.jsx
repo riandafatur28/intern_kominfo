@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, Navigate, useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
 export default function Login() {
@@ -27,6 +27,10 @@ export default function Login() {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleForgotPassword = () => {
+        navigate('/forgot-password', { state: { email } });
     };
 
     return (
@@ -72,9 +76,13 @@ export default function Login() {
                                 <label className="block text-sm font-bold text-text-primary">
                                     Kata sandi
                                 </label>
-                                <Link to="/forgot-password" className="text-sm text-brand-500 font-medium hover:underline">
+                                <button
+                                    type="button"
+                                    onClick={handleForgotPassword}
+                                    className="text-sm text-brand-500 font-medium hover:underline"
+                                >
                                     Lupa sandi?
-                                </Link>
+                                </button>
                             </div>
                             <input
                                 type="password"

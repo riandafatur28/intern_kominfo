@@ -2,7 +2,6 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout.jsx';
 import Login from '../pages/auth/Login.jsx';
 import ForgotPassword from '../pages/auth/ForgotPassword.jsx';
-import ResetPassword from '../pages/auth/ResetPassword.jsx';
 import DashboardAdmin from '../pages/admin/DashboardAdmin.jsx';
 import StatusLaporanWfh from '../pages/admin/StatusLaporanWfh.jsx';
 import MonitorWfh from '../pages/admin/MonitorWfh.jsx';
@@ -17,10 +16,6 @@ export const router = createBrowserRouter([
     {
         path: '/forgot-password',
         element: <ForgotPassword />,
-    },
-    {
-        path: '/reset-password/:token',
-        element: <ResetPassword />,
     },
     {
         path: '/',
