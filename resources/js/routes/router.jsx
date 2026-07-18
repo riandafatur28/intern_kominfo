@@ -9,6 +9,8 @@ import MonitorWfh from '../pages/admin/MonitorWfh.jsx';
 import GoogleSpreadsheet from '../pages/admin/GoogleSpreadsheet.jsx';
 import ProfilSaya from '../pages/admin/ProfilSaya.jsx';
 import StubPage from '../pages/pegawai/StubPage.jsx';
+import LaporanKegiatan from '../pages/pegawai/LaporanKegiatan.jsx';
+import InisiasiPerubahan from '../pages/pegawai/InisiasiPerubahan.jsx';
 
 export const router = createBrowserRouter([
     {
@@ -34,8 +36,8 @@ export const router = createBrowserRouter([
             { path: 'spreadsheet', element: <GoogleSpreadsheet /> },
             { path: 'profil', element: <ProfilSaya /> },
             { path: 'absensi-wfh', element: <StubPage title="Absensi WFH" /> },
-            { path: 'laporan-kegiatan', element: <StubPage title="Laporan Kegiatan" /> },
-            { path: 'inisiasi-perubahan', element: <StubPage title="Inisiasi Perubahan" /> },
+            { path: 'laporan-kegiatan', element: <LaporanKegiatan /> },
+            { path: 'inisiasi-perubahan', element: <InisiasiPerubahan /> },
         ],
     },
 ]);
