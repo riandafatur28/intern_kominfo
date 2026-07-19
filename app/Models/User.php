@@ -24,6 +24,7 @@ class User extends Authenticatable
         'email',
         'phone',
         'signature_path',
+        'photo_path',
         'password',
         'is_active',
     ];

@@ -8,11 +8,14 @@ use App\Domains\ChangeManagement\Http\Controllers\InitiationController;
 use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
 use App\Domains\Organization\Http\Controllers\RoleController;
+use App\Domains\Organization\Http\Controllers\TeamController;
 use App\Domains\Organization\Http\Controllers\UserController;
 use App\Domains\Wfh\Http\Controllers\AttendanceController;
+use App\Domains\Wfh\Http\Controllers\DashboardController;
 use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportController;
 use App\Domains\Wfh\Http\Controllers\ReportPdfController;
+use App\Domains\Wfh\Http\Controllers\SpreadsheetSyncController;
 use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
 use App\Http\Controllers\QrVerificationController;
 use Illuminate\Support\Facades\Route;
@@ -28,7 +31,9 @@ Route::middleware('auth:sanctum')->group(function () {
     // Profile
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/password', [ProfileController::class, 'changePassword']);
     Route::post('/profile/signature', [ProfileController::class, 'uploadSignature']);
+    Route::post('/profile/photo', [ProfileController::class, 'uploadPhoto']);
 
     // Admin User Management
     Route::middleware('permission:user.manage')->group(function () {
@@ -37,6 +42,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/admin/users/{user}', [UserController::class, 'show']);
         Route::put('/admin/users/{user}', [UserController::class, 'update']);
         Route::delete('/admin/users/{user}', [UserController::class, 'destroy']);
+        Route::get('/admin/teams', [TeamController::class, 'index']);
     });
 
     Route::middleware('permission:user.import')->group(function () {
@@ -73,6 +79,15 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/wfh/reports/{report}/revise', [ReportApprovalController::class, 'revise']);
 
     Route::get('/admin/wfh/monitoring', [WfhMonitoringController::class, 'index'])
+        ->middleware('permission:wfh.monitoring.view');
+
+    Route::get('/admin/wfh/monitoring/board', [WfhMonitoringController::class, 'board'])
+        ->middleware('permission:wfh.monitoring.view');
+
+    Route::get('/admin/wfh/spreadsheet', [SpreadsheetSyncController::class, 'status'])
+        ->middleware('permission:wfh.monitoring.view');
+
+    Route::get('/admin/wfh/dashboard', [DashboardController::class, 'index'])
         ->middleware('permission:wfh.monitoring.view');
 
     Route::get('/admin/wfh/reports', [ReportController::class, 'adminIndex'])

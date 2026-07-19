@@ -35,6 +35,7 @@ return [
     */
 
     'env' => env('APP_ENV', 'production'),
+    'admin_password' => env('APP_ADMIN_PASSWORD'),
 
     /*
     |--------------------------------------------------------------------------
@@ -130,6 +131,17 @@ return [
     'key' => env('APP_KEY'),
 
     'cipher' => 'AES-256-CBC',
+
+    /*
+    |--------------------------------------------------------------------------
+    | Admin Default Password
+    |--------------------------------------------------------------------------
+    |
+    | Used by AdminUserSeeder to set the initial admin password.
+    |
+    */
+
+    'admin_password' => env('ADMIN_PASSWORD', 'admin123'),
 
     /*
     |--------------------------------------------------------------------------

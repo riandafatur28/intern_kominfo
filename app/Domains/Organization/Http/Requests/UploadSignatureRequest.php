@@ -2,6 +2,7 @@
 
 namespace App\Domains\Organization\Http\Requests;
 
+use App\Rules\SignatureImage;
 use Illuminate\Foundation\Http\FormRequest;
 
 class UploadSignatureRequest extends FormRequest
@@ -14,7 +15,11 @@ class UploadSignatureRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'signature' => ['required', 'image', 'mimes:png,jpg,jpeg', 'max:2048', 'dimensions:max_width=2000,max_height=2000'],
+            'signature' => [
+                'required', 'image', 'mimes:png,jpg,jpeg', 'max:2048',
+                'dimensions:max_width=2000,max_height=2000',
+                new SignatureImage,
+            ],
         ];
     }
 
