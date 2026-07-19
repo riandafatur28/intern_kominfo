@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Calendar, RefreshCw, FileDown, Search, ChevronDown, Check, X,
-    Eye, Bell, Download, Loader2,
+    Eye, MessageSquare, Download, Loader2,
 } from 'lucide-react';
 import { getMonitoringBoard, getReportDetail } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
@@ -159,9 +160,8 @@ export default function MonitorWfh() {
                         {Array.from({ length: stats?.jumat_total ?? 0 }).map((_, i) => (
                             <div
                                 key={i}
-                                className={`h-1.5 flex-1 rounded-full ${
-                                    i < (stats?.jumat_terlaksana ?? 0) ? 'bg-indigo-500' : 'bg-gray-200'
-                                }`}
+                                className={`h-1.5 flex-1 rounded-full ${i < (stats?.jumat_terlaksana ?? 0) ? 'bg-indigo-500' : 'bg-gray-200'
+                                    }`}
                             />
                         ))}
                     </div>
@@ -286,11 +286,10 @@ export default function MonitorWfh() {
                             <button
                                 key={p}
                                 onClick={() => setPage(p)}
-                                className={`w-10 h-10 text-sm font-semibold rounded-lg transition-colors ${
-                                    p === (meta?.current_page ?? 1)
-                                        ? 'bg-indigo-500 text-white'
-                                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
+                                className={`w-10 h-10 text-sm font-semibold rounded-lg transition-colors ${p === (meta?.current_page ?? 1)
+                                    ? 'bg-indigo-500 text-white'
+                                    : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    }`}
                             >
                                 {p}
                             </button>
@@ -359,22 +358,48 @@ function StatusBadge({ status }) {
 function PreviewDropdown({ emp, date, onSendReminder }) {
     const [open, setOpen] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
-    const ref = useRef(null);
+    const [menuPos, setMenuPos] = useState(null);
+    const triggerRef = useRef(null);
+    const menuRef = useRef(null);
     const token = localStorage.getItem('token');
 
-    useEffect(() => {
-        const handler = (e) => {
-            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
-        };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
+    const MENU_WIDTH = 208; // w-52
 
-    const canPreview = !!emp.report_id;
-    const belumAbsen = emp.report_status === 'belum_absensi';
+    const openMenu = () => {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (rect) {
+            setMenuPos({
+                top: rect.bottom + 4,
+                left: Math.max(8, rect.right - MENU_WIDTH),
+            });
+        }
+        setOpen(true);
+    };
+
+    const toggleMenu = () => (open ? setOpen(false) : openMenu());
+
+    // Tutup dropdown saat klik di luar, scroll, atau resize
+    useEffect(() => {
+        if (!open) return;
+        const handleClick = (e) => {
+            if (
+                triggerRef.current?.contains(e.target) ||
+                menuRef.current?.contains(e.target)
+            ) return;
+            setOpen(false);
+        };
+        const handleClose = () => setOpen(false);
+        document.addEventListener('mousedown', handleClick);
+        window.addEventListener('scroll', handleClose, true);
+        window.addEventListener('resize', handleClose);
+        return () => {
+            document.removeEventListener('mousedown', handleClick);
+            window.removeEventListener('scroll', handleClose, true);
+            window.removeEventListener('resize', handleClose);
+        };
+    }, [open]);
 
     const handleDownload = () => {
-        if (!emp.report_id) return;
         window.open(`/api/wfh/reports/${emp.report_id}/pdf${token ? `?token=${token}` : ''}`, '_blank');
         setOpen(false);
     };
@@ -385,44 +410,50 @@ function PreviewDropdown({ emp, date, onSendReminder }) {
     };
 
     return (
-        <div className="relative" ref={ref}>
-            <button
-                onClick={() => setOpen((o) => !o)}
-                className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-500 transition-colors"
-            >
-                <div className="flex items-center gap-0.5">
-                    <Eye size={18} />
-                    <ChevronDown size={13} />
-                </div>
-                <span className="text-[10px] font-medium">Preview</span>
-            </button>
+        <div className="inline-flex flex-col items-center" ref={triggerRef}>
+            {/* Trigger: Preview + tombol dropdown */}
+            <div className="flex items-center gap-1">
+                <button
+                    type="button"
+                    onClick={() => setShowDetail(true)}
+                    title="Preview laporan"
+                    className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                >
+                    <Eye size={19} />
+                    <span className="text-[11px] font-medium text-gray-500">Preview</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={toggleMenu}
+                    aria-label="Aksi lainnya"
+                    aria-expanded={open}
+                    className="p-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                >
+                    <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                </button>
+            </div>
 
-            {open && (
-                <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 text-left">
+            {/* Dropdown: Peringatan + Unduh (portal agar tidak terpotong tabel) */}
+            {open && menuPos && createPortal(
+                <div
+                    ref={menuRef}
+                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
+                    className="bg-white border border-gray-100 rounded-xl shadow-lg z-50 py-1 text-left"
+                >
                     <button
-                        onClick={() => { setShowDetail(true); setOpen(false); }}
-                        disabled={!canPreview}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={handleReminder}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
                     >
-                        <Eye size={15} /> Lihat Detail
+                        <MessageSquare size={16} /> Peringatan
                     </button>
                     <button
                         onClick={handleDownload}
-                        disabled={!canPreview}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
                     >
-                        <Download size={15} /> Unduh Laporan Perorangan
+                        <Download size={16} /> Unduh Perorangan
                     </button>
-                    <div className="my-1 border-t border-gray-50" />
-                    <button
-                        onClick={handleReminder}
-                        disabled={!belumAbsen}
-                        title={!belumAbsen ? 'Hanya untuk pegawai yang belum absen' : undefined}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 disabled:text-gray-400 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        <Bell size={15} /> Kirim Peringatan
-                    </button>
-                </div>
+                </div>,
+                document.body
             )}
 
             {showDetail && (
