@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
-import { Hash, Building2, Briefcase, ShieldCheck, Upload, Save } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+import { Hash, Building2, Briefcase, ShieldCheck, Upload, Save, Camera, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
 
 /* ---------------- Info row (profile card) ---------------- */
 function InfoRow({ icon: Icon, label, value }) {
@@ -15,11 +16,10 @@ function InfoRow({ icon: Icon, label, value }) {
     );
 }
 
-/* ---------------- Field ---------------- */
 const fieldCls =
     'w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all';
 
-function Field({ label, value, onChange, type = 'text', placeholder = '', readOnly = false }) {
+function Field({ label, value, onChange, type = 'text', placeholder = '', readOnly = false, error }) {
     return (
         <div>
             <label className="block text-sm text-gray-600 mb-1.5">{label}</label>
@@ -29,50 +29,158 @@ function Field({ label, value, onChange, type = 'text', placeholder = '', readOn
                 onChange={onChange}
                 placeholder={placeholder}
                 readOnly={readOnly}
-                className={`${fieldCls} ${readOnly ? 'bg-gray-50 text-gray-500' : ''}`}
+                className={`${fieldCls} ${readOnly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''} ${error ? 'border-red-300' : ''}`}
             />
+            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         </div>
     );
 }
 
 export default function ProfilPegawai() {
-    const { user } = useAuth();
-
-    const initials = user?.name
-        ?.split(' ').map((s) => s[0]).join('').toUpperCase().slice(0, 2) ?? 'S';
-
-    const roleLabel = user?.roles?.[0] === 'admin' ? 'WFH Admin' : 'Pegawai';
+    const { user: authUser, fetchUser } = useAuth();
+    const [profile, setProfile] = useState(null);
+    const [loading, setLoading] = useState(true);
+    const [toast, setToast] = useState(null); // { type, message }
+    const photoInputRef = useRef(null);
 
     const [form, setForm] = useState({
-        name: user?.name ?? 'Susanti',
-        email: user?.email ?? 'Susanti@jatimprov.go.id',
-        phone: user?.phone ?? '0895377689890',
-        nip: user?.nip ?? '1985021520100112002',
-        rank: user?.rank ?? 'Penata Tingkat 1',
-        position: user?.position ?? 'Administrator WFH',
-        field: user?.team?.field?.name ?? 'Bidang Aplikasi',
+        name: '', email: '', phone: '', nip: '', rank: '', position: '', field: '',
     });
-    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+    const setF = (k) => (v) => setForm((f) => ({ ...f, [k]: typeof v === 'function' ? v(f[k]) : v }));
 
     const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' });
-    const setPwdField = (k) => (e) => setPwd((p) => ({ ...p, [k]: e.target.value }));
+    const setPwdF = (k) => (e) => setPwd((p) => ({ ...p, [k]: e.target.value }));
 
-    const handleSaveProfile = (e) => {
+    const [photoLoading, setPhotoLoading] = useState(false);
+
+    const initials = (profile?.name || form.name || 'U')
+        .split(' ').map((s) => s[0]).join('').toUpperCase().slice(0, 2);
+
+    const roleLabel = (() => {
+        const roles = profile?.roles || authUser?.roles || [];
+        if (!roles.length) return '-';
+        const labels = { admin: 'WFH Admin', kepala_bidang: 'Kepala Bidang', kepala_tim: 'Kepala Tim', staf: 'Staf' };
+        return labels[roles[0]] || roles[0];
+    })();
+
+    useEffect(() => {
+        getProfile()
+            .then((p) => {
+                setProfile(p);
+                setForm({
+                    name: p.name || '',
+                    email: p.email || '',
+                    phone: p.phone || '',
+                    nip: p.nip || '',
+                    rank: p.rank || '',
+                    position: p.position || '',
+                    field: p.team?.field?.name || '',
+                });
+            })
+            .catch(() => {
+                // fallback to auth user
+                const u = authUser;
+                if (u) {
+                    setForm({
+                        name: u.name || '',
+                        email: u.email || '',
+                        phone: u.phone || '',
+                        nip: u.nip || '',
+                        rank: u.rank || '',
+                        position: u.position || '',
+                        field: u.team?.field?.name || '',
+                    });
+                }
+            })
+            .finally(() => setLoading(false));
+    }, [authUser]);
+
+    const handleSaveProfile = async (e) => {
         e.preventDefault();
-        // TODO: hubungkan ke PUT /api/profile saat integrasi backend.
+        try {
+            await updateProfile({ phone: form.phone, position: form.position, rank: form.rank });
+            await fetchUser?.();
+            setToast({ type: 'success', message: 'Profil berhasil diperbarui.' });
+        } catch (err) {
+            setToast({ type: 'error', message: err.response?.data?.message || 'Gagal memperbarui profil.' });
+        }
+        setTimeout(() => setToast(null), 3500);
     };
+
+    const handleChangePassword = async (e) => {
+        e.preventDefault();
+        if (pwd.next !== pwd.confirm) {
+            setToast({ type: 'error', message: 'Konfirmasi password tidak cocok.' });
+            return;
+        }
+        try {
+            await changePassword({ current_password: pwd.current, password: pwd.next, password_confirmation: pwd.confirm });
+            setToast({ type: 'success', message: 'Password berhasil diubah.' });
+            setPwd({ current: '', next: '', confirm: '' });
+        } catch (err) {
+            setToast({ type: 'error', message: err.response?.data?.message || 'Gagal mengubah password.' });
+        }
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    const handlePhotoChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setPhotoLoading(true);
+        try {
+            const fd = new FormData();
+            fd.append('photo', file);
+            await uploadPhoto(fd);
+            await fetchUser?.();
+            setToast({ type: 'success', message: 'Foto profil berhasil diunggah.' });
+        } catch (err) {
+            setToast({ type: 'error', message: err.response?.data?.message || 'Gagal mengunggah foto.' });
+        } finally {
+            setPhotoLoading(false);
+        }
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    if (loading) {
+        return (
+            <div className="flex items-center justify-center h-96">
+                <Loader2 className="animate-spin text-brand-500" size={32} />
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-[1200px] mx-auto">
             <h1 className="text-3xl font-extrabold text-gray-900">Profil Saya</h1>
 
+            {toast && (
+                <div className={`mt-4 p-3 rounded-lg text-sm ${
+                    toast.type === 'success'
+                        ? 'bg-green-50 border border-green-200 text-green-700'
+                        : 'bg-red-50 border border-red-200 text-red-600'
+                }`}>
+                    {toast.message}
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 {/* ---- Profile card ---- */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                    <div className="flex flex-col items-center text-center pb-6 border-b border-gray-100">
-                        <div className="w-24 h-24 rounded-full bg-brand-500 flex items-center justify-center text-white text-3xl font-bold">
-                            {initials}
+                    <div className="flex flex-col items-center text-center pb-6 border-b border-gray-100 relative">
+                        <div className="w-24 h-24 rounded-full bg-brand-500 flex items-center justify-center text-white text-3xl font-bold relative overflow-hidden">
+                            {photoLoading ? (
+                                <Loader2 size={28} className="animate-spin" />
+                            ) : (
+                                initials
+                            )}
+                            <button
+                                onClick={() => photoInputRef.current?.click()}
+                                className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
+                            >
+                                <Camera size={20} className="text-white" />
+                            </button>
                         </div>
+                        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
                         <h2 className="mt-4 text-lg font-bold text-gray-900">{form.name}</h2>
                         <p className="text-sm text-gray-500">{form.position}</p>
                         <p className="text-sm text-gray-400">{form.field}</p>
@@ -99,13 +207,13 @@ export default function ProfilPegawai() {
                     </div>
                     <form onSubmit={handleSaveProfile} className="pt-6">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-                            <Field label="Nama Lengkap" value={form.name} onChange={set('name')} />
-                            <Field label="Email Dinas" value={form.email} onChange={set('email')} type="email" />
-                            <Field label="No Telpon" value={form.phone} onChange={set('phone')} />
-                            <Field label="NIP" value={form.nip} onChange={set('nip')} />
-                            <Field label="Pangkat/Golongan" value={form.rank} onChange={set('rank')} />
-                            <Field label="Jabatan" value={form.position} onChange={set('position')} />
-                            <Field label="Bidang/Unit Kerja" value={form.field} onChange={set('field')} />
+                            <Field label="Nama Lengkap" value={form.name} readOnly />
+                            <Field label="Email Dinas" value={form.email} readOnly />
+                            <Field label="No Telpon" value={form.phone} onChange={(e) => setF('phone')(e.target.value)} />
+                            <Field label="NIP" value={form.nip} readOnly />
+                            <Field label="Pangkat/Golongan" value={form.rank} onChange={(e) => setF('rank')(e.target.value)} />
+                            <Field label="Jabatan" value={form.position} onChange={(e) => setF('position')(e.target.value)} />
+                            <Field label="Bidang/Unit Kerja" value={form.field} readOnly />
                             <div className="flex items-end justify-end">
                                 <button
                                     type="submit"
@@ -125,20 +233,20 @@ export default function ProfilPegawai() {
                         <h2 className="text-lg font-bold text-gray-900">Keamanan Akun</h2>
                         <p className="text-xs text-gray-400 mt-0.5">Pengaturan Password dan Keamanan</p>
                     </div>
-                    <div className="pt-6 space-y-5">
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">Password Lama</label>
-                            <input type="password" value={pwd.current} onChange={setPwdField('current')} className={fieldCls} />
+                    <form onSubmit={handleChangePassword}>
+                        <div className="pt-6 space-y-5">
+                            <Field label="Password Lama" value={pwd.current} onChange={setPwdF('current')} type="password" />
+                            <Field label="Password Baru" value={pwd.next} onChange={setPwdF('next')} type="password" />
+                            <Field label="Konfirmasi Password" value={pwd.confirm} onChange={setPwdF('confirm')} type="password" />
+                            <button
+                                type="submit"
+                                className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+                            >
+                                <Save size={16} />
+                                Ubah Password
+                            </button>
                         </div>
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">Password Baru</label>
-                            <input type="password" value={pwd.next} onChange={setPwdField('next')} className={fieldCls} />
-                        </div>
-                        <div>
-                            <label className="block text-sm text-gray-600 mb-1.5">Konfirmasi Password</label>
-                            <input type="password" value={pwd.confirm} onChange={setPwdField('confirm')} className={fieldCls} />
-                        </div>
-                    </div>
+                    </form>
                 </div>
 
                 {/* ---- Tanda Tangan Digital ---- */}
@@ -148,16 +256,40 @@ export default function ProfilPegawai() {
                         <p className="text-xs text-gray-400 mt-0.5">Digunakan Otomatis dalam PDF</p>
                     </div>
                     <div className="pt-6">
-                        <div className="border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/60 h-40 flex flex-col items-center justify-center gap-2">
-                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                                <Upload size={18} className="text-gray-400" />
+                        {profile?.signature_path ? (
+                            <img src={profile.signature_path} alt="Tanda Tangan" className="max-h-32 border border-gray-100 rounded-lg mb-4" />
+                        ) : (
+                            <div className="border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/60 h-40 flex flex-col items-center justify-center gap-2">
+                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
+                                    <Upload size={18} className="text-gray-400" />
+                                </div>
+                                <p className="text-sm text-gray-400">Belum ada tanda tangan</p>
                             </div>
-                            <p className="text-sm text-gray-400">Belum ada tanda tangan</p>
-                        </div>
-                        <button className="mt-4 flex items-center gap-2 border border-gray-200 text-sm font-semibold text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors">
+                        )}
+                        <button
+                            onClick={() => document.getElementById('signature-input')?.click()}
+                            className="mt-4 flex items-center gap-2 border border-gray-200 text-sm font-semibold text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+                        >
                             <Upload size={16} />
-                            Upload Tanda Tangan
+                            {profile?.signature_path ? 'Ganti Tanda Tangan' : 'Upload Tanda Tangan'}
                         </button>
+                        <input id="signature-input" type="file" accept="image/*" className="hidden"
+                            onChange={async (e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                try {
+                                    const fd = new FormData();
+                                    fd.append('photo', file);
+                                    await uploadPhoto(fd);
+                                    const p = await getProfile();
+                                    setProfile(p);
+                                    setToast({ type: 'success', message: 'Tanda tangan berhasil diunggah.' });
+                                } catch (err) {
+                                    setToast({ type: 'error', message: 'Gagal mengunggah tanda tangan.' });
+                                }
+                                setTimeout(() => setToast(null), 3500);
+                            }}
+                        />
                         <p className="text-xs text-gray-400 mt-3 leading-relaxed">
                             Format: JPG/PNG dengan latar belakang putih. Tanda tangan ini akan otomatis muncul pada laporan PDF
                         </p>

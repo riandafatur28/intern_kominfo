@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
-import { Calendar, Pencil } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Calendar, Pencil, Loader2 } from 'lucide-react';
+import { changesApi } from '../../api/changes';
+import { useAuth } from '../../context/AuthContext';
 
 /* ---------------- Reusable field bits ---------------- */
 function Label({ children }) {
@@ -28,48 +30,94 @@ function SelectField({ label, value, onChange, options }) {
     );
 }
 
-/* ---------------- Status badge for Riwayat ---------------- */
+/* ---------------- Status badge ---------------- */
 function RiwayatStatus({ status }) {
-    if (status === 'draf') {
-        return (
-            <span className="inline-flex items-center gap-1 text-gray-600">
-                Draf <Pencil size={13} className="text-brand-500" />
-            </span>
-        );
-    }
-    return <span className="text-gray-600">{status === 'disetujui' ? 'Disetujui' : 'Menunggu'}</span>;
+    const map = {
+        draft: { label: 'Draf', cls: 'text-gray-600' },
+        pending: { label: 'Menunggu', cls: 'text-amber-600' },
+        approved: { label: 'Disetujui', cls: 'text-green-600' },
+        rejected: { label: 'Ditolak', cls: 'text-red-600' },
+    };
+    const s = map[status] || { label: status, cls: 'text-gray-600' };
+    return (
+        <span className={`${s.cls}`}>
+            {s.label}
+            {status === 'draft' && <Pencil size={13} className="inline ml-1 text-brand-500" />}
+        </span>
+    );
 }
 
-const RIWAYAT_ROWS = [
-    { no: 'CR-2026-002', tgl: '2026-07-07', prioritas: 'Emergency Change', status: 'disetujui', pdf: true },
-    { no: 'CR-2026-002', tgl: '2026-07-07', prioritas: 'Emergency Change', status: 'menunggu', pdf: false },
-    { no: 'CR-2026-002', tgl: '2026-07-07', prioritas: 'Emergency Change', status: 'draf', pdf: false },
-    { no: 'CR-2026-002', tgl: '2026-07-07', prioritas: 'Emergency Change', status: 'disetujui', pdf: true },
-];
+function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+}
 
 export default function InisiasiPerubahan() {
+    const { user } = useAuth();
     const [tab, setTab] = useState('form');
     const [form, setForm] = useState({
-        nomor: 'CR-2026-002',
-        tanggal: '2026-07-10',
-        tipe: '', prioritas: '', dampak: '',
-        dampakProduksi: '', upaya: '',
-        kebutuhanBiaya: '', jumlahBiaya: '',
-        sumberDaya: '', rencanaPengujian: '',
-        evalNama: '', evalBidang: '', evalJabatan: '',
+        description: '',
+        reason: '',
+        needed_by_date: todayStr(),
     });
+    const [saving, setSaving] = useState(false);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+
+    // Riwayat list
+    const [riwayat, setRiwayat] = useState([]);
+    const [riwayatLoading, setRiwayatLoading] = useState(false);
+
     const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
-    const handleSubmit = (e, isDraft) => {
+    const fetchRiwayat = useCallback(async () => {
+        setRiwayatLoading(true);
+        try {
+            const res = await changesApi.getInitiations({ per_page: 50 });
+            setRiwayat(res.data.data || []);
+        } catch {
+            // silent
+        } finally {
+            setRiwayatLoading(false);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (tab === 'riwayat') fetchRiwayat();
+    }, [tab, fetchRiwayat]);
+
+    const handleSubmit = async (e, isDraft) => {
         e.preventDefault();
-        // TODO: hubungkan ke endpoint backend (POST /api/changes/initiations)
-        // saat integrasi backend dilakukan. isDraft menentukan status draf/kirim.
-        void isDraft;
+        setSaving(true);
+        setError('');
+        setSuccess('');
+        try {
+            const payload = {
+                ...form,
+                field_id: user?.team?.field?.id,
+            };
+            const res = await changesApi.createInitiation(payload);
+            if (!isDraft) {
+                await changesApi.submitInitiation(res.data.data.id);
+            }
+            setSuccess(isDraft ? 'Draf berhasil disimpan.' : 'Inisiasi berhasil dikirim.');
+            setForm({ description: '', reason: '', needed_by_date: todayStr() });
+        } catch (e) {
+            setError(e.response?.data?.message || 'Gagal menyimpan inisiasi.');
+        } finally {
+            setSaving(false);
+        }
     };
 
     return (
         <div className="max-w-[1200px] mx-auto">
             <h1 className="text-3xl font-extrabold text-gray-900">Inisiasi Perubahan</h1>
+
+            {error && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
+            )}
+            {success && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">{success}</div>
+            )}
 
             {/* Tabs */}
             <div className="flex items-center gap-3 mt-6">
@@ -105,65 +153,43 @@ export default function InisiasiPerubahan() {
                         <div className="p-6 space-y-5">
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                                 <div>
-                                    <Label>Nomor Permohonan</Label>
-                                    <input value={form.nomor} readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
+                                    <Label>Bidang</Label>
+                                    <input value={user?.team?.field?.name || '-'} readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
                                 </div>
                                 <div>
                                     <Label>Tanggal Pengajuan</Label>
                                     <div className="relative">
                                         <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
-                                        <input type="date" value={form.tanggal} onChange={set('tanggal')} className={`${inputCls} pl-10`} />
+                                        <input
+                                            type="date"
+                                            value={form.needed_by_date || todayStr()}
+                                            onChange={set('needed_by_date')}
+                                            className={`${inputCls} pl-10`}
+                                        />
                                     </div>
                                 </div>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                <SelectField label="Tipe Perubahan" value={form.tipe} onChange={set('tipe')} options={['Hardware', 'Software', 'Network', 'Prosedur']} />
-                                <SelectField label="Prioritas Perubahan" value={form.prioritas} onChange={set('prioritas')} options={['Normal Change', 'Emergency Change', 'Standard Change']} />
-                                <SelectField label="Dampak Perubahan" value={form.dampak} onChange={set('dampak')} options={['Rendah', 'Sedang', 'Tinggi']} />
-                            </div>
-                        </div>
-                    </section>
-
-                    {/* Detail Perubahan */}
-                    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                        <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
-                            Detail Perubahan
-                        </h2>
-                        <div className="p-6 space-y-5">
                             <div>
-                                <Label>Dampak Terhadap Lingkungan Produksi</Label>
-                                <textarea value={form.dampakProduksi} onChange={set('dampakProduksi')} rows={3} className={`${inputCls} resize-none`} />
+                                <Label>Deskripsi Permohonan</Label>
+                                <textarea
+                                    value={form.description}
+                                    onChange={set('description')}
+                                    placeholder="Jelaskan latar belakang dan tujuan perubahan..."
+                                    rows={4}
+                                    className={`${inputCls} resize-none`}
+                                    required
+                                />
                             </div>
                             <div>
-                                <Label>Upaya / Tindakan yang Diperlukan</Label>
-                                <textarea value={form.upaya} onChange={set('upaya')} rows={3} className={`${inputCls} resize-none`} />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <SelectField label="Kebutuhan Biaya" value={form.kebutuhanBiaya} onChange={set('kebutuhanBiaya')} options={['Ya', 'Tidak']} />
-                                <div>
-                                    <Label>Jumlah Biaya</Label>
-                                    <input value={form.jumlahBiaya} onChange={set('jumlahBiaya')} placeholder="Rp." className={inputCls} />
-                                </div>
-                            </div>
-                            <div>
-                                <Label>Kebutuhan Sumber Daya</Label>
-                                <input value={form.sumberDaya} onChange={set('sumberDaya')} className={inputCls} />
-                            </div>
-                            <div>
-                                <Label>Penjelasan Rencana Pengujian</Label>
-                                <input value={form.rencanaPengujian} onChange={set('rencanaPengujian')} className={inputCls} />
-                            </div>
-                            <div>
-                                <Label>Dievaluasi Oleh</Label>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <input value={form.evalNama} onChange={set('evalNama')} placeholder="Nama" className={inputCls} />
-                                    <input value={form.evalBidang} onChange={set('evalBidang')} placeholder="Bidang" className={inputCls} />
-                                    <input value={form.evalJabatan} onChange={set('evalJabatan')} placeholder="Jabatan" className={inputCls} />
-                                </div>
-                            </div>
-                            <div>
-                                <Label>Tanda Tangan</Label>
-                                <div className="w-64 h-32 border border-brand-200 rounded-lg bg-white" />
+                                <Label>Alasan / Justifikasi</Label>
+                                <textarea
+                                    value={form.reason}
+                                    onChange={set('reason')}
+                                    placeholder="Mengapa perubahan ini diperlukan?"
+                                    rows={3}
+                                    className={`${inputCls} resize-none`}
+                                    required
+                                />
                             </div>
                         </div>
                     </section>
@@ -173,15 +199,17 @@ export default function InisiasiPerubahan() {
                         <button
                             type="button"
                             onClick={(e) => handleSubmit(e, true)}
-                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors"
+                            disabled={saving}
+                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50"
                         >
-                            Simpan Draf
+                            {saving ? 'Menyimpan...' : 'Simpan Draf'}
                         </button>
                         <button
                             type="submit"
-                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors"
+                            disabled={saving}
+                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
                         >
-                            Kirim Laporan
+                            {saving ? 'Mengirim...' : 'Kirim Laporan'}
                         </button>
                     </div>
                 </form>
@@ -191,7 +219,7 @@ export default function InisiasiPerubahan() {
                         <h2 className="text-base font-bold text-gray-800">Daftar Riwayat Permohonan</h2>
                         <div className="relative">
                             <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                            <input type="date" defaultValue="2026-07-10" className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 outline-none focus:ring-2 focus:ring-brand-100" />
+                            <input type="date" defaultValue={todayStr()} className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 outline-none focus:ring-2 focus:ring-brand-100" />
                         </div>
                     </div>
 
@@ -200,23 +228,29 @@ export default function InisiasiPerubahan() {
                             <table className="w-full min-w-[700px]">
                                 <thead>
                                     <tr className="text-gray-700 text-sm font-bold border-b border-gray-100">
-                                        <th className="text-left px-8 py-5">Nomor</th>
+                                        <th className="text-left px-8 py-5">Nomor Dokumen</th>
                                         <th className="text-left px-6 py-5">Tanggal</th>
-                                        <th className="text-left px-6 py-5">Prioritas Perubahan</th>
+                                        <th className="text-left px-6 py-5">Deskripsi</th>
                                         <th className="text-left px-6 py-5">Status</th>
                                         <th className="text-left px-6 py-5">Dokumen</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {RIWAYAT_ROWS.map((r, i) => (
-                                        <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
-                                            <td className="px-8 py-4">{r.no}</td>
-                                            <td className="px-6 py-4">{r.tgl}</td>
-                                            <td className="px-6 py-4">{r.prioritas}</td>
+                                    {riwayatLoading ? (
+                                        <tr><td colSpan={5} className="text-center py-12"><Loader2 className="inline animate-spin text-brand-500" size={24} /></td></tr>
+                                    ) : riwayat.length === 0 ? (
+                                        <tr><td colSpan={5} className="text-center py-12 text-sm text-gray-400">Belum ada permohonan.</td></tr>
+                                    ) : riwayat.map((r) => (
+                                        <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
+                                            <td className="px-8 py-4">{r.doc_number || '-'}</td>
+                                            <td className="px-6 py-4">{r.initiation_date}</td>
+                                            <td className="px-6 py-4 max-w-[300px] truncate">{r.description}</td>
                                             <td className="px-6 py-4"><RiwayatStatus status={r.status} /></td>
                                             <td className="px-6 py-4">
-                                                {r.pdf ? (
-                                                    <a href="#" className="text-brand-500 hover:underline">Lihat PDF</a>
+                                                {r.status === 'approved' || r.status === 'pending' ? (
+                                                    <a href={`/api/changes/initiations/${r.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline">
+                                                        Lihat PDF
+                                                    </a>
                                                 ) : (
                                                     <span className="text-gray-400">-</span>
                                                 )}

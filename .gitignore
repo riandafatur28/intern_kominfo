@@ -25,3 +25,6 @@ tasks/
 .pi
 .claude
 .agents
+.omo/
+.playwright-mcp/
+*.png

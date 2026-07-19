@@ -1,7 +1,9 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Contact, FileText, GitPullRequestArrow } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
+import { wfhApi } from '../../api/wfh';
+import { changesApi } from '../../api/changes';
 
 /* ---------------- Stat Card ---------------- */
 function StatCard({ label, value, sub }) {
@@ -35,28 +37,106 @@ function ModuleCard({ icon: Icon, iconBg, iconColor, borderColor, title, desc, o
 export default function DashboardPegawai() {
     const navigate = useNavigate();
     const { user } = useAuth();
+    const [stats, setStats] = useState([
+        { label: 'Absensi bulan ini', value: 0, sub: 'Memuat...' },
+        { label: 'Laporan terkirim', value: 0, sub: 'Memuat...' },
+        { label: 'Perubahan diinisiasi', value: 0, sub: 'Memuat...' },
+        { label: 'Persetujuan selesai', value: 0, sub: 'Memuat...' },
+    ]);
+    const [activities, setActivities] = useState([]);
 
-    // TODO: ganti data statis ini dengan data dari endpoint backend dashboard
-    // pegawai saat sudah tersedia.
-    const stats = [
-        { label: 'Absensi bulan ini', value: 10, sub: 'Dari 25 hari kerja' },
-        { label: 'Laporan terkirim', value: 5, sub: 'Bulan Juli 2025' },
-        { label: 'Perubahan diinisiasi', value: 3, sub: '1 Menunggu persetujuan' },
-        { label: 'Persetujuan selesai', value: 2, sub: 'Bulan ini' },
-    ];
+    useEffect(() => {
+        Promise.all([
+            wfhApi.getReports({ per_page: 50 }).catch(() => ({ data: { data: [] } })),
+            changesApi.getInitiations({ per_page: 50 }).catch(() => ({ data: { data: [] } })),
+        ]).then(([reportsRes, initiationsRes]) => {
+            const reports = reportsRes.data.data || [];
+            const initiations = initiationsRes.data.data || [];
 
-    const activities = [
-        { time: '07.30', text: 'Absensi pagi berhasil terkirim' },
-        { time: '11.50', text: 'Laporan kegiatan "Review UI Dashboard" disimpan sebagai draf' },
-        { time: '13.00', text: 'Inisiasi perubahan "Fitur Export PDF" diajukan' },
-        { time: '15.35', text: 'Persetujuan "Update Endpoint API" telah disetujui' },
-    ];
+            const thisMonth = new Date().toISOString().slice(0, 7); // YYYY-MM
+
+            const monthReports = reports.filter(
+                (r) => r.report_date && r.report_date.startsWith(thisMonth)
+            );
+            const monthInitiations = initiations.filter(
+                (r) => r.initiation_date && r.initiation_date.startsWith(thisMonth)
+            );
+
+            const submitted = monthReports.filter(
+                (r) => r.status === 'pending' || r.status === 'approved'
+            ).length;
+            const approved = initiations.filter((r) => r.status === 'approved').length;
+            const pending = initiations.filter((r) => r.status === 'pending').length;
+
+            setStats([
+                {
+                    label: 'Absensi bulan ini',
+                    value: monthReports.length,
+                    sub: `Dari ${new Date().getDate()} hari berjalan`,
+                },
+                { label: 'Laporan terkirim', value: submitted, sub: 'Telah disetujui / menunggu' },
+                {
+                    label: 'Perubahan diinisiasi',
+                    value: monthInitiations.length,
+                    sub: `${pending} Menunggu persetujuan`,
+                },
+                { label: 'Persetujuan selesai', value: approved, sub: 'Bulan ini' },
+            ]);
+
+            // Build activity feed
+            const acts = [];
+            // Last 5 reports
+            const sorted = [...reports]
+                .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+                .slice(0, 5);
+            sorted.forEach((r) => {
+                const t = r.report_date
+                    ? new Date(r.created_at).toLocaleTimeString('id-ID', {
+                          hour: '2-digit', minute: '2-digit',
+                      })
+                    : '';
+                const statusMap = {
+                    draft: 'disimpan sebagai draf',
+                    pending: 'dikirim untuk disetujui',
+                    approved: 'telah disetujui',
+                    rejected: 'ditolak',
+                };
+                acts.push({
+                    time: t || r.report_date,
+                    text: `Laporan kegiatan ${r.report_date} ${statusMap[r.status] || r.status}`,
+                });
+            });
+            // Last 5 initiations
+            const sortedInit = [...initiations]
+                .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+                .slice(0, 5);
+
+            const initActs = sortedInit.map((r) => {
+                const t = r.initiation_date
+                    ? new Date(r.created_at).toLocaleTimeString('id-ID', {
+                          hour: '2-digit', minute: '2-digit',
+                      })
+                    : '';
+                const statusMap = {
+                    draft: 'disimpan sebagai draf',
+                    pending: 'diajukan',
+                    approved: 'telah disetujui',
+                    rejected: 'ditolak',
+                };
+                return {
+                    time: t || r.initiation_date,
+                    text: `Inisiasi "${r.description?.slice(0, 50) || ''}" ${statusMap[r.status] || r.status}`,
+                };
+            });
+            setActivities([...acts.slice(0, 5), ...initActs.slice(0, 3)].sort((a, b) => b.time.localeCompare(a.time)).slice(0, 8));
+        }).catch(() => {
+            // fallback — keep zeros
+            setStats((s) => s.map((st) => ({ ...st, sub: '' })));
+        });
+    }, []);
 
     const today = new Date().toLocaleDateString('id-ID', {
-        weekday: 'long',
-        day: 'numeric',
-        month: 'long',
-        year: 'numeric',
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
 
     return (
@@ -77,17 +157,21 @@ export default function DashboardPegawai() {
                     <span className="text-base font-bold text-gray-900">{today}</span>
                 </div>
                 <div>
-                    {activities.map((a, i) => (
-                        <div
-                            key={i}
-                            className={`flex items-start gap-6 py-4 ${
-                                i < activities.length - 1 ? 'border-b border-gray-100' : ''
-                            }`}
-                        >
-                            <span className="text-sm text-gray-500 w-14 shrink-0">{a.time}</span>
-                            <span className="text-sm text-gray-600">{a.text}</span>
-                        </div>
-                    ))}
+                    {activities.length === 0 ? (
+                        <p className="text-sm text-gray-400 py-4">Belum ada aktivitas.</p>
+                    ) : (
+                        activities.map((a, i) => (
+                            <div
+                                key={i}
+                                className={`flex items-start gap-6 py-4 ${
+                                    i < activities.length - 1 ? 'border-b border-gray-100' : ''
+                                }`}
+                            >
+                                <span className="text-sm text-gray-500 w-14 shrink-0">{a.time}</span>
+                                <span className="text-sm text-gray-600">{a.text}</span>
+                            </div>
+                        ))
+                    )}
                 </div>
             </div>
 
