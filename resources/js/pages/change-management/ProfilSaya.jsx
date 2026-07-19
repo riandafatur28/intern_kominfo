@@ -10,7 +10,6 @@ import {
   AlertCircle
 } from "lucide-react"
 
-// Data Default jika localStorage masih kosong
 const defaultProfile = {
   nama: "Susanti",
   email: "Susanti@jatimprov.go.id",
@@ -22,7 +21,7 @@ const defaultProfile = {
 }
 
 export default function ProfilSaya() {
-  // 1. AMBIL DATA DARI LOCAL STORAGE (Jika ada) saat pertama kali load
+
   const [profileData, setProfileData] = useState(() => {
     const savedData = localStorage.getItem("user_profile")
     return savedData ? JSON.parse(savedData) : defaultProfile
@@ -40,7 +39,7 @@ export default function ProfilSaya() {
     setProfileData((prev) => ({ ...prev, [key]: value }))
   }
 
-  // 2. SIMPAN DATA PROFIL KE LOCAL STORAGE SAAT TOMBOL DIKLIK
+
   const handleSaveChanges = (e) => {
     e.preventDefault()
     localStorage.setItem("user_profile", JSON.stringify(profileData))
@@ -50,38 +49,35 @@ export default function ProfilSaya() {
     setTimeout(() => setShowNotification(false), 3000)
   }
 
-  // 3. VALIDASI DAN PROSES UPLOAD TANDA TANGAN
+
   const handleFileChange = (event) => {
     const file = event.target.files[0]
     if (!file) return
 
-    // Validasi tipe file (Harus gambar)
+
     if (!file.type.startsWith("image/")) {
       setErrorMessage("File harus berupa gambar (PNG, JPG, atau JPEG)!")
       return
     }
 
-    // Validasi ukuran file (Maksimal 2MB)
-    const maxSizeInBytes = 2 * 1024 * 1024 // 2MB
+
+    const maxSizeInBytes = 2 * 1024 * 1024 
     if (file.size > maxSizeInBytes) {
       setErrorMessage("Ukuran file terlalu besar! Maksimal 2MB.")
       return
     }
 
-    // Bersihkan error jika validasi lolos
     setErrorMessage("")
 
-    // Konversi gambar ke Base64 agar bisa disimpan di localStorage
     const reader = new FileReader()
     reader.onloadend = () => {
       const base64String = reader.result
       setSignaturePreview(base64String)
-      localStorage.setItem("user_signature", base64String) // Simpan TTD di browser
+      localStorage.setItem("user_signature", base64String) 
     }
     reader.readAsDataURL(file)
   }
 
-  // Fungsi untuk menghapus tanda tangan
   const handleRemoveSignature = () => {
     setSignaturePreview(null)
     localStorage.removeItem("user_signature")
@@ -91,7 +87,6 @@ export default function ProfilSaya() {
   return (
     <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 md:py-8">
       
-      {/* Toast Notification Sukses */}
       {showNotification && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-3 rounded-lg bg-emerald-500 px-4 py-3 text-white shadow-lg animate-bounce">
           <CheckCircle2 className="h-5 w-5" />
@@ -99,7 +94,6 @@ export default function ProfilSaya() {
         </div>
       )}
 
-      {/* Alert Error Validation */}
       {errorMessage && (
         <div className="mb-6 flex items-center gap-3 rounded-lg bg-red-50 border border-red-200 p-4 text-red-700">
           <AlertCircle className="h-5 w-5 shrink-0" />
@@ -115,7 +109,6 @@ export default function ProfilSaya() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
 
-          {/* CARD RINGKASAN PROFIL */}
           <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-5">
             <div className="flex flex-col items-center text-center">
               <div className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-600 text-3xl font-bold text-white select-none">
@@ -152,7 +145,6 @@ export default function ProfilSaya() {
             </ul>
           </section>
 
-          {/* FORM EDIT PROFIL */}
           <section className="flex flex-col rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-7">
             <div className="mb-6">
               <h2 className="text-lg font-bold text-gray-900">
@@ -251,7 +243,6 @@ export default function ProfilSaya() {
           </section>
         </div>
 
-        {/* SEKSI TANDA TANGAN DIGITAL */}
         <section className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4">
             <h2 className="text-lg font-bold text-gray-900">

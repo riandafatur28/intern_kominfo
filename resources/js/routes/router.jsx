@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout.jsx';
+import TeamLeadLayout from '../layouts/TeamLeadLayout.jsx';
 import Login from '../pages/auth/Login.jsx';
 import ForgotPassword from '../pages/auth/ForgotPassword.jsx';
 import RegisterPegawai from '../pages/auth/RegisterPegawai.jsx';
@@ -11,6 +12,11 @@ import GoogleSpreadsheet from '../pages/admin/GoogleSpreadsheet.jsx';
 import AbsensiWfh from '../pages/pegawai/AbsensiWfh.jsx';
 import LaporanKegiatan from '../pages/pegawai/LaporanKegiatan.jsx';
 import InisiasiPerubahan from '../pages/pegawai/InisiasiPerubahan.jsx';
+import DashboardTeamLead from '../pages/change-management/DashboardTeamLead.jsx';
+import PermintaanPersetujuan from '../pages/change-management/PermintaanPersetujuan.jsx';
+import ProfilSaya from '../pages/change-management/ProfilSaya.jsx';
+import MonitoringInisiasi from '../pages/change-management/MonitoringInisiasi.jsx';
+import Arsip from '../pages/change-management/Arsip.jsx';
 
 export const router = createBrowserRouter([
     {
@@ -25,6 +31,7 @@ export const router = createBrowserRouter([
         path: '/forgot-password',
         element: <ForgotPassword />,
     },
+    
     {
         path: '/',
         element: <AdminLayout />,
@@ -38,6 +45,19 @@ export const router = createBrowserRouter([
             { path: 'absensi-wfh', element: <AbsensiWfh /> },
             { path: 'laporan-kegiatan', element: <LaporanKegiatan /> },
             { path: 'inisiasi-perubahan', element: <InisiasiPerubahan /> },
+        ],
+    },
+
+    {
+        path: '/team-lead',
+        element: <TeamLeadLayout />,
+        children: [
+            { index: true, element: <Navigate to="dashboard" replace /> },
+            { path: 'dashboard', element: <DashboardTeamLead /> },
+            { path: 'permintaan-persetujuan', element: <PermintaanPersetujuan /> },
+            { path: 'profil', element: <ProfilSaya /> },
+            { path: 'monitoring-inisiasi', element: <MonitoringInisiasi /> },
+            { path: 'arsip', element: <Arsip /> },
         ],
     },
 ]);

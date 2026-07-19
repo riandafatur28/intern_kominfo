@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Clock, CheckCircle2, XCircle, AlertTriangle, ExternalLink, Check, X } from "lucide-react"
-
-// Import Komponen UI Profesional kita
 import AntrianCard from "../../components/ui/AntrianCard"
 import DetailCard from "../../components/ui/DetailCard"
 
@@ -74,7 +72,6 @@ export default function PermintaanPersetujuan() {
 
   return (
     <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 md:py-8">
-      {/* Header Halaman */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900">Permintaan Persetujuan</h1>
@@ -103,10 +100,8 @@ export default function PermintaanPersetujuan() {
       </div>
 
       {activeTab === "antrian" ? (
-        /* ================= ANTRIAN VIEW ================= */
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-          
-          {/* Antrian List (Kiri) */}
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:col-span-1 h-fit">
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Antrian Persetujuan</h2>
             {pendingRequests.length === 0 ? (
@@ -129,11 +124,10 @@ export default function PermintaanPersetujuan() {
             )}
           </div>
 
-          {/* Detail Request (Kanan) */}
           <div className="lg:col-span-2 space-y-6">
             {selectedRequest ? (
               <>
-                {/* Header Card Detail */}
+
                 <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm flex items-center justify-between gap-4">
                   <div>
                     <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
@@ -166,7 +160,6 @@ export default function PermintaanPersetujuan() {
                   </div>
                 </div>
 
-                {/* Grid 6 Detail Card Terpisah */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <DetailCard title="Alasan Perubahan">
                     <p className="text-xs text-gray-600 leading-relaxed">{selectedRequest.alasan}</p>
@@ -213,7 +206,6 @@ export default function PermintaanPersetujuan() {
           </div>
         </div>
       ) : (
-        /* ================= RIWAYAT VIEW ================= */
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="rounded-xl border border-gray-200 bg-green-50/20 p-5 shadow-sm flex items-center gap-4">

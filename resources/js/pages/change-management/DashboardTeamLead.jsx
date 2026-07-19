@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
 import { Clock, CheckCircle2, XCircle, ChevronRight } from "lucide-react"
-
-// Import Komponen UI Profesional kita
 import StatCard from "../../components/ui/StatCard"
 import AntrianCard from "../../components/ui/AntrianCard"
 
@@ -30,7 +28,7 @@ const defaultPending = [
     bidang: "Bidang Aplikasi",
     jenis: "Normal Change",
     tanggal: "2026-07-10",
-    alasan: "Memudahkan pegawai mengakses berbagai aplikasi internal dengan satu akun aman.",
+    alasan: "Memahkan pegawai mengakses berbagai aplikasi internal dengan satu akun aman.",
     dampak: "Potensi downtime singkat sekitar 5 menit saat migrasi sesi pengguna.",
     risiko: "Sedang - Memerlukan sinkronisasi database pengguna aktif.",
     evidence: "https://gitlab.jatimprov.go.id/issues/9015",
@@ -160,7 +158,6 @@ export default function DashboardTeamLead() {
     <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 md:py-8">
       <h1 className="mb-6 text-2xl md:text-3xl font-bold text-gray-900">Dashboard Team Lead</h1>
 
-      {/* Rangkuman Statistik Menggunakan StatCard Komponen */}
       <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard 
           icon={Clock} 
@@ -190,7 +187,7 @@ export default function DashboardTeamLead() {
               <p className="text-xs text-gray-400">{pendingRequests.length} permohonan menunggu review Anda</p>
             </div>
             <button
-              onClick={() => navigate("/permintaan-persetujuan")}
+              onClick={() => navigate("/team-lead/permintaan-persetujuan")}
               className="rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700 cursor-pointer"
             >
               Lihat Semua
@@ -227,7 +224,7 @@ export default function DashboardTeamLead() {
                       ✕ Tolak
                     </button>
                     <button 
-                      onClick={() => navigate("/permintaan-persetujuan")}
+                      onClick={() => navigate("/team-lead/permintaan-persetujuan")}
                       className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
                     >
                       Lihat Detail <ChevronRight className="h-3 w-3" />
