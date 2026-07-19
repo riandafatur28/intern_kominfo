@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Contact, FileText, GitPullRequestArrow } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -45,7 +45,7 @@ export default function DashboardPegawai() {
     ]);
     const [activities, setActivities] = useState([]);
 
-    useEffect(() => {
+    const fetchData = useCallback(() => {
         Promise.all([
             wfhApi.getReports({ per_page: 50 }).catch(() => ({ data: { data: [] } })),
             changesApi.getInitiations({ per_page: 50 }).catch(() => ({ data: { data: [] } })),
@@ -134,6 +134,13 @@ export default function DashboardPegawai() {
             setStats((s) => s.map((st) => ({ ...st, sub: '' })));
         });
     }, []);
+
+    useEffect(() => {
+        fetchData();
+        const onVisible = () => { if (document.visibilityState === 'visible') fetchData(); };
+        document.addEventListener('visibilitychange', onVisible);
+        return () => document.removeEventListener('visibilitychange', onVisible);
+    }, [fetchData]);
 
     const today = new Date().toLocaleDateString('id-ID', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, Pencil, Loader2 } from 'lucide-react';
+import { Calendar, ChevronDown, Pencil, Loader2 } from 'lucide-react';
 import { changesApi } from '../../api/changes';
 import { useAuth } from '../../context/AuthContext';
 
@@ -24,7 +24,7 @@ function SelectField({ label, value, onChange, options }) {
                     <option value="">Select</option>
                     {options.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <svg className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
+                <ChevronDown size={16} strokeWidth={2.5} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
             </div>
         </div>
     );

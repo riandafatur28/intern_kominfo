@@ -38,7 +38,7 @@ function StatCard({ label, value }) {
 /* current time in HH:MM format */
 function nowHHMM() {
     const d = new Date();
-    return String(d.getHours()).padStart(2, '0') + '.' + String(d.getMinutes()).padStart(2, '0');
+    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
 const EMPTY_FORM = { start: nowHHMM(), end: '', activity: '', link: '' };
@@ -95,8 +95,8 @@ export default function LaporanKegiatan() {
     const openEdit = (row) => {
         const a = row.activities?.[0] || {};
         setForm({
-            start: (a.start_time || '').replace(/^(\d{2}):(\d{2})$/, '$1.$2'),
-            end: (a.end_time || '').replace(/^(\d{2}):(\d{2})$/, '$1.$2'),
+            start: (a.start_time || '').slice(0, 5),
+            end: (a.end_time || '').slice(0, 5),
             activity: a.activity || '',
             link: a.links?.[0]?.url || '',
         });
@@ -109,8 +109,8 @@ export default function LaporanKegiatan() {
         setSaving(true);
         try {
             const activities = [{
-                start_time: form.start.replace(/\./g, ':'),
-                end_time: form.end.replace(/\./g, ':'),
+                start_time: form.start,
+                end_time: form.end,
                 activity: form.activity,
                 ...(form.link ? { links: [form.link] } : {}),
             }];

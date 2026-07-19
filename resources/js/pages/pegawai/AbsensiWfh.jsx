@@ -105,11 +105,20 @@ export default function AbsensiWfh() {
         SESSION_KEYS.forEach((k) => { obj[k] = { status: 'belum', photo: null, checkInAt: null }; });
         return obj;
     });
+    const photoUrls = useRef({});
     const [uploading, setUploading] = useState(null); // which session is uploading
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
     const setPhoto = (key, photo) => {
+        if (photoUrls.current[key]) {
+            URL.revokeObjectURL(photoUrls.current[key]);
+        }
+        if (photo) {
+            photoUrls.current[key] = photo;
+        } else {
+            delete photoUrls.current[key];
+        }
         setSessions((s) => ({ ...s, [key]: { ...s[key], status: photo ? 'hadir' : 'belum', photo } }));
     };
 
@@ -132,7 +141,8 @@ export default function AbsensiWfh() {
             formData.append('date', todayStr);
 
             const res = await wfhApi.checkIn(formData);
-            setPhoto(session, URL.createObjectURL(file));
+            const blobUrl = URL.createObjectURL(file);
+            setPhoto(session, blobUrl);
             setSessions((s) => ({
                 ...s,
                 [session]: { ...s[session], checkInAt: res.data?.data?.check_in_at },
@@ -146,7 +156,10 @@ export default function AbsensiWfh() {
     };
 
     const handleRemove = (session) => {
-        setPhoto(session, null);
+        if (photoUrls.current[session]) {
+            URL.revokeObjectURL(photoUrls.current[session]);
+            delete photoUrls.current[session];
+        }
         setSessions((s) => ({ ...s, [session]: { status: 'belum', photo: null, checkInAt: null } }));
     };
 
