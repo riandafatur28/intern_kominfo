@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { getAdminReports } from '../../api/admin';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const STATUS_META = {
     draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
@@ -81,9 +82,7 @@ export default function StatusLaporanWfh() {
             {/* Content */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {loading ? (
-                    <div className="flex items-center justify-center h-64">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                    </div>
+                    <SkeletonTable rows={6} cols={5} />
                 ) : error ? (
                     <div className="p-6 text-red-600 text-sm bg-red-50">{error}</div>
                 ) : reports.length === 0 ? (

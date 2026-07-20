@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Send, Loader2 } from 'lucide-react';
+import { Plus, Pencil, Trash2, Send } from 'lucide-react';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { wfhApi } from '../../api/wfh';
@@ -187,16 +188,17 @@ export default function LaporanKegiatan() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={6} className="text-center py-12"><Loader2 className="inline animate-spin text-brand-500" size={24} /></td></tr>
+                                <tr><td colSpan={6} className="px-0 py-0"><SkeletonTable rows={4} cols={6} /></td></tr>
                             ) : rows.length === 0 ? (
                                 <tr><td colSpan={6} className="text-center py-12 text-sm text-gray-400">Belum ada laporan kegiatan.</td></tr>
                             ) : rows.map((r) => {
                                 const a = r.activities?.[0] || {};
+                                const fmtTime = (t) => { if (!t) return '?'; const p = t.includes('T') ? t.split('T')[1] : t.includes(' ') ? t.split(' ')[1] : t; return p.slice(0, 5); };
                                 return (
                                     <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40">
                                         <td className="px-8 py-4 text-sm text-gray-600">{r.report_date}</td>
                                         <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                                            {a.start_time ? a.start_time.slice(0, 5) : '?'} – {a.end_time ? a.end_time.slice(0, 5) : '?'}
+                                            {fmtTime(a.start_time)} – {fmtTime(a.end_time)}
                                         </td>
                                         <td className="px-6 py-4 text-sm text-gray-600 max-w-[240px] truncate">{a.activity}</td>
                                         <td className="px-6 py-4 text-sm">

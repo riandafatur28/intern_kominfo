@@ -36,6 +36,18 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
             });
         }
 
+        if (isset($filters['date_from'])) {
+            $query->whereDate('initiation_date', '>=', $filters['date_from']);
+        }
+
+        if (isset($filters['date_to'])) {
+            $query->whereDate('initiation_date', '<=', $filters['date_to']);
+        }
+
+        if (isset($filters['month'])) {
+            $query->where('initiation_date', 'like', $filters['month'] . '%');
+        }
+
         return $query->orderByDesc('created_at')->paginate($perPage);
     }
 
@@ -117,6 +129,6 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
 
     public function reviewImplementation(int $id, array $data): void
     {
-        ChangeImplementation::where('id', $id)->update($data);
+        ChangeImplementation::where('id', $data);
     }
 }

@@ -30,6 +30,14 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         return $query->first();
     }
 
+    public function getUserAttendanceByDate(int $userId, string $date): Collection
+    {
+        return WfhAttendance::where('user_id', $userId)
+            ->where('date', $date)
+            ->orderBy('session')
+            ->get();
+    }
+
     public function createAttendance(array $data): WfhAttendance
     {
         return WfhAttendance::create($data);

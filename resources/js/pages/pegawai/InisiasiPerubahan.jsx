@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, ChevronDown, Pencil, Loader2 } from 'lucide-react';
+import { Calendar, ChevronDown, Pencil } from 'lucide-react';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 import { changesApi } from '../../api/changes';
 import { useAuth } from '../../context/AuthContext';
 
@@ -65,7 +66,8 @@ export default function InisiasiPerubahan() {
 
     // Riwayat list
     const [riwayat, setRiwayat] = useState([]);
-    const [riwayatLoading, setRiwayatLoading] = useState(false);
+    const [riwayatLoading, setRiwayatLoading] = useState(true);
+    const [pageLoading, setPageLoading] = useState(true);
 
     const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -78,12 +80,13 @@ export default function InisiasiPerubahan() {
             // silent
         } finally {
             setRiwayatLoading(false);
+            setPageLoading(false);
         }
     }, []);
 
     useEffect(() => {
-        if (tab === 'riwayat') fetchRiwayat();
-    }, [tab, fetchRiwayat]);
+        fetchRiwayat();
+    }, [fetchRiwayat]);
 
     const handleSubmit = async (e, isDraft) => {
         e.preventDefault();
@@ -107,6 +110,41 @@ export default function InisiasiPerubahan() {
             setSaving(false);
         }
     };
+
+    if (pageLoading) {
+        return (
+            <div className="max-w-[1200px] mx-auto space-y-6">
+                <div className="h-8 w-56 bg-gray-200 rounded animate-pulse" />
+                <div className="flex gap-3">
+                    <div className="h-10 w-36 bg-gray-200 rounded-lg animate-pulse" />
+                    <div className="h-10 w-24 bg-gray-100 rounded-lg animate-pulse" />
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                    <div className="h-12 bg-gray-200 w-full animate-pulse" />
+                    <div className="p-6 space-y-5">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div className="space-y-2">
+                                <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
+                                <div className="h-10 bg-gray-200 rounded w-full animate-pulse" />
+                            </div>
+                            <div className="space-y-2">
+                                <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
+                                <div className="h-10 bg-gray-200 rounded w-full animate-pulse" />
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
+                            <div className="h-24 bg-gray-200 rounded w-full animate-pulse" />
+                        </div>
+                        <div className="space-y-2">
+                            <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
+                            <div className="h-20 bg-gray-200 rounded w-full animate-pulse" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-[1200px] mx-auto">
@@ -224,6 +262,11 @@ export default function InisiasiPerubahan() {
                     </div>
 
                     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                        {riwayatLoading ? (
+                            <SkeletonTable rows={5} cols={5} />
+                        ) : riwayat.length === 0 ? (
+                            <p className="text-center py-12 text-sm text-gray-400">Belum ada permohonan.</p>
+                        ) : (
                         <div className="overflow-x-auto">
                             <table className="w-full min-w-[700px]">
                                 <thead>
@@ -236,11 +279,7 @@ export default function InisiasiPerubahan() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {riwayatLoading ? (
-                                        <tr><td colSpan={5} className="text-center py-12"><Loader2 className="inline animate-spin text-brand-500" size={24} /></td></tr>
-                                    ) : riwayat.length === 0 ? (
-                                        <tr><td colSpan={5} className="text-center py-12 text-sm text-gray-400">Belum ada permohonan.</td></tr>
-                                    ) : riwayat.map((r) => (
+                                    {riwayat.map((r) => (
                                         <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
                                             <td className="px-8 py-4">{r.doc_number || '-'}</td>
                                             <td className="px-6 py-4">{r.initiation_date}</td>
@@ -273,6 +312,7 @@ export default function InisiasiPerubahan() {
                                 </tbody>
                             </table>
                         </div>
+                        )}
                     </div>
                 </div>
             )}

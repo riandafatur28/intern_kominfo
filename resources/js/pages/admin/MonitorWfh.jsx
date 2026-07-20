@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import axios from 'axios';
 import { getMonitoringBoard, getReportDetail } from '../../api/admin';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 import { wfhApi } from '../../api/wfh';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/ui/Modal';
@@ -23,7 +24,11 @@ const STATUS_BADGE = {
     belum_absensi: { label: 'Belum Absensi', cls: 'bg-slate-300 text-slate-600' },
 };
 
-const DEFAULT_DATE = '2026-07-17';
+const now = new Date();
+const day = now.getDay();
+const fri = new Date(now);
+fri.setDate(now.getDate() + ((5 - day + 7) % 7));
+const DEFAULT_DATE = fri.toISOString().slice(0, 10);
 
 function fmtTime(t) {
     if (!t) return '-';
@@ -217,7 +222,7 @@ export default function MonitorWfh() {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={7} className="py-16 text-center"><Loader2 className="animate-spin inline text-blue-600" /></td></tr>
+                                        <tr><td colSpan={7} className="px-0 py-0"><SkeletonTable rows={5} cols={7} /></td></tr>
                                     ) : employees.length === 0 ? (
                                         <tr><td colSpan={7} className="py-16 text-center text-gray-400 text-sm">Tidak ada pegawai ditemukan.</td></tr>
                                     ) : (
@@ -249,7 +254,17 @@ export default function MonitorWfh() {
                         {/* Mobile cards */}
                         <div className="md:hidden divide-y divide-gray-50">
                             {loading ? (
-                                <div className="py-16 text-center"><Loader2 className="animate-spin inline text-blue-600" /></div>
+                                <div className="p-6 space-y-4 animate-pulse">
+                                    {Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gray-200" />
+                                            <div className="flex-1 space-y-2">
+                                                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                                                <div className="h-3 bg-gray-100 rounded w-1/3" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : employees.length === 0 ? (
                                 <div className="py-16 text-center text-gray-400 text-sm">Tidak ada pegawai ditemukan.</div>
                             ) : (
@@ -509,7 +524,14 @@ function ReportDetailModal({ reportId, empName, date, onClose }) {
     return (
         <Modal open onClose={onClose} title={`Laporan WFH — ${empName}`} width="max-w-2xl">
             {loading ? (
-                <div className="py-10 text-center"><Loader2 className="animate-spin inline text-blue-600" /></div>
+                <div className="p-6 space-y-3 animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-1/3" />
+                    <div className="space-y-2">
+                        <div className="h-3 bg-gray-100 rounded w-full" />
+                        <div className="h-3 bg-gray-100 rounded w-5/6" />
+                        <div className="h-3 bg-gray-100 rounded w-4/6" />
+                    </div>
+                </div>
             ) : error ? (
                 <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
             ) : (

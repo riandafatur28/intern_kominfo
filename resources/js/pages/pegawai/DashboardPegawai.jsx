@@ -37,13 +37,44 @@ function ModuleCard({ icon: Icon, iconBg, iconColor, borderColor, title, desc, o
 export default function DashboardPegawai() {
     const navigate = useNavigate();
     const { user } = useAuth();
-    const [stats, setStats] = useState([
-        { label: 'Absensi bulan ini', value: 0, sub: 'Memuat...' },
-        { label: 'Laporan terkirim', value: 0, sub: 'Memuat...' },
-        { label: 'Perubahan diinisiasi', value: 0, sub: 'Memuat...' },
-        { label: 'Persetujuan selesai', value: 0, sub: 'Memuat...' },
-    ]);
+    const [stats, setStats] = useState([]);
     const [activities, setActivities] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    const skeleton = (
+        <div className="max-w-[1200px] mx-auto space-y-8">
+            <div className="h-8 w-36 bg-gray-200 rounded animate-pulse" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="bg-white rounded-2xl border border-gray-200 px-6 py-5 space-y-3">
+                        <div className="h-4 bg-gray-200 rounded w-2/3 animate-pulse" />
+                        <div className="h-10 bg-gray-200 rounded w-1/3 animate-pulse" />
+                        <div className="h-3 bg-gray-100 rounded w-1/2 animate-pulse" />
+                    </div>
+                ))}
+            </div>
+            <div className="space-y-3">
+                <div className="h-6 bg-gray-200 rounded w-1/4 animate-pulse" />
+                {Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="flex gap-6 py-4 border-b border-gray-100">
+                        <div className="h-4 bg-gray-200 rounded w-14 animate-pulse" />
+                        <div className="h-4 bg-gray-100 rounded flex-1 animate-pulse" />
+                    </div>
+                ))}
+            </div>
+            <div className="space-y-4">
+                <div className="h-5 bg-gray-200 rounded w-1/6 animate-pulse" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                    {Array.from({ length: 3 }).map((_, i) => (
+                        <div key={i} className="bg-white rounded-2xl border border-gray-200 p-6 space-y-2">
+                            <div className="h-5 bg-gray-200 rounded w-1/2 animate-pulse" />
+                            <div className="h-4 bg-gray-100 rounded w-3/4 animate-pulse" />
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
 
     const fetchData = useCallback(() => {
         Promise.all([
@@ -132,7 +163,7 @@ export default function DashboardPegawai() {
         }).catch(() => {
             // fallback — keep zeros
             setStats((s) => s.map((st) => ({ ...st, sub: '' })));
-        });
+        }).finally(() => setLoading(false));
     }, []);
 
     useEffect(() => {
@@ -146,6 +177,8 @@ export default function DashboardPegawai() {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
 
+    if (loading) return skeleton;
+
     return (
         <div className="max-w-[1200px] mx-auto space-y-8">
             <h1 className="text-3xl font-extrabold text-gray-900">Dashboard</h1>
@@ -158,7 +191,7 @@ export default function DashboardPegawai() {
             </div>
 
             {/* Aktivitas hari ini */}
-            <div>
+            <div className="bg-white rounded-2xl border border-gray-200 px-6 pt-5 pb-4">
                 <div className="flex items-center justify-between border-b border-gray-200 pb-3">
                     <h2 className="text-lg font-bold text-gray-900">Aktivitas hari ini</h2>
                     <span className="text-base font-bold text-gray-900">{today}</span>

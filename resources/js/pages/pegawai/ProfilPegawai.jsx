@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Hash, Building2, Briefcase, ShieldCheck, Upload, Save, Camera, Loader2 } from 'lucide-react';
+import { SkeletonLine, SkeletonBlock } from '../../components/ui/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
 
@@ -143,8 +144,32 @@ export default function ProfilPegawai() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <Loader2 className="animate-spin text-brand-500" size={32} />
+            <div className="max-w-[1200px] mx-auto space-y-6">
+                <div className="h-8 w-36 bg-gray-200 rounded animate-pulse" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-4">
+                        <div className="flex flex-col items-center">
+                            <div className="w-24 h-24 rounded-full bg-gray-200 animate-pulse" />
+                            <SkeletonLine width="w-1/3" className="mt-4" />
+                            <SkeletonLine width="w-1/2" className="mt-2" />
+                        </div>
+                        <div className="space-y-3 pt-4">
+                            {Array.from({ length: 4 }).map((_, i) => (
+                                <div key={i} className="flex items-center gap-3">
+                                    <div className="w-5 h-5 bg-gray-200 rounded animate-pulse shrink-0" />
+                                    <div className="flex-1 space-y-1">
+                                        <SkeletonLine width="w-1/4" className="h-3" />
+                                        <SkeletonLine width="w-1/2" />
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="space-y-6">
+                        <SkeletonBlock className="h-64" />
+                        <SkeletonBlock className="h-48" />
+                    </div>
+                </div>
             </div>
         );
     }
@@ -192,7 +217,7 @@ export default function ProfilPegawai() {
                     </div>
 
                     <div className="pt-6 space-y-5">
-                        <InfoRow icon={Hash} label="NIP" value={`NIP. ${form.nip}`} />
+                        <InfoRow icon={Hash} label="NIP" value={form.nip} />
                         <InfoRow icon={Building2} label="Bidang" value={form.field} />
                         <InfoRow icon={Briefcase} label="Jabatan" value={form.position} />
                         <InfoRow icon={ShieldCheck} label="Peran" value={roleLabel} />

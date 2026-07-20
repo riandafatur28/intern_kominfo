@@ -6,6 +6,7 @@ use App\Domains\Wfh\Http\Requests\CheckInRequest;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class AttendanceController extends Controller
@@ -15,6 +16,25 @@ class AttendanceController extends Controller
     public function __construct(
         private WfhRepositoryInterface $wfhRepository,
     ) {}
+
+    public function today(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        $date = $request->input('date', now()->toDateString());
+        $attendances = $this->wfhRepository->getUserAttendanceByDate($user->id, $date);
+
+        $result = [];
+        foreach (['pagi', 'siang', 'sore'] as $session) {
+            $a = $attendances->firstWhere('session', $session);
+            $result[$session] = [
+                'status' => $a ? 'hadir' : 'belum',
+                'photo_url' => $a ? asset("storage/{$a->photo_path}") : null,
+                'check_in_at' => $a ? $a->check_in_at : null,
+            ];
+        }
+
+        return response()->json(['success' => true, 'data' => $result]);
+    }
 
     public function checkIn(CheckInRequest $request): JsonResponse
     {

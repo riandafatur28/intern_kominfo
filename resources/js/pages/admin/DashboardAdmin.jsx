@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Users, ClipboardCheck, FileClock, CheckCircle2, UserPlus, Calendar } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard';
 import TambahPenggunaModal from '../../components/admin/TambahPenggunaModal';
+import { SkeletonCard, SkeletonBlock } from '../../components/ui/Skeleton';
 
 /* ---------------- Stat Card ---------------- */
 function StatCard({ icon: Icon, iconBg, iconColor, value, label, sub, valueSmall }) {
@@ -180,8 +181,16 @@ export default function DashboardAdmin() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+            <div className="max-w-[1200px] mx-auto space-y-6">
+                <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+                <SkeletonBlock className="h-72" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <SkeletonBlock className="h-64" />
+                    <SkeletonBlock className="h-64" />
+                </div>
             </div>
         );
     }

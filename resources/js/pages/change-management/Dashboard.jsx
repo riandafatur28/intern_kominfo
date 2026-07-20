@@ -6,7 +6,7 @@ import { demoInitiations } from '../../utils/mockData';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import Card from '../../components/ui/Card';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { SkeletonCard, SkeletonBlock } from '../../components/ui/Skeleton';
 
 
 const statIcons = {
@@ -104,7 +104,21 @@ export default function Dashboard() {
             )}
 
             {loading ? (
-                <LoadingSpinner />
+                <>
+                    <div className="grid grid-cols-4 gap-4">
+                        {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+                    </div>
+                    <div className="flex gap-8">
+                        <div className="flex-1 space-y-4">
+                            <SkeletonBlock className="h-10 w-48" />
+                            <SkeletonBlock className="h-64" />
+                        </div>
+                        <div className="w-80 space-y-4">
+                            <SkeletonBlock className="h-48" />
+                            <SkeletonBlock className="h-48" />
+                        </div>
+                    </div>
+                </>
             ) : (
                 <>
                     {/* Stats Grid — Figma: 4 cards row */}

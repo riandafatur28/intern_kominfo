@@ -12,6 +12,18 @@ class TeamController extends Controller
 {
     use AuthorizesRequests;
 
+    public function fields(Request $request): JsonResponse
+    {
+        $this->authorize('user.manage');
+
+        $fields = \App\Models\Field::orderBy('name')->get(['id', 'name']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $fields,
+        ]);
+    }
+
     public function index(Request $request): JsonResponse
     {
         $this->authorize('user.manage');

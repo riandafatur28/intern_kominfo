@@ -47,6 +47,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/admin/users/{user}', [UserController::class, 'update']);
             Route::delete('/admin/users/{user}', [UserController::class, 'destroy']);
             Route::get('/admin/teams', [TeamController::class, 'index']);
+            Route::get('/admin/fields', [TeamController::class, 'fields']);
         });
 
         Route::middleware('permission:user.import')->group(function () {
@@ -64,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // WFH Module
+        Route::get('/wfh/attendance/today', [AttendanceController::class, 'today']);
         Route::post('/wfh/attendance', [AttendanceController::class, 'checkIn'])
             ->middleware('permission:wfh.attendance.create');
 

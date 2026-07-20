@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera } from 'lucide-react';
 import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
+import { SkeletonCard, SkeletonLine } from '../../components/ui/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 
 const ROLE_LABELS = {
@@ -117,10 +118,12 @@ export default function ProfilSaya() {
         try {
             const fd = new FormData();
             fd.append('photo', file);
-            const res = await uploadPhoto(fd);
-            hydrate(res.data);
+            await uploadPhoto(fd);
+            // Refresh full profile agar dapat photo_url + data lainnya
+            const fresh = await getProfile();
+            hydrate(fresh);
             await fetchUser?.();
-            showToast('success', res.message || 'Foto profil berhasil diunggah.');
+            showToast('success', 'Foto profil berhasil diunggah.');
         } catch (err) {
             showToast('error', err.response?.data?.message || 'Gagal mengunggah foto profil.');
         } finally {
@@ -131,8 +134,27 @@ export default function ProfilSaya() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <Loader2 className="animate-spin text-indigo-600" size={32} />
+            <div className="max-w-[800px] mx-auto space-y-6">
+                <div className="h-8 w-36 bg-gray-200 rounded animate-pulse" />
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+                    <div className="flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse shrink-0" />
+                        <div className="space-y-2 flex-1">
+                            <SkeletonLine width="w-1/3" />
+                            <SkeletonLine width="w-1/4" />
+                        </div>
+                    </div>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse shrink-0" />
+                            <div className="flex-1 space-y-1">
+                                <SkeletonLine width="w-1/5" className="h-3" />
+                                <SkeletonLine width="w-1/3" />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+                <SkeletonCard />
             </div>
         );
     }

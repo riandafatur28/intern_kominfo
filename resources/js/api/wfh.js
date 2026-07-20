@@ -2,6 +2,9 @@ import client from './client';
 
 export const wfhApi = {
     // === Attendance ===
+    getTodayAttendance: (date) =>
+        client.get('/wfh/attendance/today', { params: { date } }),
+
     checkIn: (formData) =>
         client.post('/wfh/attendance', formData, {
             headers: { 'Content-Type': 'multipart/form-data' },

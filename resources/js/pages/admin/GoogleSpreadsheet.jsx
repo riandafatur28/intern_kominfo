@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { CheckCircle2, ExternalLink, Loader2, RefreshCw } from 'lucide-react';
 import { getSpreadsheetSync } from '../../api/admin';
+import { SkeletonCard, SkeletonBlock, SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 
 const STATUS_BADGE = {
@@ -30,8 +31,18 @@ export default function GoogleSpreadsheet() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <Loader2 className="animate-spin text-blue-600" size={32} />
+            <div className="max-w-[1200px] mx-auto space-y-6">
+                <div className="h-8 w-64 bg-gray-200 rounded animate-pulse" />
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div className="lg:col-span-2"><SkeletonBlock className="h-48" /></div>
+                    <SkeletonCard />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+                <div className="bg-white rounded-2xl border border-gray-100">
+                    <SkeletonTable rows={4} cols={4} />
+                </div>
             </div>
         );
     }

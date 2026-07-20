@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 
 export default function Arsip() {
@@ -112,7 +112,7 @@ export default function Arsip() {
             {/* Table */}
             <Card padding={false}>
                 {loading ? (
-                    <LoadingSpinner />
+                    <SkeletonTable rows={6} cols={5} />
                 ) : data.length === 0 ? (
                     <EmptyState message="Belum ada arsip pengajuan" />
                 ) : (

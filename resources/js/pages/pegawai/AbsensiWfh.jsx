@@ -1,5 +1,6 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Calendar, ImageIcon, Plus, Trash2, Check, X, Loader2 } from 'lucide-react';
+import { SkeletonCard } from '../../components/ui/Skeleton';
 import { wfhApi } from '../../api/wfh';
 
 /* ---------------- Session status badge ---------------- */
@@ -105,22 +106,10 @@ export default function AbsensiWfh() {
         SESSION_KEYS.forEach((k) => { obj[k] = { status: 'belum', photo: null, checkInAt: null }; });
         return obj;
     });
-    const photoUrls = useRef({});
-    const [uploading, setUploading] = useState(null); // which session is uploading
+    const [uploading, setUploading] = useState(null);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
-
-    const setPhoto = (key, photo) => {
-        if (photoUrls.current[key]) {
-            URL.revokeObjectURL(photoUrls.current[key]);
-        }
-        if (photo) {
-            photoUrls.current[key] = photo;
-        } else {
-            delete photoUrls.current[key];
-        }
-        setSessions((s) => ({ ...s, [key]: { ...s[key], status: photo ? 'hadir' : 'belum', photo } }));
-    };
+    const [loaded, setLoaded] = useState(false);
 
     const doneCount = Object.values(sessions).filter((s) => s.status === 'hadir').length;
     const percent = SESSION_KEYS.length > 0 ? Math.round((doneCount / SESSION_KEYS.length) * 100) : 0;
@@ -129,6 +118,24 @@ export default function AbsensiWfh() {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
     const todayStr = new Date().toISOString().slice(0, 10);
+
+    // Load existing attendance on mount
+    useEffect(() => {
+        wfhApi.getTodayAttendance(todayStr).then((res) => {
+            const data = res.data?.data;
+            if (!data) return;
+            const next = {};
+            SESSION_KEYS.forEach((k) => {
+                const s = data[k];
+                if (s?.status === 'hadir') {
+                    next[k] = { status: 'hadir', photo: s.photo_url, checkInAt: s.check_in_at };
+                } else {
+                    next[k] = { status: 'belum', photo: null, checkInAt: null };
+                }
+            });
+            setSessions(next);
+        }).catch(() => {}).finally(() => setLoaded(true));
+    }, []);
 
     const handleUpload = async (session, file) => {
         setUploading(session);
@@ -141,11 +148,10 @@ export default function AbsensiWfh() {
             formData.append('date', todayStr);
 
             const res = await wfhApi.checkIn(formData);
-            const blobUrl = URL.createObjectURL(file);
-            setPhoto(session, blobUrl);
+            const photoUrl = res.data?.data?.photo_url;
             setSessions((s) => ({
                 ...s,
-                [session]: { ...s[session], checkInAt: res.data?.data?.check_in_at },
+                [session]: { status: 'hadir', photo: photoUrl, checkInAt: res.data?.data?.check_in_at },
             }));
             setSuccess(`Absen ${SESSION_LABEL[session]} berhasil`);
         } catch (e) {
@@ -156,12 +162,24 @@ export default function AbsensiWfh() {
     };
 
     const handleRemove = (session) => {
-        if (photoUrls.current[session]) {
-            URL.revokeObjectURL(photoUrls.current[session]);
-            delete photoUrls.current[session];
-        }
         setSessions((s) => ({ ...s, [session]: { status: 'belum', photo: null, checkInAt: null } }));
     };
+
+    if (!loaded) {
+        return (
+            <div className="max-w-[1200px] mx-auto">
+                <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+                <div className="mt-6 space-y-4">
+                    <div className="h-5 bg-gray-200 rounded w-1/3 animate-pulse" />
+                    <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse" />
+                    <div className="mt-5 h-2 bg-gray-200 rounded-full w-full animate-pulse" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+                    {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-[1200px] mx-auto">

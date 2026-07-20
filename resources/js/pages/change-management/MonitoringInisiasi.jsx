@@ -7,7 +7,7 @@ import StatusBadge from '../../components/common/StatusBadge';
 import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import Modal from '../../components/ui/Modal';
-import LoadingSpinner from '../../components/ui/LoadingSpinner';
+import { SkeletonTable, SkeletonCard } from '../../components/ui/Skeleton';
 
 // ── Mapping status_sistem dari data API ──
 function getStatusSistem(item) {
@@ -89,6 +89,9 @@ export default function MonitoringInisiasi() {
     const [selectedItem, setSelectedItem] = useState(null);
     const [showDetail, setShowDetail] = useState(false);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [dateFrom, setDateFrom] = useState('');
+    const [dateTo, setDateTo] = useState('');
+    const [selectedMonth, setSelectedMonth] = useState('');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -97,6 +100,9 @@ export default function MonitoringInisiasi() {
             const params = { page, per_page: 10 };
             if (search.trim()) params.search = search.trim();
             if (statusFilter) params.status = statusFilter;
+            if (dateFrom) params.date_from = dateFrom;
+            if (dateTo) params.date_to = dateTo;
+            if (selectedMonth) params.month = selectedMonth;
             const res = await changesApi.getInitiations(params);
             setData(res.data.data);
             setMeta(res.data.meta);
@@ -112,10 +118,10 @@ export default function MonitoringInisiasi() {
                 setMeta({ current_page: 1, last_page: 1, total: filtered.length });
             } else setError('Gagal memuat data.');
         } finally { setLoading(false); }
-    }, [page, search, statusFilter, demoMode]);
+    }, [page, search, statusFilter, dateFrom, dateTo, selectedMonth, demoMode]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-    useEffect(() => { setPage(1); }, [search, statusFilter]);
+    useEffect(() => { setPage(1); }, [search, statusFilter, dateFrom, dateTo, selectedMonth]);
 
     const filteredData = data.filter((item) => {
         if (filterPdf === 'ready') return item.status === 'approved';
@@ -176,6 +182,11 @@ export default function MonitoringInisiasi() {
             {demoMode && <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">Mode demo — data contoh.</div>}
 
             {/* Summary Cards — clickable filter */}
+            {loading ? (
+                <div className="grid grid-cols-3 gap-4">
+                    {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+            ) : (
             <div className="grid grid-cols-3 gap-4">
                 {pdfStatCards.map((card) => (
                     <button key={card.key} onClick={() => setFilterPdf(filterPdf === card.key ? '' : card.key)}
@@ -189,6 +200,7 @@ export default function MonitoringInisiasi() {
                     </button>
                 ))}
             </div>
+            )}
 
             {/* Search & Filters */}
             <div className="flex items-center gap-3 flex-wrap">
@@ -206,16 +218,18 @@ export default function MonitoringInisiasi() {
                     <option value="approved">Disetujui</option>
                     <option value="rejected">Ditolak</option>
                 </select>
-                <select className="text-sm border border-border-light rounded-lg px-3 py-2.5 bg-white text-text-secondary">
-                    <option value="">Semua Prioritas</option>
-                    <option value="Normal">Normal</option>
-                    <option value="Emergency">Emergency</option>
-                </select>
+                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
+                    className="text-sm border border-border-light rounded-lg px-3 py-2 bg-white text-text-secondary w-40" />
+                <span className="text-xs text-gray-400">–</span>
+                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
+                    className="text-sm border border-border-light rounded-lg px-3 py-2 bg-white text-text-secondary w-40" />
+                <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="text-sm border border-border-light rounded-lg px-3 py-2 bg-white text-text-secondary w-40" />
             </div>
 
             {/* Table — read-only monitoring */}
             <Card padding={false}>
-                {loading ? <LoadingSpinner />
+                {loading ? <SkeletonTable rows={6} cols={6} />
                 : filteredData.length === 0 ? <p className="text-center py-20 text-sm text-gray-400">Tidak ada data ditemukan</p>
                 : <>
                     <div className="overflow-x-auto">
