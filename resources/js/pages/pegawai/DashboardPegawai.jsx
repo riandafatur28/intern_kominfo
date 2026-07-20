@@ -36,7 +36,7 @@ function ModuleCard({ icon: Icon, iconBg, iconColor, borderColor, title, desc, o
 
 export default function DashboardPegawai() {
     const navigate = useNavigate();
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const [stats, setStats] = useState([]);
     const [activities, setActivities] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -77,10 +77,19 @@ export default function DashboardPegawai() {
     );
 
     const fetchData = useCallback(() => {
-        Promise.all([
-            wfhApi.getReports({ per_page: 50 }).catch(() => ({ data: { data: [] } })),
-            changesApi.getInitiations({ per_page: 50 }).catch(() => ({ data: { data: [] } })),
-        ]).then(([reportsRes, initiationsRes]) => {
+        const promises = [];
+        // proxy: anyone with wfh.report.create can view own reports
+        if (hasPermission('wfh.report.create') || hasPermission('wfh.report.approve')) {
+            promises.push(wfhApi.getReports({ per_page: 50 }).catch(() => ({ data: { data: [] } })));
+        } else {
+            promises.push(Promise.resolve({ data: { data: [] } }));
+        }
+        if (hasPermission('change.initiation.view')) {
+            promises.push(changesApi.getInitiations({ per_page: 50 }).catch(() => ({ data: { data: [] } })));
+        } else {
+            promises.push(Promise.resolve({ data: { data: [] } }));
+        }
+        Promise.all(promises).then(([reportsRes, initiationsRes]) => {
             const reports = reportsRes.data.data || [];
             const initiations = initiationsRes.data.data || [];
 
@@ -117,49 +126,53 @@ export default function DashboardPegawai() {
             // Build activity feed
             const acts = [];
             // Last 5 reports
-            const sorted = [...reports]
-                .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-                .slice(0, 5);
-            sorted.forEach((r) => {
-                const t = r.report_date
-                    ? new Date(r.created_at).toLocaleTimeString('id-ID', {
-                          hour: '2-digit', minute: '2-digit',
-                      })
-                    : '';
-                const statusMap = {
-                    draft: 'disimpan sebagai draf',
-                    pending: 'dikirim untuk disetujui',
-                    approved: 'telah disetujui',
-                    rejected: 'ditolak',
-                };
-                acts.push({
-                    time: t || r.report_date,
-                    text: `Laporan kegiatan ${r.report_date} ${statusMap[r.status] || r.status}`,
+            if (reports.length > 0) {
+                const sorted = [...reports]
+                    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+                    .slice(0, 5);
+                sorted.forEach((r) => {
+                    const t = r.report_date
+                        ? new Date(r.created_at).toLocaleTimeString('id-ID', {
+                              hour: '2-digit', minute: '2-digit',
+                          })
+                        : '';
+                    const statusMap = {
+                        draft: 'disimpan sebagai draf',
+                        pending: 'dikirim untuk disetujui',
+                        approved: 'telah disetujui',
+                        rejected: 'ditolak',
+                    };
+                    acts.push({
+                        time: t || r.report_date,
+                        text: `Laporan kegiatan ${r.report_date} ${statusMap[r.status] || r.status}`,
+                    });
                 });
-            });
+            }
             // Last 5 initiations
-            const sortedInit = [...initiations]
-                .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
-                .slice(0, 5);
-
-            const initActs = sortedInit.map((r) => {
-                const t = r.initiation_date
-                    ? new Date(r.created_at).toLocaleTimeString('id-ID', {
-                          hour: '2-digit', minute: '2-digit',
-                      })
-                    : '';
-                const statusMap = {
-                    draft: 'disimpan sebagai draf',
-                    pending: 'diajukan',
-                    approved: 'telah disetujui',
-                    rejected: 'ditolak',
-                };
-                return {
-                    time: t || r.initiation_date,
-                    text: `Inisiasi "${r.description?.slice(0, 50) || ''}" ${statusMap[r.status] || r.status}`,
-                };
-            });
-            setActivities([...acts.slice(0, 5), ...initActs.slice(0, 3)].sort((a, b) => b.time.localeCompare(a.time)).slice(0, 8));
+            if (initiations.length > 0) {
+                const sortedInit = [...initiations]
+                    .sort((a, b) => (b.created_at || '').localeCompare(a.created_at || ''))
+                    .slice(0, 5);
+                const initActs = sortedInit.map((r) => {
+                    const t = r.initiation_date
+                        ? new Date(r.created_at).toLocaleTimeString('id-ID', {
+                              hour: '2-digit', minute: '2-digit',
+                          })
+                        : '';
+                    const statusMap = {
+                        draft: 'disimpan sebagai draf',
+                        pending: 'diajukan',
+                        approved: 'telah disetujui',
+                        rejected: 'ditolak',
+                    };
+                    return {
+                        time: t || r.initiation_date,
+                        text: `Inisiasi "${r.description?.slice(0, 50) || ''}" ${statusMap[r.status] || r.status}`,
+                    };
+                });
+                acts.push(...initActs);
+            }
+            setActivities(acts.sort((a, b) => b.time.localeCompare(a.time)).slice(0, 8));
         }).catch(() => {
             // fallback — keep zeros
             setStats((s) => s.map((st) => ({ ...st, sub: '' })));
@@ -219,33 +232,39 @@ export default function DashboardPegawai() {
             <div>
                 <h2 className="text-base font-extrabold text-gray-900 tracking-wide mb-4">AKSES MODUL</h2>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                    <ModuleCard
-                        icon={Contact}
-                        iconBg="bg-green-400"
-                        iconColor="text-white"
-                        borderColor="border-green-200"
-                        title="Absensi WFH"
-                        desc="Unggah foto WFH hari ini"
-                        onClick={() => navigate('/absensi-wfh')}
-                    />
-                    <ModuleCard
-                        icon={FileText}
-                        iconBg="bg-orange-400"
-                        iconColor="text-white"
-                        borderColor="border-orange-200"
-                        title="Laporan Kegiatan"
-                        desc="Catat kegiatan anda hari ini"
-                        onClick={() => navigate('/laporan-kegiatan')}
-                    />
-                    <ModuleCard
-                        icon={GitPullRequestArrow}
-                        iconBg="bg-amber-300"
-                        iconColor="text-white"
-                        borderColor="border-amber-200"
-                        title="Inisiasi Perubahan"
-                        desc="Ajukan perubahan Sistem"
-                        onClick={() => navigate('/inisiasi-perubahan')}
-                    />
+                    {hasPermission('wfh.attendance.create') && (
+                        <ModuleCard
+                            icon={Contact}
+                            iconBg="bg-green-400"
+                            iconColor="text-white"
+                            borderColor="border-green-200"
+                            title="Absensi WFH"
+                            desc="Unggah foto WFH hari ini"
+                            onClick={() => navigate('/absensi-wfh')}
+                        />
+                    )}
+                    {hasPermission('wfh.report.create') && (
+                        <ModuleCard
+                            icon={FileText}
+                            iconBg="bg-orange-400"
+                            iconColor="text-white"
+                            borderColor="border-orange-200"
+                            title="Laporan Kegiatan"
+                            desc="Catat kegiatan anda hari ini"
+                            onClick={() => navigate('/laporan-kegiatan')}
+                        />
+                    )}
+                    {hasPermission('change.initiation.create') && (
+                        <ModuleCard
+                            icon={GitPullRequestArrow}
+                            iconBg="bg-amber-300"
+                            iconColor="text-white"
+                            borderColor="border-amber-200"
+                            title="Inisiasi Perubahan"
+                            desc="Ajukan perubahan Sistem"
+                            onClick={() => navigate('/inisiasi-perubahan')}
+                        />
+                    )}
                 </div>
             </div>
         </div>

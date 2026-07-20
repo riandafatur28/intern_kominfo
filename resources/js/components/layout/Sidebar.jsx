@@ -27,6 +27,8 @@ const PEGAWAI_NAV = [
 
 const TEAM_LEAD_NAV = [
     { to: '/team-lead/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'change.initiation.view' },
+    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
     { to: '/team-lead/permintaan-persetujuan', icon: CheckSquare, label: 'Permintaan Persetujuan', perm: 'change.initiation.approve' },
     { to: '/team-lead/profil', icon: User, label: 'Profil Saya', perm: null },
 ];
