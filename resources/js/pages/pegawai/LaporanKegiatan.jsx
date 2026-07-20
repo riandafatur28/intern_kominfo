@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Send } from 'lucide-react';
+import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -12,16 +12,15 @@ function StatusBadge({ status }) {
         draft: 'bg-[#FCD9CC] text-[#C2410C]',
         pending: 'bg-[#FEE9C7] text-[#B45309]',
         approved: 'bg-[#C9F2D6] text-[#15803D]',
-        rejected: 'bg-red-100 text-red-700',
+        rejected: 'bg-red-100 text-red-600',
     };
     const label = {
         draft: 'Draf', pending: 'Menunggu',
         approved: 'Disetujui', rejected: 'Ditolak',
     };
-    const key = status?.toLowerCase();
     return (
-        <span className={`inline-block px-4 py-1 rounded-full text-xs font-semibold ${map[key] ?? 'bg-gray-100 text-gray-600'}`}>
-            {label[key] ?? status}
+        <span className={`inline-block px-4 py-1 rounded-full text-xs font-semibold ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
+            {label[status] ?? status}
         </span>
     );
 }
@@ -31,7 +30,7 @@ function StatCard({ label, value }) {
     return (
         <div className="bg-white rounded-2xl border border-gray-200 px-6 pt-5 pb-6">
             <p className="text-center text-base font-bold text-gray-800 pb-3 border-b border-gray-100">{label}</p>
-            <p className="text-center text-4xl font-extrabold text-brand-700 mt-4">{value}</p>
+            <p className="text-center text-3xl font-extrabold text-gray-900 mt-4">{value}</p>
         </div>
     );
 }
@@ -45,14 +44,19 @@ function nowHHMM() {
 const EMPTY_FORM = { start: nowHHMM(), end: '', activity: '', link: '' };
 
 export default function LaporanKegiatan() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [toast, setToast] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
     const [editingId, setEditingId] = useState(null);
+    const showToast = (type, message) => {
+        setToast({ type, message });
+        setTimeout(() => setToast(null), 3500);
+    };
 
     const today = new Date().toLocaleDateString('id-ID', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
@@ -122,8 +126,9 @@ export default function LaporanKegiatan() {
             }
             setShowModal(false);
             await fetchReports();
+            showToast('success', 'Kegiatan tersimpan.');
         } catch (e) {
-            setError(e.response?.data?.message || 'Gagal menyimpan laporan.');
+            showToast('error', e.response?.data?.message || 'Gagal menyimpan laporan.');
         } finally {
             setSaving(false);
         }
@@ -134,8 +139,9 @@ export default function LaporanKegiatan() {
         try {
             await wfhApi.deleteReport(id);
             await fetchReports();
+            showToast('success', 'Kegiatan dihapus.');
         } catch (e) {
-            setError(e.response?.data?.message || 'Gagal menghapus laporan.');
+            showToast('error', e.response?.data?.message || 'Gagal menghapus laporan.');
         }
     };
 
@@ -143,8 +149,9 @@ export default function LaporanKegiatan() {
         try {
             await wfhApi.submitReport(id);
             await fetchReports();
+            showToast('success', 'Laporan berhasil dikirim.');
         } catch (e) {
-            setError(e.response?.data?.message || 'Gagal mengirim laporan.');
+            showToast('error', e.response?.data?.message || 'Gagal mengirim laporan.');
         }
     };
 
@@ -163,18 +170,35 @@ export default function LaporanKegiatan() {
                 <StatCard label="Total Waktu Kerja" value={totalWaktu} />
             </div>
 
-            {/* Add button */}
-            <button
-                onClick={openAdd}
-                className="flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white text-sm font-bold px-6 py-3.5 rounded-xl mt-6 transition-colors"
-            >
-                <Plus size={18} strokeWidth={2.5} />
-                Tambah Kegiatan
-            </button>
+            {/* Actions */}
+            <div className="flex items-center gap-3 mt-6 flex-wrap">
+                {hasPermission('wfh.report.create') && (
+                    <button
+                        onClick={openAdd}
+                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
+                    >
+                        <Plus size={18} strokeWidth={2.5} />
+                        Tambah Kegiatan
+                    </button>
+                )}
+                {rows.length > 0 && hasPermission('wfh.report.submit') && (
+                    <button
+                        onClick={() => {
+                            rows.filter(r => r.status === 'draft').forEach(r => handleSubmit(r.id));
+                        }}
+                        disabled={saving}
+                        className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
+                    >
+                        {saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                        Kirim Laporan
+                    </button>
+                )}
+            </div>
 
             {/* Table */}
             <div className="bg-white rounded-2xl border border-gray-200 mt-6 overflow-hidden">
-                <div className="overflow-x-auto">
+                {/* Desktop table */}
+                <div className="overflow-x-auto hidden md:block">
                     <table className="w-full min-w-[720px]">
                         <thead>
                             <tr className="text-gray-700 text-sm font-bold border-b border-gray-100">
@@ -190,7 +214,7 @@ export default function LaporanKegiatan() {
                             {loading ? (
                                 <tr><td colSpan={6} className="px-0 py-0"><SkeletonTable rows={4} cols={6} /></td></tr>
                             ) : rows.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-12 text-sm text-gray-400">Belum ada laporan kegiatan.</td></tr>
+                                <tr><td colSpan={6} className="text-center py-16 text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</td></tr>
                             ) : rows.map((r) => {
                                 const a = r.activities?.[0] || {};
                                 const fmtTime = (t) => { if (!t) return '?'; const p = t.includes('T') ? t.split('T')[1] : t.includes(' ') ? t.split(' ')[1] : t; return p.slice(0, 5); };
@@ -211,19 +235,21 @@ export default function LaporanKegiatan() {
                                         <td className="px-6 py-4 text-center"><StatusBadge status={r.status} /></td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-end gap-3">
-                                                {r.status === 'draft' && (
-                                                    <>
-                                                        <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-brand-500 transition-colors" title="Edit">
-                                                            <Pencil size={17} />
-                                                        </button>
-                                                        <button onClick={() => handleSubmit(r.id)} className="text-blue-600 hover:text-blue-700 transition-colors" title="Kirim">
-                                                            <Send size={17} />
-                                                        </button>
-                                                    </>
+                                                {r.status === 'draft' && hasPermission('wfh.report.update') && (
+                                                    <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-brand-500 transition-colors" title="Edit">
+                                                        <Pencil size={17} />
+                                                    </button>
                                                 )}
-                                                <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-600 transition-colors" title="Hapus">
-                                                    <Trash2 size={17} />
-                                                </button>
+                                                {r.status === 'draft' && hasPermission('wfh.report.submit') && (
+                                                    <button onClick={() => handleSubmit(r.id)} className="text-blue-600 hover:text-blue-700 transition-colors" title="Kirim">
+                                                        <Send size={17} />
+                                                    </button>
+                                                )}
+                                                {hasPermission('wfh.report.delete') && (
+                                                    <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-600 transition-colors" title="Hapus">
+                                                        <Trash2 size={17} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </td>
                                     </tr>
@@ -232,7 +258,62 @@ export default function LaporanKegiatan() {
                         </tbody>
                     </table>
                 </div>
+                {/* Mobile cards */}
+                <div className="md:hidden divide-y divide-gray-50">
+                    {loading ? (
+                        <div className="px-4 py-6"><SkeletonTable rows={3} cols={1} /></div>
+                    ) : rows.length === 0 ? (
+                        <div className="py-16 text-center text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</div>
+                    ) : rows.map((r) => {
+                        const a = r.activities?.[0] || {};
+                        const fmtTime = (t) => { if (!t) return '?'; const p = t.includes('T') ? t.split('T')[1] : t.includes(' ') ? t.split(' ')[1] : t; return p.slice(0, 5); };
+                        return (
+                            <div key={r.id} className="p-4 space-y-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="text-sm font-semibold text-gray-700">{r.report_date} &middot; {fmtTime(a.start_time)} – {fmtTime(a.end_time)}</span>
+                                    <StatusBadge status={r.status} />
+                                </div>
+                                <p className="text-sm text-gray-600">{a.activity}</p>
+                                {a.links?.[0]?.url && (
+                                    <a href={a.links[0].url} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all text-sm block">
+                                        {a.links[0].url}
+                                    </a>
+                                )}
+                                {r.status === 'draft' && hasPermission('wfh.report.update') && (
+                                    <div className="flex items-center gap-4 pt-1">
+                                        <button onClick={() => openEdit(r)} className="flex items-center gap-1 text-gray-500 hover:text-brand-500 text-sm">
+                                            <Pencil size={15} /> Edit
+                                        </button>
+                                    </div>
+                                )}
+                                {r.status === 'draft' && hasPermission('wfh.report.submit') && (
+                                    <div className="flex items-center gap-4 pt-1">
+                                        <button onClick={() => handleSubmit(r.id)} className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
+                                            <Send size={15} /> Kirim
+                                        </button>
+                                    </div>
+                                )}
+                                {hasPermission('wfh.report.delete') && (
+                                    <button onClick={() => handleDelete(r.id)} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
+                                        <Trash2 size={15} /> Hapus
+                                    </button>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
             </div>
+
+            {/* Toast */}
+            {toast && (
+                <div
+                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                        }`}
+                >
+                    {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                    {toast.message}
+                </div>
+            )}
 
             {/* Add / Edit modal */}
             <Modal

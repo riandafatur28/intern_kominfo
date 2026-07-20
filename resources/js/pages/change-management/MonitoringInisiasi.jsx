@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Loader2, FileDown, Eye, X, CheckCircle } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Loader2, FileDown, Eye, X, CheckCircle, Calendar } from 'lucide-react';
 import { changesApi } from '../../api/changes';
 import { demoInitiations } from '../../utils/mockData';
 import { useAuth } from '../../context/AuthContext';
@@ -77,7 +77,7 @@ function getTimeline(item) {
 }
 
 export default function MonitoringInisiasi() {
-    const { demoMode } = useAuth();
+    const { demoMode, hasPermission } = useAuth();
     const [data, setData] = useState([]);
     const [meta, setMeta] = useState(null);
     const [page, setPage] = useState(1);
@@ -89,9 +89,7 @@ export default function MonitoringInisiasi() {
     const [selectedItem, setSelectedItem] = useState(null);
     const [showDetail, setShowDetail] = useState(false);
     const [pdfLoading, setPdfLoading] = useState(false);
-    const [dateFrom, setDateFrom] = useState('');
-    const [dateTo, setDateTo] = useState('');
-    const [selectedMonth, setSelectedMonth] = useState('');
+    const [month, setMonth] = useState('');
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -100,9 +98,7 @@ export default function MonitoringInisiasi() {
             const params = { page, per_page: 10 };
             if (search.trim()) params.search = search.trim();
             if (statusFilter) params.status = statusFilter;
-            if (dateFrom) params.date_from = dateFrom;
-            if (dateTo) params.date_to = dateTo;
-            if (selectedMonth) params.month = selectedMonth;
+            if (month) params.month = month;
             const res = await changesApi.getInitiations(params);
             setData(res.data.data);
             setMeta(res.data.meta);
@@ -118,10 +114,10 @@ export default function MonitoringInisiasi() {
                 setMeta({ current_page: 1, last_page: 1, total: filtered.length });
             } else setError('Gagal memuat data.');
         } finally { setLoading(false); }
-    }, [page, search, statusFilter, dateFrom, dateTo, selectedMonth, demoMode]);
+    }, [page, search, statusFilter, month, demoMode]);
 
     useEffect(() => { fetchData(); }, [fetchData]);
-    useEffect(() => { setPage(1); }, [search, statusFilter, dateFrom, dateTo, selectedMonth]);
+    useEffect(() => { setPage(1); }, [search, statusFilter, month]);
 
     const filteredData = data.filter((item) => {
         if (filterPdf === 'ready') return item.status === 'approved';
@@ -218,13 +214,16 @@ export default function MonitoringInisiasi() {
                     <option value="approved">Disetujui</option>
                     <option value="rejected">Ditolak</option>
                 </select>
-                <input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)}
-                    className="text-sm border border-border-light rounded-lg px-3 py-2 bg-white text-text-secondary w-40" />
-                <span className="text-xs text-gray-400">–</span>
-                <input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)}
-                    className="text-sm border border-border-light rounded-lg px-3 py-2 bg-white text-text-secondary w-40" />
-                <input type="month" value={selectedMonth} onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="text-sm border border-border-light rounded-lg px-3 py-2 bg-white text-text-secondary w-40" />
+                <div className="relative flex items-center">
+                    <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
+                    <input
+                        type="month"
+                        value={month}
+                        onChange={(e) => { setMonth(e.target.value); setPage(1); }}
+                        title="Filter bulan"
+                        className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
             </div>
 
             {/* Table — read-only monitoring */}
@@ -276,7 +275,7 @@ export default function MonitoringInisiasi() {
                                                         className="p-1.5 hover:bg-gray-100 rounded-md text-text-secondary hover:text-text-primary transition-colors" title="Lihat detail">
                                                         <Eye size={16} />
                                                     </button>
-                                                    {row.status === 'approved' && (
+                                                    {row.status === 'approved' && hasPermission('change.initiation.export_pdf') && (
                                                         <button onClick={() => handleGeneratePdf(row.id)} disabled={pdfLoading}
                                                             className="text-xs font-semibold text-white bg-brand-500 hover:bg-brand-600 px-3 py-1.5 rounded-md transition-colors disabled:opacity-60 flex items-center gap-1">
                                                             <FileDown size={14} />

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, ChevronDown, Pencil } from 'lucide-react';
+import { Calendar, ChevronDown, Pencil, Loader2, CheckCircle2, XCircle, FileText } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import { changesApi } from '../../api/changes';
 import { useAuth } from '../../context/AuthContext';
@@ -53,7 +53,7 @@ function todayStr() {
 }
 
 export default function InisiasiPerubahan() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
     const [tab, setTab] = useState('form');
     const [form, setForm] = useState({
         description: '',
@@ -64,7 +64,34 @@ export default function InisiasiPerubahan() {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
 
-    // Riwayat list
+    // ——— Implementasi ———
+    const [impl, setImpl] = useState({
+        initiationId: '',
+        tanggal: '',
+        halaman: '',
+        tipe: [],
+        prioritas: 'Normal',
+        dampak: 'Minor',
+        dampakProduksi: '',
+        upaya: '',
+        kebutuhanBiaya: 'Tidak',
+        jumlahBiaya: '',
+        sumberDaya: '',
+        rencanaPengujian: '',
+        evalNama: '',
+        evalBidang: '',
+        evalJabatan: '',
+    });
+    const [approvedList, setApprovedList] = useState([]);
+    const [submittingImpl, setSubmittingImpl] = useState(false);
+    const [toast, setToast] = useState(null);
+
+    const showToast = (type, message) => {
+        setToast({ type, message });
+        setTimeout(() => setToast(null), 3500);
+    };
+
+    // ——— Riwayat list
     const [riwayat, setRiwayat] = useState([]);
     const [riwayatLoading, setRiwayatLoading] = useState(true);
     const [pageLoading, setPageLoading] = useState(true);
@@ -110,6 +137,68 @@ export default function InisiasiPerubahan() {
             setSaving(false);
         }
     };
+
+    const toggleTipe = (t) => setImpl((f) => ({
+        ...f,
+        tipe: f.tipe.includes(t) ? f.tipe.filter((x) => x !== t) : [...f.tipe, t],
+    }));
+
+    const fetchApproved = useCallback(async () => {
+        try {
+            const res = await changesApi.getInitiations({ per_page: 100, status: 'approved' });
+            setApprovedList(res.data?.data ?? []);
+        } catch {
+            setApprovedList([]);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (tab === 'implementasi') fetchApproved();
+    }, [tab, fetchApproved]);
+
+    const matchedInitiation = approvedList.find(
+        (i) => String(i.field_id) === String(user?.team?.field?.id)
+    ) ?? null;
+
+    const submitImplementasi = async (e, isDraft) => {
+        e.preventDefault();
+        if (!matchedInitiation) return showToast('error', 'Belum ada inisiasi yang disetujui untuk bidang ini.');
+        if (impl.kebutuhanBiaya === 'Ada' && !impl.jumlahBiaya) return showToast('error', 'Isi jumlah biaya.');
+
+        setSubmittingImpl(true);
+        try {
+            const payload = {
+                priority: impl.prioritas === 'Emergency' ? 'critical' : 'medium',
+                impact: impl.dampak === 'Mayor' ? 'high' : 'low',
+                production_impact: impl.dampakProduksi || null,
+                required_effort: impl.upaya || null,
+                cost_needed: impl.kebutuhanBiaya === 'Ada',
+                cost_amount: impl.kebutuhanBiaya === 'Ada' ? Number(String(impl.jumlahBiaya).replace(/\D/g, '')) || null : null,
+                resources: impl.sumberDaya || null,
+                test_plan: impl.rencanaPengujian || null,
+            };
+            const res = await changesApi.createImplementation(matchedInitiation.id, payload);
+            const createdId = res.data?.data?.id;
+            if (!isDraft && createdId) {
+                await changesApi.submitImplementation(createdId);
+                showToast('success', 'Implementasi berhasil dikirim untuk ditinjau.');
+            } else {
+                showToast('success', 'Implementasi berhasil disimpan sebagai draf.');
+            }
+            setImpl({
+                initiationId: '', tanggal: '', halaman: '', tipe: [],
+                prioritas: 'Normal', dampak: 'Minor', dampakProduksi: '', upaya: '',
+                kebutuhanBiaya: 'Tidak', jumlahBiaya: '', sumberDaya: '',
+                rencanaPengujian: '', evalNama: '', evalBidang: '', evalJabatan: '',
+            });
+        } catch (err) {
+            showToast('error', err.response?.data?.message || Object.values(err.response?.data?.errors ?? {})[0]?.[0] || 'Gagal menyimpan implementasi.');
+        } finally {
+            setSubmittingImpl(false);
+        }
+    };
+
+    const setImplField = (k) => (e) => setImpl((f) => ({ ...f, [k]: e.target.value }));
 
     if (pageLoading) {
         return (
@@ -168,6 +257,16 @@ export default function InisiasiPerubahan() {
                     }`}
                 >
                     Form Permohonan
+                </button>
+                <button
+                    onClick={() => setTab('implementasi')}
+                    className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
+                        tab === 'implementasi'
+                            ? 'bg-brand-100 text-brand-700 border-brand-200'
+                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                    }`}
+                >
+                    Implementasi
                 </button>
                 <button
                     onClick={() => setTab('riwayat')}
@@ -234,23 +333,170 @@ export default function InisiasiPerubahan() {
 
                     {/* Footer buttons */}
                     <div className="flex items-center justify-end gap-4 pb-4">
-                        <button
-                            type="button"
-                            onClick={(e) => handleSubmit(e, true)}
-                            disabled={saving}
-                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50"
-                        >
-                            {saving ? 'Menyimpan...' : 'Simpan Draf'}
-                        </button>
-                        <button
-                            type="submit"
-                            disabled={saving}
-                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
-                        >
-                            {saving ? 'Mengirim...' : 'Kirim Laporan'}
-                        </button>
+                        {hasPermission('change.initiation.create') && (
+                            <button
+                                type="button"
+                                onClick={(e) => handleSubmit(e, true)}
+                                disabled={saving}
+                                className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50"
+                            >
+                                {saving ? 'Menyimpan...' : 'Simpan Draf'}
+                            </button>
+                        )}
+                        {hasPermission('change.initiation.create') && hasPermission('change.initiation.submit') && (
+                            <button
+                                type="submit"
+                                disabled={saving}
+                                className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
+                            >
+                                {saving ? 'Mengirim...' : 'Kirim Laporan'}
+                            </button>
+                        )}
                     </div>
                 </form>
+            ) : tab === 'implementasi' ? (
+                <div className="mt-5 space-y-5">
+                    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                        <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
+                            Berdasarkan Inisiasi
+                        </h2>
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <Label>Bidang</Label>
+                                <input value={user?.team?.field?.name || '-'} readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
+                            </div>
+                            {matchedInitiation ? (
+                                <p className="text-xs text-green-600">✓ Inisiasi disetujui: {matchedInitiation.doc_number}</p>
+                            ) : (
+                                <p className="text-xs text-amber-600">Belum ada inisiasi yang disetujui untuk bidang ini.</p>
+                            )}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                                <div>
+                                    <Label>Nomor</Label>
+                                    <input value="Otomatis dibuat sistem" readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
+                                </div>
+                                <div>
+                                    <Label>Tanggal</Label>
+                                    <div className="relative">
+                                        <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
+                                        <input type="date" value={impl.tanggal} onChange={setImplField('tanggal')} className={`${inputCls} pl-10`} />
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label>Halaman</Label>
+                                    <input value={impl.halaman} onChange={setImplField('halaman')} placeholder="Halaman" className={inputCls} />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                        <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
+                            Evaluasi Dampak Perubahan
+                        </h2>
+                        <div className="p-6 space-y-5">
+                            <div>
+                                <Label>Tipe Perubahan</Label>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {['Hardware','Network','Software','Utilities','Aplikasi','Prosedur','Operating System','Personil'].map((t) => {
+                                        const active = impl.tipe.includes(t);
+                                        return (
+                                            <button type="button" key={t} onClick={() => toggleTipe(t)}
+                                                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors text-left ${active ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                {t}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <Label>Prioritas Perubahan</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Normal','Emergency'].map((o) => (
+                                            <button type="button" key={o} onClick={() => setImpl((f) => ({...f, prioritas: o}))}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${impl.prioritas === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                {o}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label>Dampak Perubahan</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Minor','Mayor'].map((o) => (
+                                            <button type="button" key={o} onClick={() => setImpl((f) => ({...f, dampak: o}))}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${impl.dampak === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                {o}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div>
+                                <Label>Dampak Terhadap Lingkungan Produksi</Label>
+                                <textarea value={impl.dampakProduksi} onChange={setImplField('dampakProduksi')} rows={3} className={`${inputCls} resize-none`} />
+                            </div>
+                            <div>
+                                <Label>Upaya / Tindakan yang Diperlukan</Label>
+                                <textarea value={impl.upaya} onChange={setImplField('upaya')} rows={3} className={`${inputCls} resize-none`} />
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                <div>
+                                    <Label>Kebutuhan Biaya</Label>
+                                    <div className="flex flex-wrap gap-2">
+                                        {['Ada','Tidak'].map((o) => (
+                                            <button type="button" key={o} onClick={() => setImpl((f) => ({...f, kebutuhanBiaya: o, jumlahBiaya: o === 'Tidak' ? '' : f.jumlahBiaya}))}
+                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${impl.kebutuhanBiaya === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                {o}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                                <div>
+                                    <Label>Jumlah Biaya</Label>
+                                    <input value={impl.jumlahBiaya} onChange={setImplField('jumlahBiaya')} placeholder="Rp." disabled={impl.kebutuhanBiaya !== 'Ada'} className={`${inputCls} ${impl.kebutuhanBiaya !== 'Ada' ? 'bg-gray-50 text-gray-400' : ''}`} />
+                                </div>
+                            </div>
+                            <div>
+                                <Label>Kebutuhan Sumber Daya (Personil, H/W, S/W)</Label>
+                                <textarea value={impl.sumberDaya} onChange={setImplField('sumberDaya')} rows={2} className={`${inputCls} resize-none`} />
+                            </div>
+                            <div>
+                                <Label>Penjelasan Rencana Pengujian</Label>
+                                <textarea value={impl.rencanaPengujian} onChange={setImplField('rencanaPengujian')} rows={2} className={`${inputCls} resize-none`} />
+                            </div>
+                            <div>
+                                <Label>Dievaluasi Oleh</Label>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <input value={impl.evalNama} onChange={setImplField('evalNama')} placeholder="Nama" className={inputCls} />
+                                    <input value={impl.evalBidang} onChange={setImplField('evalBidang')} placeholder="Bidang" className={inputCls} />
+                                    <input value={impl.evalJabatan} onChange={setImplField('evalJabatan')} placeholder="Jabatan" className={inputCls} />
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3">
+                        <span>Setelah dikirim, implementasi menunggu <b>tinjauan Team Lead</b>. Hasil implementasi, hasil pengujian, tanggal pelaksanaan &amp; rilis akan diisi oleh Team Lead pada tahap peninjauan.</span>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-4 pb-4">
+                        {hasPermission('change.implementation.create') && (
+                            <button type="button" onClick={(e) => submitImplementasi(e, true)} disabled={submittingImpl}
+                                className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50">
+                                {submittingImpl ? 'Menyimpan...' : 'Simpan Draf'}
+                            </button>
+                        )}
+                        {hasPermission('change.implementation.create') && hasPermission('change.implementation.submit') && (
+                            <button type="submit" onClick={(e) => submitImplementasi(e, false)} disabled={submittingImpl}
+                                className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50">
+                                {submittingImpl && <Loader2 size={16} className="animate-spin" />}
+                                {submittingImpl ? 'Mengirim...' : 'Kirim untuk Ditinjau'}
+                            </button>
+                        )}
+                    </div>
+                </div>
             ) : (
                 <div className="mt-5">
                     <div className="flex items-center gap-4 mb-4">
@@ -286,7 +532,7 @@ export default function InisiasiPerubahan() {
                                             <td className="px-6 py-4 max-w-[300px] truncate">{r.description}</td>
                                             <td className="px-6 py-4"><RiwayatStatus status={r.status} /></td>
                                             <td className="px-6 py-4">
-                                                {r.status === 'approved' || r.status === 'pending' ? (
+                                                {(r.status === 'approved' || r.status === 'pending') && hasPermission('change.initiation.export_pdf') ? (
                                                     <button onClick={async () => {
                                                         try {
                                                             const res = await changesApi.getInitiationPdf(r.id);
@@ -314,6 +560,14 @@ export default function InisiasiPerubahan() {
                         </div>
                         )}
                     </div>
+                </div>
+            )}
+
+            {/* Toast */}
+            {toast && (
+                <div className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`}>
+                    {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                    {toast.message}
                 </div>
             )}
         </div>

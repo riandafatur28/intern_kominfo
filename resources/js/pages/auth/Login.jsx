@@ -36,9 +36,13 @@ export default function Login() {
     return (
         <div className="min-h-screen flex flex-col bg-bg-page font-[Poppins]">
             {/* Header */}
-            <header className="px-8 py-6 flex items-center gap-3">
-                <img src="/images/logo-auth.png" alt="Logo Kominfo Jatim" className="h-12 object-contain" />
-                <h1 className="text-lg font-bold text-brand-700 leading-tight">
+            <header className="px-6 sm:px-8 py-6 flex items-center gap-3 sm:gap-4">
+                <img
+                    src="/images/logo-auth.png"
+                    alt="Logo Kominfo Jatim"
+                    className="h-16 sm:h-20 w-auto object-contain shrink-0"
+                />
+                <h1 className="text-base sm:text-lg font-bold text-brand-700 leading-[1.2]">
                     Sistem Absensi &amp;<br />Manajemen Perubahan
                 </h1>
             </header>

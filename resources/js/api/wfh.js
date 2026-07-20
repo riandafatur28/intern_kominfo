@@ -29,6 +29,13 @@ export const wfhApi = {
     submitReport: (id) =>
         client.post(`/wfh/reports/${id}/submit`),
 
+    // === Approval ===
+    approveReport: (id) =>
+        client.post(`/wfh/reports/${id}/approve`),
+
+    rejectReport: (id, reason) =>
+        client.post(`/wfh/reports/${id}/reject`, { reason }),
+
     // === PDF ===
     getReportPdf: (id) =>
         client.get(`/wfh/reports/${id}/pdf`, { responseType: 'blob' }),

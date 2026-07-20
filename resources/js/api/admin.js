@@ -1,6 +1,34 @@
 import client from './client';
 
 /**
+ * Fetch paginated users.
+ * @param {Object} params - { page, per_page, search, role }
+ */
+export async function getUsers(params = {}) {
+    const res = await client.get('/admin/users', { params });
+    return res.data;
+}
+
+/**
+ * Delete a user.
+ * @param {number} id
+ */
+export async function deleteUser(id) {
+    const res = await client.delete(`/admin/users/${id}`);
+    return res.data;
+}
+
+/**
+ * Update an existing user.
+ * @param {number} id
+ * @param {Object} payload - { name, nip, email, team_id, rank, position, phone, is_active, roles[] }
+ */
+export async function updateUser(id, payload) {
+    const res = await client.put(`/admin/users/${id}`, payload);
+    return res.data;
+}
+
+/**
  * Create a new user.
  * @param {Object} payload - { name, nip, email, team_id, rank, position, phone, password, roles[] }
  */
@@ -10,11 +38,31 @@ export async function createUser(payload) {
 }
 
 /**
- * Fetch all roles (requires role.manage). Returns [{ id, name, permissions }].
+ * Fetch all roles with their permissions (requires role.manage).
+ * Returns [{ id, name, permissions }].
  */
 export async function getRoles() {
     const res = await client.get('/admin/roles');
     return res.data.data;
+}
+
+/**
+ * Fetch all available permissions (requires permission.manage).
+ * Returns [{ id, name }].
+ */
+export async function getPermissions() {
+    const res = await client.get('/admin/permissions');
+    return res.data.data;
+}
+
+/**
+ * Update/sync permissions for a role (requires role.manage).
+ * @param {number} id - Role ID
+ * @param {string[]} permissions - Array of permission names to assign
+ */
+export async function updateRolePermissions(id, permissions) {
+    const res = await client.put(`/admin/roles/${id}/permissions`, { permissions });
+    return res.data;
 }
 
 /**

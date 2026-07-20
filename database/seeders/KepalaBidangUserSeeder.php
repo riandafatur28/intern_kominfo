@@ -5,6 +5,7 @@ namespace Database\Seeders;
 use App\Models\Field;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
 
 class KepalaBidangUserSeeder extends Seeder
 {
@@ -15,7 +16,7 @@ class KepalaBidangUserSeeder extends Seeder
             [
                 'team_id' => null,
                 'name' => 'Kepala Bidang Demo',
-                'nip' => '1111111111',
+                'nip' => '3333333333',
                 'rank' => 'Pembina',
                 'position' => 'Kepala Bidang',
                 'password' => config('app.default_user_password'),
@@ -28,10 +29,15 @@ class KepalaBidangUserSeeder extends Seeder
             $user->assignRole('kepala_bidang');
         }
 
-        // Assign as head of the first field (created by AdminUserSeeder)
-        $field = Field::first();
-        if ($field && ! $field->head_id) {
+        // Assign as head of the first field WITHOUT an existing head (created by AdminUserSeeder)
+        $field = Field::whereNull('head_id')->first();
+        if ($field) {
             $field->update(['head_id' => $user->id]);
+            // Link to a team in the same field so $user->team->field resolves
+            $team = DB::table('teams')->where('field_id', $field->id)->first();
+            if ($team && ! $user->team_id) {
+                $user->update(['team_id' => $team->id]);
+            }
         }
     }
 }

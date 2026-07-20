@@ -10,7 +10,7 @@ import { SkeletonTable } from '../../components/ui/Skeleton';
 import EmptyState from '../../components/ui/EmptyState';
 
 export default function Arsip() {
-    const { demoMode } = useAuth();
+    const { demoMode, hasPermission } = useAuth();
     const [data, setData] = useState([]);
     const [meta, setMeta] = useState(null);
     const [page, setPage] = useState(1);
@@ -147,7 +147,7 @@ export default function Arsip() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-2">
-                                                    {row.status === 'approved' && (
+                                                    {row.status === 'approved' && hasPermission('change.initiation.export_pdf') && (
                                                         <button onClick={async () => {
                                                             try {
                                                                 const res = await changesApi.getInitiationPdf(row.id);

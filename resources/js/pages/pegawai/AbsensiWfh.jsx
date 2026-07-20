@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Calendar, ImageIcon, Plus, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { wfhApi } from '../../api/wfh';
+import { useAuth } from '../../context/AuthContext';
 
 /* ---------------- Session status badge ---------------- */
 function SessionBadge({ status }) {
@@ -18,7 +19,7 @@ function SessionBadge({ status }) {
 }
 
 /* ---------------- Session card ---------------- */
-function SessionCard({ title, status, photo, loading, onUpload, onRemove }) {
+function SessionCard({ title, status, photo, loading, onUpload, onRemove, canCheckIn }) {
     const inputRef = useRef(null);
     const isEmpty = status === 'belum' && !photo && !loading;
     const borderColor = isEmpty ? 'border-amber-200' : 'border-green-200';
@@ -32,8 +33,8 @@ function SessionCard({ title, status, photo, loading, onUpload, onRemove }) {
 
             <button
                 type="button"
-                onClick={() => !photo && !loading && inputRef.current?.click()}
-                disabled={loading}
+                onClick={() => !photo && !loading && canCheckIn && inputRef.current?.click()}
+                disabled={loading || (!photo && !canCheckIn)}
                 className={`w-full aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors ${
                     loading
                         ? 'border-brand-200 text-brand-400 bg-brand-50'
@@ -67,7 +68,7 @@ function SessionCard({ title, status, photo, loading, onUpload, onRemove }) {
                 }}
             />
 
-            {photo && !loading && (
+            {photo && !loading && canCheckIn && (
                 <button
                     onClick={onRemove}
                     className="absolute bottom-3 right-3 text-gray-400 hover:text-red-500 transition-colors"
@@ -101,6 +102,9 @@ const SESSION_LABEL = { pagi: 'Sesi Pagi', siang: 'Sesi Siang', sore: 'Sesi Sore
 const SESSION_KEYS = ['pagi', 'siang', 'sore'];
 
 export default function AbsensiWfh() {
+    const { hasPermission } = useAuth();
+    const canCheckIn = hasPermission('wfh.attendance.create');
+
     const [sessions, setSessions] = useState(() => {
         const obj = {};
         SESSION_KEYS.forEach((k) => { obj[k] = { status: 'belum', photo: null, checkInAt: null }; });
@@ -232,8 +236,9 @@ export default function AbsensiWfh() {
                             status={sessions[k].status}
                             photo={sessions[k].photo}
                             loading={uploading === k}
-                            onUpload={(file) => handleUpload(k, file)}
+                            onUpload={canCheckIn ? (file) => handleUpload(k, file) : undefined}
                             onRemove={() => handleRemove(k)}
+                            canCheckIn={canCheckIn}
                         />
                     ))}
                 </div>
