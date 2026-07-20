@@ -52,6 +52,23 @@ export async function getReportDetail(id) {
 }
 
 /**
+ * Approve a submitted (pending) WFH report. Requires wfh.report.approve.
+ * Backend records supervisor_signed_at using the approver's signature.
+ */
+export async function approveReport(id) {
+    const res = await axios.post(`/api/wfh/reports/${id}/approve`);
+    return res.data;
+}
+
+/**
+ * Reject a submitted (pending) WFH report with a reason. Requires wfh.report.reject.
+ */
+export async function rejectReport(id, reason) {
+    const res = await axios.post(`/api/wfh/reports/${id}/reject`, { reason });
+    return res.data;
+}
+
+/**
  * Fetch Google Spreadsheet sync status (connection, stats, synced data,
  * history, structure). Row counts are real DB counts.
  */

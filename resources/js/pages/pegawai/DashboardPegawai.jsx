@@ -1,7 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Contact, FileText, GitPullRequestArrow } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
 
 /* ---------------- Stat Card ---------------- */
 function StatCard({ label, value, sub }) {
@@ -34,23 +33,18 @@ function ModuleCard({ icon: Icon, iconBg, iconColor, borderColor, title, desc, o
 
 export default function DashboardPegawai() {
     const navigate = useNavigate();
-    const { user } = useAuth();
 
-    // TODO: ganti data statis ini dengan data dari endpoint backend dashboard
-    // pegawai saat sudah tersedia.
+    // Data statistik & aktivitas menunggu endpoint dashboard pegawai dari backend
+    // (mis. GET /api/wfh/dashboard/pegawai). Sampai tersedia, tampilkan nilai kosong
+    // alih-alih data dummy.
     const stats = [
-        { label: 'Absensi bulan ini', value: 10, sub: 'Dari 25 hari kerja' },
-        { label: 'Laporan terkirim', value: 5, sub: 'Bulan Juli 2025' },
-        { label: 'Perubahan diinisiasi', value: 3, sub: '1 Menunggu persetujuan' },
-        { label: 'Persetujuan selesai', value: 2, sub: 'Bulan ini' },
+        { label: 'Absensi bulan ini', value: '—', sub: 'Menunggu data' },
+        { label: 'Laporan terkirim', value: '—', sub: 'Menunggu data' },
+        { label: 'Perubahan diinisiasi', value: '—', sub: 'Menunggu data' },
+        { label: 'Persetujuan selesai', value: '—', sub: 'Menunggu data' },
     ];
 
-    const activities = [
-        { time: '07.30', text: 'Absensi pagi berhasil terkirim' },
-        { time: '11.50', text: 'Laporan kegiatan "Review UI Dashboard" disimpan sebagai draf' },
-        { time: '13.00', text: 'Inisiasi perubahan "Fitur Export PDF" diajukan' },
-        { time: '15.35', text: 'Persetujuan "Update Endpoint API" telah disetujui' },
-    ];
+    const activities = [];
 
     const today = new Date().toLocaleDateString('id-ID', {
         weekday: 'long',
@@ -61,7 +55,10 @@ export default function DashboardPegawai() {
 
     return (
         <div className="max-w-[1200px] mx-auto space-y-8">
-            <h1 className="text-3xl font-extrabold text-gray-900">Dashboard</h1>
+            <div>
+                <h1 className="text-3xl font-extrabold text-gray-900">Dashboard</h1>
+                <p className="text-sm text-gray-400 mt-1">Ringkasan aktivitas dan akses cepat modul Anda</p>
+            </div>
 
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -77,7 +74,9 @@ export default function DashboardPegawai() {
                     <span className="text-base font-bold text-gray-900">{today}</span>
                 </div>
                 <div>
-                    {activities.map((a, i) => (
+                    {activities.length === 0 ? (
+                        <p className="text-sm text-gray-400 py-8 text-center">Belum ada aktivitas hari ini.</p>
+                    ) : activities.map((a, i) => (
                         <div
                             key={i}
                             className={`flex items-start gap-6 py-4 ${i < activities.length - 1 ? 'border-b border-gray-100' : ''

@@ -4,7 +4,7 @@ import {
     Calendar, RefreshCw, FileDown, Search, ChevronDown, Check, X,
     Eye, MessageSquare, Download, Loader2,
 } from 'lucide-react';
-import { getMonitoringBoard, getReportDetail } from '../../api/admin';
+import { getMonitoringBoard, getReportDetail, approveReport, rejectReport } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/ui/Modal';
 
@@ -21,7 +21,28 @@ const STATUS_BADGE = {
     belum_absensi: { label: 'Belum Absensi', cls: 'bg-slate-300 text-slate-600' },
 };
 
-const DEFAULT_DATE = '2026-07-17';
+// Status laporan (report.status) — beda dari status board di atas.
+const REPORT_STATUS = {
+    draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
+    pending: { label: 'Menunggu Persetujuan', cls: 'bg-amber-100 text-amber-700' },
+    approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
+    rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-700' },
+};
+
+function fmtDateTime(t) {
+    if (!t) return null;
+    const d = new Date(t);
+    return isNaN(d) ? t : d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
+
+// Default ke hari Jumat terakhir (hari WFH) secara dinamis, bukan tanggal statis.
+function mostRecentFriday() {
+    const d = new Date();
+    const diff = (d.getDay() - 5 + 7) % 7; // 5 = Jumat
+    d.setDate(d.getDate() - diff);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+const DEFAULT_DATE = mostRecentFriday();
 
 function fmtTime(t) {
     if (!t) return '-';
@@ -31,7 +52,8 @@ function fmtTime(t) {
 }
 
 export default function MonitorWfh() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
+    const canApprove = hasPermission('wfh.report.approve');
     const [date, setDate] = useState(DEFAULT_DATE);
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -221,7 +243,7 @@ export default function MonitorWfh() {
                                                 <td className="px-6 py-4 text-sm text-gray-500">{emp.catatan}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex justify-center">
-                                                        <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} />
+                                                        <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} canApprove={canApprove} onChanged={fetchBoard} />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -248,7 +270,7 @@ export default function MonitorWfh() {
                                                     <p className="text-xs text-gray-400">{emp.nip}</p>
                                                 </div>
                                             </div>
-                                            <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} />
+                                            <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} canApprove={canApprove} onChanged={fetchBoard} />
                                         </div>
                                         <div className="flex items-center gap-4 text-xs text-gray-500">
                                             <SessionPill label="Pagi" ok={emp.sessions.pagi} />
@@ -355,7 +377,7 @@ function StatusBadge({ status }) {
     );
 }
 
-function PreviewDropdown({ emp, date, onSendReminder }) {
+function PreviewDropdown({ emp, date, onSendReminder, canApprove, onChanged }) {
     const [open, setOpen] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [menuPos, setMenuPos] = useState(null);
@@ -461,6 +483,8 @@ function PreviewDropdown({ emp, date, onSendReminder }) {
                     reportId={emp.report_id}
                     empName={emp.name}
                     date={date}
+                    canApprove={canApprove}
+                    onChanged={onChanged}
                     onClose={() => setShowDetail(false)}
                 />
             )}
@@ -468,33 +492,83 @@ function PreviewDropdown({ emp, date, onSendReminder }) {
     );
 }
 
-function ReportDetailModal({ reportId, empName, date, onClose }) {
+function ReportDetailModal({ reportId, empName, date, canApprove, onChanged, onClose }) {
     const [report, setReport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const [acting, setActing] = useState(false);
+    const [rejectMode, setRejectMode] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
+    const [actionMsg, setActionMsg] = useState('');
+
     useEffect(() => {
+        if (!reportId) {
+            setLoading(false);
+            return;
+        }
         getReportDetail(reportId)
             .then(setReport)
             .catch((e) => setError(e.response?.data?.message || 'Gagal memuat laporan.'))
             .finally(() => setLoading(false));
     }, [reportId]);
 
+    const doApprove = async () => {
+        setActing(true);
+        setActionMsg('');
+        try {
+            await approveReport(reportId);
+            onChanged?.();
+            onClose();
+        } catch (e) {
+            setActionMsg(e.response?.data?.message || 'Gagal menyetujui laporan.');
+        } finally {
+            setActing(false);
+        }
+    };
+
+    const doReject = async () => {
+        if (!rejectReason.trim()) {
+            setActionMsg('Alasan penolakan wajib diisi.');
+            return;
+        }
+        setActing(true);
+        setActionMsg('');
+        try {
+            await rejectReport(reportId, rejectReason.trim());
+            onChanged?.();
+            onClose();
+        } catch (e) {
+            setActionMsg(e.response?.data?.message || 'Gagal menolak laporan.');
+        } finally {
+            setActing(false);
+        }
+    };
+
+    const rs = REPORT_STATUS[report?.status] ?? null;
+    const showActions = canApprove && report?.status === 'pending';
+
     return (
         <Modal open onClose={onClose} title={`Laporan WFH — ${empName}`} width="max-w-2xl">
             {loading ? (
                 <div className="py-10 text-center"><Loader2 className="animate-spin inline text-blue-600" /></div>
+            ) : !reportId ? (
+                <div className="p-4 bg-slate-50 text-slate-500 text-sm rounded-lg text-center">
+                    Pegawai belum mengirim laporan untuk tanggal ini.
+                </div>
             ) : error ? (
                 <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
             ) : (
                 <div className="space-y-4">
-                    <div className="flex items-center gap-3 text-sm">
+                    <div className="flex items-center gap-3 text-sm flex-wrap">
                         <span className="text-gray-400">Tanggal:</span>
                         <span className="font-semibold text-gray-800">{report?.report_date ?? date}</span>
-                        <StatusBadge status={report?.status === 'approved' || report?.status === 'pending' ? 'terkirim' : 'tidak_lengkap'} />
+                        {rs && <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${rs.cls}`}>{rs.label}</span>}
                     </div>
+
+                    {/* Activities + links */}
                     <div>
-                        <p className="text-sm font-semibold text-gray-700 mb-2">Aktivitas</p>
+                        <p className="text-sm font-semibold text-gray-700 mb-2">Aktivitas & Bukti Kerja</p>
                         {(report?.activities?.length ?? 0) === 0 ? (
                             <p className="text-sm text-gray-400">Belum ada aktivitas.</p>
                         ) : (
@@ -504,13 +578,27 @@ function ReportDetailModal({ reportId, empName, date, onClose }) {
                                         <tr className="bg-gray-50 text-left text-xs text-gray-500">
                                             <th className="px-4 py-2">Waktu</th>
                                             <th className="px-4 py-2">Aktivitas</th>
+                                            <th className="px-4 py-2">Link Bukti</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {report.activities.map((a) => (
-                                            <tr key={a.id} className="border-t border-gray-50">
+                                            <tr key={a.id} className="border-t border-gray-50 align-top">
                                                 <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{fmtTime(a.start_time)}–{fmtTime(a.end_time)}</td>
                                                 <td className="px-4 py-2 text-gray-700">{a.activity}</td>
+                                                <td className="px-4 py-2">
+                                                    {(a.links?.length ?? 0) === 0 ? (
+                                                        <span className="text-gray-300">-</span>
+                                                    ) : (
+                                                        <div className="space-y-1">
+                                                            {a.links.map((l) => (
+                                                                <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all block text-xs">
+                                                                    {l.url}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -518,6 +606,62 @@ function ReportDetailModal({ reportId, empName, date, onClose }) {
                             </div>
                         )}
                     </div>
+
+                    {/* Signature status */}
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="border border-gray-100 rounded-lg p-3">
+                            <p className="text-gray-400">TTD Pegawai</p>
+                            <p className={`font-semibold ${report?.maker_signed_at ? 'text-green-600' : 'text-gray-400'}`}>
+                                {report?.maker_signed_at ? `Ditandatangani · ${fmtDateTime(report.maker_signed_at)}` : 'Belum ditandatangani'}
+                            </p>
+                        </div>
+                        <div className="border border-gray-100 rounded-lg p-3">
+                            <p className="text-gray-400">TTD Atasan</p>
+                            <p className={`font-semibold ${report?.supervisor_signed_at ? 'text-green-600' : 'text-gray-400'}`}>
+                                {report?.supervisor_signed_at ? `Disetujui · ${fmtDateTime(report.supervisor_signed_at)}` : 'Belum disetujui'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Reject reason */}
+                    {report?.status === 'rejected' && report?.reject_reason && (
+                        <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+                            <span className="font-semibold">Alasan ditolak: </span>{report.reject_reason}
+                        </div>
+                    )}
+
+                    {actionMsg && <div className="p-2 bg-red-50 text-red-600 text-sm rounded-lg">{actionMsg}</div>}
+
+                    {/* Approve / Reject actions */}
+                    {showActions && (
+                        rejectMode ? (
+                            <div className="space-y-2 border-t border-gray-100 pt-4">
+                                <label className="block text-sm text-gray-600">Alasan Penolakan</label>
+                                <textarea
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    rows={3}
+                                    placeholder="Jelaskan alasan penolakan..."
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 resize-none"
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => { setRejectMode(false); setActionMsg(''); }} disabled={acting} className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Batal</button>
+                                    <button onClick={doReject} disabled={acting} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg disabled:opacity-50">
+                                        {acting ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />} Kirim Penolakan
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+                                <button onClick={() => setRejectMode(true)} disabled={acting} className="flex items-center gap-2 px-5 py-2 text-sm font-semibold border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50">
+                                    <X size={15} /> Tolak
+                                </button>
+                                <button onClick={doApprove} disabled={acting} className="flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50">
+                                    {acting ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Setujui
+                                </button>
+                            </div>
+                        )
+                    )}
                 </div>
             )}
         </Modal>

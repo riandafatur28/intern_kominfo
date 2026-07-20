@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera } from 'lucide-react';
+import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera, Save } from 'lucide-react';
 import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
 import { useAuth } from '../../context/AuthContext';
 
@@ -188,13 +188,11 @@ export default function ProfilSaya() {
                                 />
                             </div>
                             <h2 className="mt-4 text-lg font-bold text-gray-900">{p.name}</h2>
-                            <p className="text-sm text-gray-500">{p.position || 'Pegawai'}</p>
+                            <p className="text-sm text-gray-500">{p.position || roleTxt}</p>
                             <p className="text-sm text-gray-400">{fieldName}</p>
-                            {p.rank && (
-                                <span className="mt-2 inline-block bg-indigo-100 text-indigo-500 text-[11px] font-semibold px-3 py-1 rounded-full">
-                                    {p.rank}
-                                </span>
-                            )}
+                            <span className="mt-2 inline-block bg-indigo-100 text-indigo-500 text-[11px] font-semibold px-3 py-1 rounded-full">
+                                {p.rank || 'Penata Muda'}
+                            </span>
                         </div>
 
                         <div className="border-t border-gray-100 pt-5 space-y-4">
@@ -244,7 +242,7 @@ export default function ProfilSaya() {
                                         disabled={savingProfile}
                                         className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
                                     >
-                                        {savingProfile && <Loader2 size={15} className="animate-spin" />}
+                                        {savingProfile ? <Loader2 size={15} className="animate-spin" /> : <Save size={16} />}
                                         Simpan Perubahan
                                     </button>
                                 </div>
@@ -303,11 +301,10 @@ export default function ProfilSaya() {
             {/* Toast */}
             {toast && (
                 <div
-                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-                        toast.type === 'success'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-red-600 text-white'
-                    }`}
+                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-600 text-white'
+                        }`}
                 >
                     {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
                     {toast.message}
@@ -339,13 +336,11 @@ function Field({ label, value, onChange, readOnly = false, type = 'text', placeh
                 readOnly={readOnly}
                 onChange={onChange ? (e) => onChange(e.target.value) : undefined}
                 placeholder={placeholder}
-                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors ${
-                    error ? 'border-red-300' : 'border-gray-200'
-                } ${
-                    readOnly
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors ${error ? 'border-red-300' : 'border-gray-200'
+                    } ${readOnly
                         ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
                         : 'bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
-                }`}
+                    }`}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         </div>
