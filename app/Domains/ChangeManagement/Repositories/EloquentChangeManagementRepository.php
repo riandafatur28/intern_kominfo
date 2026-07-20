@@ -53,6 +53,26 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
         return ChangeInitiation::create($data);
     }
 
+    public function countInitiationsByStatus(?int $fieldId = null): array
+    {
+        $query = ChangeInitiation::query();
+
+        if ($fieldId) {
+            $query->where('field_id', $fieldId);
+        }
+
+        $counts = $query->selectRaw('status, count(*) as total')
+            ->whereIn('status', ['pending', 'approved', 'rejected'])
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return [
+            'pending' => (int) ($counts['pending'] ?? 0),
+            'approved' => (int) ($counts['approved'] ?? 0),
+            'rejected' => (int) ($counts['rejected'] ?? 0),
+        ];
+    }
+
     public function findImplementationWithRelations(int $id): ?ChangeImplementation
     {
         return ChangeImplementation::with([

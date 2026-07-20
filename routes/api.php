@@ -5,6 +5,7 @@ use App\Domains\ChangeManagement\Http\Controllers\ChangeManagementPdfController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationReviewController;
 use App\Domains\ChangeManagement\Http\Controllers\InitiationController;
+use App\Domains\ChangeManagement\Http\Controllers\DashboardController as ChangeDashboardController;
 use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
 use App\Domains\Organization\Http\Controllers\RoleController;
@@ -130,6 +131,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/changes/initiations/{id}/revise', [InitiationController::class, 'revise'])
             ->middleware('permission:change.initiation.submit');
 
+        Route::get('/changes/dashboard', [ChangeDashboardController::class, 'index'])
+            ->middleware('role:kepala_bidang|admin');
         Route::post('/changes/initiations/{id}/implementations', [ImplementationController::class, 'store'])
             ->middleware('permission:change.implementation.create');
         Route::get('/changes/implementations/{id}', [ImplementationController::class, 'show'])
