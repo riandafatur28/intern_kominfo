@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\User;
+use App\Notifications\WfhIncompleteAttendanceNotification;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -19,11 +20,11 @@ class WfhIncompleteAttendanceNotificationTest extends TestCase
         $user = User::factory()->create(['is_active' => true]);
         $date = Carbon::today();
 
-        $user->notify(new \App\Notifications\WfhIncompleteAttendanceNotification($date, ['siang', 'sore']));
+        $user->notify(new WfhIncompleteAttendanceNotification($date, ['siang', 'sore']));
 
         Notification::assertSentTo(
             $user,
-            \App\Notifications\WfhIncompleteAttendanceNotification::class,
+            WfhIncompleteAttendanceNotification::class,
             function ($notification, $channels) use ($date) {
                 return $notification->date->format('Y-m-d') === $date->format('Y-m-d')
                     && $notification->missingSessions === ['siang', 'sore'];
@@ -34,7 +35,7 @@ class WfhIncompleteAttendanceNotificationTest extends TestCase
     public function test_notification_mailable_builds_correctly(): void
     {
         $user = User::factory()->create(['name' => 'Test User', 'is_active' => true]);
-        $notification = new \App\Notifications\WfhIncompleteAttendanceNotification(
+        $notification = new WfhIncompleteAttendanceNotification(
             Carbon::parse('2026-07-20'),
             ['pagi']
         );

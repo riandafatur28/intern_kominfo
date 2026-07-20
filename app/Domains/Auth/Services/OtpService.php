@@ -27,6 +27,7 @@ class OtpService
 
             if ($elapsed < $cooldownSeconds) {
                 $remaining = $cooldownSeconds - $elapsed;
+
                 return [
                     'code' => '',
                     'expires_at' => $existing->expires_at,
@@ -82,16 +83,19 @@ class OtpService
 
         if ($otp->isExhausted()) {
             $otp->update(['used_at' => now()]);
+
             return false;
         }
 
         if (! Hash::check($code, $otp->code_hash)) {
             $otp->increment('attempts');
+
             return false;
         }
 
         // Success — mark used
         $otp->update(['used_at' => now()]);
+
         return true;
     }
 

@@ -16,7 +16,7 @@ class ResetPasswordRequest extends FormRequest
     {
         return [
             'email' => ['required', 'email', 'max:255'],
-            'code' => ['required', 'string', 'size:' . config('otp.length')],
+            'code' => ['required', 'string', 'size:'.config('otp.length')],
             'password' => ['required', 'confirmed', Password::min(8)->mixedCase()->numbers()],
         ];
     }
@@ -24,7 +24,7 @@ class ResetPasswordRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'code.size' => 'Kode OTP harus ' . config('otp.length') . ' digit.',
+            'code.size' => 'Kode OTP harus '.config('otp.length').' digit.',
             'password.confirmed' => 'Konfirmasi password tidak cocok.',
             'password.min' => 'Password minimal 8 karakter.',
         ];

@@ -16,7 +16,6 @@ class ResetPasswordOtpMail extends Mailable
         public int $expiresInMinutes,
     ) {}
 
-
     /**
      * Get the message envelope.
      */

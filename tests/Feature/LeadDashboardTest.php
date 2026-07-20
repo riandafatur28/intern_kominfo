@@ -8,6 +8,7 @@ use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
+use Spatie\Permission\PermissionRegistrar;
 use Tests\TestCase;
 
 class LeadDashboardTest extends TestCase
@@ -15,7 +16,9 @@ class LeadDashboardTest extends TestCase
     use RefreshDatabase;
 
     private User $lead;
+
     private Field $field;
+
     private Field $otherField;
 
     protected function setUp(): void
@@ -57,7 +60,7 @@ class LeadDashboardTest extends TestCase
         ]);
 
         // Ensure permissions are fresh
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
         $this->lead->refresh();
     }
 
@@ -82,7 +85,7 @@ class LeadDashboardTest extends TestCase
             'must_change_password' => false,
         ]);
         $leadNoField->assignRole('kepala_bidang');
-        app(\Spatie\Permission\PermissionRegistrar::class)->forgetCachedPermissions();
+        app(PermissionRegistrar::class)->forgetCachedPermissions();
 
         Sanctum::actingAs($leadNoField);
 
@@ -129,7 +132,7 @@ class LeadDashboardTest extends TestCase
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('/api/changes/dashboard?field_id=' . $this->field->id);
+        $response = $this->getJson('/api/changes/dashboard?field_id='.$this->field->id);
 
         $response->assertStatus(200)
             ->assertJsonPath('data.field.id', $this->field->id)

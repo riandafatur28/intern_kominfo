@@ -1,11 +1,12 @@
 <?php
 
 use App\Domains\Auth\Http\Controllers\AuthController;
+use App\Domains\Auth\Http\Controllers\PasswordResetController;
 use App\Domains\ChangeManagement\Http\Controllers\ChangeManagementPdfController;
+use App\Domains\ChangeManagement\Http\Controllers\DashboardController as ChangeDashboardController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationReviewController;
 use App\Domains\ChangeManagement\Http\Controllers\InitiationController;
-use App\Domains\ChangeManagement\Http\Controllers\DashboardController as ChangeDashboardController;
 use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
 use App\Domains\Organization\Http\Controllers\RoleController;
@@ -26,11 +27,11 @@ Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
 
 // Password Reset (public)
 Route::prefix('password')->group(function () {
-    Route::post('forgot', [\App\Domains\Auth\Http\Controllers\PasswordResetController::class, 'forgot'])
+    Route::post('forgot', [PasswordResetController::class, 'forgot'])
         ->middleware('throttle:5,1');
-    Route::post('resend', [\App\Domains\Auth\Http\Controllers\PasswordResetController::class, 'resend'])
+    Route::post('resend', [PasswordResetController::class, 'resend'])
         ->middleware('throttle:5,1');
-    Route::post('reset', [\App\Domains\Auth\Http\Controllers\PasswordResetController::class, 'reset'])
+    Route::post('reset', [PasswordResetController::class, 'reset'])
         ->middleware('throttle:5,1');
 });
 

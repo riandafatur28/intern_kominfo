@@ -6,6 +6,7 @@ use App\Domains\Wfh\Models\WfhAttendance;
 use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
+use App\Notifications\WfhIncompleteAttendanceNotification;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Notification;
@@ -16,8 +17,11 @@ class NotifyIncompleteAttendanceTest extends TestCase
     use RefreshDatabase;
 
     private User $completeUser;
+
     private User $partialUser;
+
     private User $noAttendanceUser;
+
     private string $date;
 
     protected function setUp(): void
@@ -71,17 +75,17 @@ class NotifyIncompleteAttendanceTest extends TestCase
 
         Notification::assertSentToTimes(
             $this->partialUser,
-            \App\Notifications\WfhIncompleteAttendanceNotification::class,
+            WfhIncompleteAttendanceNotification::class,
             1
         );
         Notification::assertSentToTimes(
             $this->noAttendanceUser,
-            \App\Notifications\WfhIncompleteAttendanceNotification::class,
+            WfhIncompleteAttendanceNotification::class,
             1
         );
         Notification::assertNotSentTo(
             $this->completeUser,
-            \App\Notifications\WfhIncompleteAttendanceNotification::class,
+            WfhIncompleteAttendanceNotification::class,
         );
     }
 
@@ -110,7 +114,7 @@ class NotifyIncompleteAttendanceTest extends TestCase
         ])->assertSuccessful();
 
         // active users (partial, noAttendance) should get notified; inactive should not
-        Notification::assertSentToTimes($this->partialUser, \App\Notifications\WfhIncompleteAttendanceNotification::class, 1);
-        Notification::assertNotSentTo($inactive, \App\Notifications\WfhIncompleteAttendanceNotification::class);
+        Notification::assertSentToTimes($this->partialUser, WfhIncompleteAttendanceNotification::class, 1);
+        Notification::assertNotSentTo($inactive, WfhIncompleteAttendanceNotification::class);
     }
 }

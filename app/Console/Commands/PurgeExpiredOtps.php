@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Domains\Auth\Services\OtpService;
 use Illuminate\Console\Command;
 
 class PurgeExpiredOtps extends Command
@@ -25,7 +26,7 @@ class PurgeExpiredOtps extends Command
      */
     public function handle(): void
     {
-        $count = app(\App\Domains\Auth\Services\OtpService::class)->purgeExpired();
+        $count = app(OtpService::class)->purgeExpired();
 
         $this->info("Purged {$count} expired/used OTP records.");
     }

@@ -41,12 +41,14 @@ class NotifyIncompleteAttendance extends Command
 
             if (empty($missing)) {
                 $skipped++;
+
                 continue; // complete — skip
             }
 
             $cacheKey = "wfh:notify:{$user->id}:{$date}";
             if (Cache::has($cacheKey)) {
                 $skipped++;
+
                 continue; // already notified today
             }
 
