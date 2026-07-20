@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow } from 'lucide-react';
+import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow, CheckSquare} from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
+
 
 const ADMIN_NAV = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -18,6 +19,12 @@ const PEGAWAI_NAV = [
     { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan' },
     { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan' },
     { to: '/profil', icon: User, label: 'Profil Saya' },
+];
+
+const TEAM_LEAD_NAV = [
+    { to: '/team-lead/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/team-lead/permintaan-persetujuan', icon: CheckSquare, label: 'Permintaan Persetujuan' },
+    { to: '/team-lead/profil', icon: User, label: 'Profil Saya' },
 ];
 
 const PEGAWAI_ROLES = ['pegawai', 'staf'];
@@ -37,7 +44,18 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
 
     const roleKey = user?.roles?.[0];
     const isPegawai = PEGAWAI_ROLES.includes(roleKey);
-    const navItems = isPegawai ? PEGAWAI_NAV : ADMIN_NAV;
+    let navItems = ADMIN_NAV; 
+    if (roleKey === 'kepala_tim') {
+        navItems = TEAM_LEAD_NAV;
+    } else if (isPegawai) {
+        navItems = PEGAWAI_NAV;
+    }
+
+    const userPermissions = user?.permissions || [];
+    const filteredNavItems = navItems.filter(item => {
+        if (!item.permission) return true; 
+        return userPermissions.includes(item.permission); 
+    });
     const roleLabel = ROLE_LABELS[roleKey] ?? (roleKey || 'Admin');
 
     // Mini (icon-only) view is a desktop-collapsed concept; on the mobile
@@ -92,7 +110,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
             </div>
 
             <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                {navItems.map(({ to, icon: Icon, label }) => (
+                {filteredNavItems.map(({ to, icon: Icon, label }) => (
                     <NavLink
                         key={to}
                         to={to}

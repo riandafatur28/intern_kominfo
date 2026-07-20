@@ -1,6 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import AdminLayout from '../layouts/AdminLayout.jsx';
-import TeamLeadLayout from '../layouts/TeamLeadLayout.jsx';
 import Login from '../pages/auth/Login.jsx';
 import ForgotPassword from '../pages/auth/ForgotPassword.jsx';
 import RegisterPegawai from '../pages/auth/RegisterPegawai.jsx';
@@ -50,7 +49,7 @@ export const router = createBrowserRouter([
 
     {
         path: '/team-lead',
-        element: <TeamLeadLayout />,
+        element: <AdminLayout />,
         children: [
             { index: true, element: <Navigate to="dashboard" replace /> },
             { path: 'dashboard', element: <DashboardTeamLead /> },

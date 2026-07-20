@@ -12,6 +12,9 @@ const PAGE_LABELS = {
     '/absensi-wfh': 'Absensi WFH',
     '/laporan-kegiatan': 'Laporan Kegiatan',
     '/inisiasi-perubahan': 'Inisiasi Perubahan',
+    '/team-lead/dashboard': 'Dashboard',                     
+    '/team-lead/permintaan-persetujuan': 'Permintaan Persetujuan', 
+    '/team-lead/profil': 'Profil Saya',                       
 };
 
 const PEGAWAI_ROLES = ['pegawai', 'staf'];
@@ -21,12 +24,16 @@ export default function Topbar({ collapsed, onToggle, onMobileMenu }) {
     const location = useLocation();
 
     const roleKey = user?.roles?.[0];
-    const section = PEGAWAI_ROLES.includes(roleKey) ? 'Pegawai' : 'Admin WFH';
+
+    const section = roleKey === 'kepala_tim' 
+        ? 'Kepala Tim' 
+        : (PEGAWAI_ROLES.includes(roleKey) ? 'Pegawai' : 'Admin WFH');
+
     const page = PAGE_LABELS[location.pathname] ?? 'Dashboard';
     const crumbs = ['Beranda', section, page];
-
-    const roleLabel = PEGAWAI_ROLES.includes(roleKey) ? 'Pegawai' : (roleKey ?? 'Admin');
-
+    const roleLabel = roleKey === 'kepala_tim' 
+        ? 'Kepala Tim' 
+        : (PEGAWAI_ROLES.includes(roleKey) ? 'Pegawai' : (roleKey ?? 'Admin'));
     const initials = user?.name
         ?.split(' ')
         .map((s) => s[0])

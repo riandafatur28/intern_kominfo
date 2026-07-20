@@ -57,7 +57,7 @@ export default function PermintaanPersetujuan() {
     const target = pendingRequests.find(req => req.id === id);
     if (!target) return;
 
-    setPendingRequests(prev => prev.filter(req => req.id !== id));
+    setPendingRequests(prev => prev.filter(req => prev.filter(req => req.id !== id)));
     setRecentDecisions(prev => [{
       id: target.id,
       name: target.name,
@@ -100,7 +100,6 @@ export default function PermintaanPersetujuan() {
       </div>
 
       {activeTab === "antrian" ? (
-
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm lg:col-span-1 h-fit">
             <h2 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">Antrian Persetujuan</h2>
@@ -127,7 +126,6 @@ export default function PermintaanPersetujuan() {
           <div className="lg:col-span-2 space-y-6">
             {selectedRequest ? (
               <>
-
                 <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm flex items-center justify-between gap-4">
                   <div>
                     <span className="rounded bg-gray-100 px-2 py-0.5 text-[10px] font-bold text-gray-400">
@@ -208,24 +206,29 @@ export default function PermintaanPersetujuan() {
       ) : (
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="rounded-xl border border-gray-200 bg-green-50/20 p-5 shadow-sm flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-50 text-green-600">
-                <CheckCircle2 className="h-5 w-5" />
+            
+            {/* Card Disetujui */}
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm flex items-center gap-4">
+              <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center shrink-0">
+                <CheckCircle2 size={20} strokeWidth={2.5} />
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{recentDecisions.filter(item => item.status === "Approved").length}</p>
-                <p className="text-xs font-semibold text-gray-800">Disetujui</p>
+                <p className="text-xs font-semibold text-gray-500">Disetujui</p>
               </div>
             </div>
-            <div className="rounded-xl border border-gray-200 bg-red-50/20 p-5 shadow-sm flex items-center gap-4">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50 text-red-600">
-                <XCircle className="h-5 w-5" />
+
+            {/* Card Ditolak */}
+            <div className="rounded-xl border border-gray-100 bg-white p-5 shadow-sm flex items-center gap-4">
+              <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center shrink-0">
+                <XCircle size={20} strokeWidth={2.5} />
               </div>
               <div>
                 <p className="text-2xl font-bold text-gray-900">{recentDecisions.filter(item => item.status === "Rejected").length}</p>
-                <p className="text-xs font-semibold text-gray-800">Ditolak</p>
+                <p className="text-xs font-semibold text-gray-500">Ditolak</p>
               </div>
             </div>
+
           </div>
 
           <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">

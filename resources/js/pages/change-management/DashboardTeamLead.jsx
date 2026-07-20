@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Clock, CheckCircle2, XCircle, ChevronRight } from "lucide-react"
+import { Clock, Check, X, CheckCircle2, XCircle, ChevronRight } from "lucide-react"
 import StatCard from "../../components/ui/StatCard"
 import AntrianCard from "../../components/ui/AntrianCard"
 
@@ -154,32 +154,69 @@ export default function DashboardTeamLead() {
     }, ...prev]);
   };
 
+  const todayStr = new Date().toISOString().split('T')[0];
+  const approvedTodayCount = recentDecisions.filter(item => item.status === "Approved" && item.date === todayStr).length;
+
   return (
     <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 md:py-8">
       <h1 className="mb-6 text-2xl md:text-3xl font-bold text-gray-900">Dashboard Team Lead</h1>
 
-      <div className="mb-8 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard 
-          icon={Clock} 
-          value={pendingRequests.length} 
-          title="Menunggu Persetujuan" 
-          subtitle="Perlu ditindaklanjuti" 
-        />
-        <StatCard 
-          icon={CheckCircle2} 
-          value={recentDecisions.filter(i => i.status === "Approved").length} 
-          title="Disetujui" 
-          badgeText="+3 hari ini"
-          badgeColor="bg-green-100 text-green-700"
-        />
-        <StatCard 
-          icon={XCircle} 
-          value={recentDecisions.filter(i => i.status === "Rejected").length} 
-          title="Ditolak" 
-        />
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
+  
+        {/* CARD 1: Menunggu Persetujuan (Dinamis) */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col justify-between min-h-[160px]">
+          <div className="flex items-center justify-between">
+            <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
+              <Clock size={20} strokeWidth={2.5} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-bold text-gray-900 block leading-none">
+              {pendingRequests.length}
+            </span>
+            <span className="text-sm font-semibold text-gray-500 mt-2 block">Menunggu Persetujuan</span>
+            <span className="text-xs text-gray-400 mt-1 block">Perlu ditindaklanjuti</span>
+          </div>
+        </div>
+
+        {/* CARD 2: Disetujui (Dinamis) */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col justify-between min-h-[160px] relative">
+          <div className="flex items-center justify-between">
+            <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
+              <Check size={20} strokeWidth={2.5} />
+            </div>
+            {approvedTodayCount > 0 && (
+              <span className="absolute top-6 right-6 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600 border border-emerald-100">
+                +{approvedTodayCount} hari ini
+              </span>
+            )}
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-bold text-gray-900 block leading-none">
+              {recentDecisions.filter(item => item.status === "Approved").length}
+            </span>
+            <span className="text-sm font-semibold text-gray-500 mt-2 block">Disetujui</span>
+          </div>
+        </div>
+
+        {/* CARD 3: Ditolak (Dinamis) */}
+        <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col justify-between min-h-[160px]">
+          <div className="flex items-center justify-between">
+            <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center">
+              <X size={20} strokeWidth={2.5} />
+            </div>
+          </div>
+          <div className="mt-4">
+            <span className="text-3xl font-bold text-gray-900 block leading-none">
+              {recentDecisions.filter(item => item.status === "Rejected").length}
+            </span>
+            <span className="text-sm font-semibold text-gray-500 mt-2 block">Ditolak</span>
+          </div>
+        </div>
+
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 mt-6">
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-2">
           <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>

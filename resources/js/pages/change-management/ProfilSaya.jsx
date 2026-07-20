@@ -9,27 +9,54 @@ import {
   CheckCircle2,
   AlertCircle
 } from "lucide-react"
-
-const defaultProfile = {
-  nama: "Susanti",
-  email: "Susanti@jatimprov.go.id",
-  telpon: "0895377689890",
-  nip: "1985021520100112002",
-  pangkat: "Penata Tingkat 1",
-  jabatan: "Administrator WFH",
-  bidang: "Bidang Aplikasi",
-}
+import { useAuth } from "../../context/AuthContext" 
 
 export default function ProfilSaya() {
+  const { user } = useAuth() 
 
-  const [profileData, setProfileData] = useState(() => {
-    const savedData = localStorage.getItem("user_profile")
-    return savedData ? JSON.parse(savedData) : defaultProfile
+  const roleKey = user?.roles?.[0]
+  const roleLabel = roleKey === 'kepala_tim' ? 'Team Lead' : (roleKey ?? 'WFH Admin')
+  const userUniqueKey = user?.email || user?.id || "guest"
+  const profileStorageKey = `user_profile_${userUniqueKey}`
+  const signatureStorageKey = `user_signature_${userUniqueKey}`
+
+  
+  const [profileData, setProfileData] = useState({
+    nama: "Nama Pengguna",
+    email: "email@jatimprov.go.id",
+    telpon: "0895377689890",
+    nip: "1985021520100112002",
+    pangkat: "Penata Tingkat 1",
+    jabatan: "Administrator WFH",
+    bidang: "Bidang Aplikasi",
   })
 
-  const [signaturePreview, setSignaturePreview] = useState(() => {
-    return localStorage.getItem("user_signature") || null
-  })
+  const [signaturePreview, setSignaturePreview] = useState(null)
+
+  
+  useEffect(() => {
+    if (user) {
+      const savedData = localStorage.getItem(profileStorageKey)
+      const parsedData = savedData ? JSON.parse(savedData) : {}
+      
+      
+      const defaultJabatan = user.roles?.[0] === 'kepala_tim' ? 'Kepala Tim / Team Lead' : 'Administrator WFH'
+
+      setProfileData({
+        nama: parsedData.nama || user.name || "Nama Pengguna",
+        email: parsedData.email || user.email || "email@jatimprov.go.id",
+        telpon: parsedData.telpon || "0895377689890",
+        nip: parsedData.nip || "1985021520100112002",
+        pangkat: parsedData.pangkat || "Penata Tingkat 1",
+        jabatan: parsedData.jabatan || defaultJabatan,
+        bidang: parsedData.bidang || "Bidang Aplikasi",
+      })
+
+      
+      const savedSignature = localStorage.getItem(signatureStorageKey)
+      setSignaturePreview(savedSignature || null)
+    }
+  }, [user, userUniqueKey]) 
 
   const [showNotification, setShowNotification] = useState(false)
   const [errorMessage, setErrorMessage] = useState("")
@@ -39,27 +66,24 @@ export default function ProfilSaya() {
     setProfileData((prev) => ({ ...prev, [key]: value }))
   }
 
-
   const handleSaveChanges = (e) => {
     e.preventDefault()
-    localStorage.setItem("user_profile", JSON.stringify(profileData))
+    
+    localStorage.setItem(profileStorageKey, JSON.stringify(profileData))
     
     setErrorMessage("")
     setShowNotification(true)
     setTimeout(() => setShowNotification(false), 3000)
   }
 
-
   const handleFileChange = (event) => {
     const file = event.target.files[0]
     if (!file) return
-
 
     if (!file.type.startsWith("image/")) {
       setErrorMessage("File harus berupa gambar (PNG, JPG, atau JPEG)!")
       return
     }
-
 
     const maxSizeInBytes = 2 * 1024 * 1024 
     if (file.size > maxSizeInBytes) {
@@ -73,14 +97,14 @@ export default function ProfilSaya() {
     reader.onloadend = () => {
       const base64String = reader.result
       setSignaturePreview(base64String)
-      localStorage.setItem("user_signature", base64String) 
+      localStorage.setItem(signatureStorageKey, base64String) 
     }
     reader.readAsDataURL(file)
   }
 
   const handleRemoveSignature = () => {
     setSignaturePreview(null)
-    localStorage.removeItem("user_signature")
+    localStorage.removeItem(signatureStorageKey)
     if (fileInputRef.current) fileInputRef.current.value = ""
   }
 
@@ -111,9 +135,14 @@ export default function ProfilSaya() {
 
           <section className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm lg:col-span-5">
             <div className="flex flex-col items-center text-center">
-              <div className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-600 text-3xl font-bold text-white select-none">
-                {profileData.nama ? profileData.nama.charAt(0).toUpperCase() : "U"}
-              </div>
+              {user?.photo_url ? (
+                  <img src={user.photo_url} alt="Profile" className="h-24 w-24 rounded-full object-cover shadow-sm" />
+              ) : (
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-blue-600 text-3xl font-bold text-white select-none">
+                    {profileData.nama ? profileData.nama.charAt(0).toUpperCase() : "U"}
+                  </div>
+              )}
+              
               <h2 className="mt-4 text-xl font-bold text-gray-900">{profileData.nama}</h2>
               <p className="mt-1 text-sm font-medium text-gray-600">{profileData.jabatan}</p>
               <p className="text-xs text-gray-400">{profileData.bidang}</p>
@@ -129,7 +158,7 @@ export default function ProfilSaya() {
                 { icon: Hash, label: "NIP", value: profileData.nip },
                 { icon: Building2, label: "Bidang", value: profileData.bidang },
                 { icon: Briefcase, label: "Jabatan", value: profileData.jabatan },
-                { icon: Shield, label: "Peran", value: "WFH Admin" }
+                { icon: Shield, label: "Peran", value: roleLabel } 
               ].map((info, idx) => {
                 const Icon = info.icon
                 return (
