@@ -74,6 +74,9 @@ export default function ProfilPegawai() {
     const [signatureFile, setSignatureFile] = useState(null);
     const [signaturePreview, setSignaturePreview] = useState(null);
     const [savingSignature, setSavingSignature] = useState(false);
+    // Cache-buster: backend memakai nama file tetap ({id}.png), jadi tanpa ini
+    // gambar lama bisa tampil dari cache setelah ganti tanda tangan.
+    const [sigVersion, setSigVersion] = useState(() => Date.now());
 
     const hydrate = (p) => {
         setProfile(p);
@@ -168,6 +171,7 @@ export default function ProfilPegawai() {
             const res = await uploadSignature(fd);
             setProfile((p) => ({ ...(p ?? {}), signature_url: res.data?.signature_url, signature_path: res.data?.signature_path }));
             setSignatureFile(null);
+            setSigVersion(Date.now());
             showToast('success', res.message || 'Tanda tangan berhasil diunggah.');
         } catch (err) {
             showToast('error', err.response?.data?.message || 'Gagal mengunggah tanda tangan.');
@@ -196,7 +200,10 @@ export default function ProfilPegawai() {
         }
     };
 
-    const signatureImg = signaturePreview ?? profile?.signature_url;
+    const serverSignature = profile?.signature_url
+        ? `${assetUrl(profile.signature_url)}?t=${sigVersion}`
+        : null;
+    const signatureImg = signaturePreview ?? serverSignature;
 
     if (loading) {
         return (
@@ -341,9 +348,20 @@ export default function ProfilPegawai() {
 
                 {/* ---- Tanda Tangan Digital ---- */}
                 <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                    <div className="pb-5 border-b border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-900">Tanda Tangan Digital</h2>
-                        <p className="text-xs text-gray-400 mt-0.5">Digunakan Otomatis dalam PDF</p>
+                    <div className="pb-5 border-b border-gray-100 flex items-start justify-between gap-3">
+                        <div>
+                            <h2 className="text-lg font-bold text-gray-900">Tanda Tangan Digital</h2>
+                            <p className="text-xs text-gray-400 mt-0.5">Digunakan Otomatis dalam PDF</p>
+                        </div>
+                        {signatureFile ? (
+                            <span className="inline-flex items-center gap-1 bg-amber-100 text-amber-700 text-[11px] font-semibold px-3 py-1 rounded-full shrink-0">
+                                Belum disimpan
+                            </span>
+                        ) : profile?.signature_url ? (
+                            <span className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-[11px] font-semibold px-3 py-1 rounded-full shrink-0">
+                                <CheckCircle2 size={13} /> Tersimpan
+                            </span>
+                        ) : null}
                     </div>
                     <div className="pt-6">
                         <button

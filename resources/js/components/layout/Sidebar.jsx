@@ -4,6 +4,7 @@ import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, 
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
+import { assetUrl } from '../../utils/url';
 
 const ADMIN_NAV = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -114,7 +115,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                     {showMini ? (
                         <div className="flex justify-center">
                             {user?.photo_url ? (
-                                <img src={user.photo_url} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm" />
+                                <img src={assetUrl(user.photo_url)} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm" />
                             ) : (
                                 <div className="w-12 h-12 bg-brand-500 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-sm">
                                     {initials}
@@ -125,7 +126,7 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3 min-w-0">
                                 {user?.photo_url ? (
-                                    <img src={user.photo_url} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm shrink-0" />
+                                    <img src={assetUrl(user.photo_url)} alt="" className="w-12 h-12 rounded-full object-cover shadow-sm shrink-0" />
                                 ) : (
                                     <div className="w-12 h-12 bg-brand-500 rounded-full flex items-center justify-center text-white font-bold text-lg shadow-sm shrink-0">
                                         {initials}

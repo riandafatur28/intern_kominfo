@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera, Save } from 'lucide-react';
 import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
 
 const ROLE_LABELS = {
     admin: 'WFH Admin',
@@ -118,7 +119,7 @@ export default function ProfilSaya() {
             const fd = new FormData();
             fd.append('photo', file);
             const res = await uploadPhoto(fd);
-            hydrate(res.data);
+            setProfile((prev) => ({ ...prev, photo_url: res.data?.photo_url, photo_path: res.data?.photo_path }));
             await fetchUser?.();
             showToast('success', res.message || 'Foto profil berhasil diunggah.');
         } catch (err) {
@@ -160,7 +161,7 @@ export default function ProfilSaya() {
                         <div className="flex flex-col items-center text-center pb-6">
                             <div className="relative w-24 h-24">
                                 {p.photo_url ? (
-                                    <img src={p.photo_url} alt="Foto profil" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-100" />
+                                    <img src={assetUrl(p.photo_url)} alt="Foto profil" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-100" />
                                 ) : (
                                     <div className="w-24 h-24 rounded-full bg-indigo-500 flex items-center justify-center text-white text-3xl font-bold">
                                         {initialsOf(p.name)}
