@@ -158,6 +158,7 @@ export default function Dashboard() {
                                 {initiations.length === 0 ? (
                                     <p className="text-center py-12 text-sm text-gray-400">Belum ada pengajuan</p>
                                 ) : (
+                                    <div className="overflow-x-auto">
                                     <table className="w-full">
                                         <thead>
                                             <tr className="border-b border-gray-100 bg-bg-page">
@@ -184,6 +185,7 @@ export default function Dashboard() {
                                             ))}
                                         </tbody>
                                     </table>
+                                    </div>
                                 )}
                             </Card>
                         </div>
