@@ -4,6 +4,7 @@ import { Users, ClipboardCheck, FileClock, CheckCircle2, UserPlus, Calendar } fr
 import { getDashboardStats } from '../../api/dashboard';
 import TambahPenggunaModal from '../../components/admin/TambahPenggunaModal';
 import { SkeletonCard, SkeletonBlock } from '../../components/ui/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 
 /* ---------------- Stat Card ---------------- */
 function StatCard({ icon: Icon, iconBg, iconColor, value, label, sub, valueSmall }) {
@@ -155,6 +156,7 @@ function WfhCalendar({ monthLabel, calendar }) {
 
 /* ---------------- Page ---------------- */
 export default function DashboardAdmin() {
+    const { hasPermission } = useAuth();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -210,13 +212,15 @@ export default function DashboardAdmin() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Dashboard Admin</h1>
-                <button
-                    onClick={() => setShowTambah(true)}
-                    className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-                >
-                    <UserPlus size={16} />
-                    Tambah Pengguna
-                </button>
+                {hasPermission('user.create') && (
+                    <button
+                        onClick={() => setShowTambah(true)}
+                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                    >
+                        <UserPlus size={16} />
+                        Tambah Pengguna
+                    </button>
+                )}
             </div>
 
             {/* Stat Cards */}

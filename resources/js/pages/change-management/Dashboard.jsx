@@ -18,7 +18,7 @@ const statIcons = {
 
 export default function Dashboard() {
     const navigate = useNavigate();
-    const { demoMode } = useAuth();
+    const { demoMode, hasPermission } = useAuth();
     const [initiations, setInitiations] = useState([]);
     const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, thisWeek: 0 });
     const [loading, setLoading] = useState(true);
@@ -38,6 +38,10 @@ export default function Dashboard() {
 
     const fetchData = async () => {
         setLoading(true);
+        if (!hasPermission('change.initiation.view')) {
+            setLoading(false);
+            return;
+        }
         try {
             const res = await changesApi.getInitiations({ per_page: 10 });
             const all = res.data.data;

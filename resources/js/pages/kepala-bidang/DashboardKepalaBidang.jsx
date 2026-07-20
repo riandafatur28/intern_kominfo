@@ -8,7 +8,7 @@ import { SkeletonCard } from "../../components/ui/Skeleton"
 
 export default function DashboardKepalaBidang() {
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, hasPermission } = useAuth()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, total: 0 })
@@ -18,24 +18,28 @@ export default function DashboardKepalaBidang() {
       setLoading(true)
       setError(null)
 
-      const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
-        getAdminReports({ status: 'pending', per_page: 1 }),
-        getAdminReports({ status: 'approved', per_page: 1 }),
-        getAdminReports({ status: 'rejected', per_page: 1 }),
-      ])
+      if (hasPermission('wfh.report.approve') || hasPermission('wfh.monitoring.view')) {
+        const [pendingRes, approvedRes, rejectedRes] = await Promise.all([
+          getAdminReports({ status: 'pending', per_page: 1 }),
+          getAdminReports({ status: 'approved', per_page: 1 }),
+          getAdminReports({ status: 'rejected', per_page: 1 }),
+        ])
 
-      setStats({
-        pending: pendingRes.meta?.total ?? 0,
-        approved: approvedRes.meta?.total ?? 0,
-        rejected: rejectedRes.meta?.total ?? 0,
-        total: (pendingRes.meta?.total ?? 0) + (approvedRes.meta?.total ?? 0) + (rejectedRes.meta?.total ?? 0),
-      })
+        setStats({
+          pending: pendingRes.meta?.total ?? 0,
+          approved: approvedRes.meta?.total ?? 0,
+          rejected: rejectedRes.meta?.total ?? 0,
+          total: (pendingRes.meta?.total ?? 0) + (approvedRes.meta?.total ?? 0) + (rejectedRes.meta?.total ?? 0),
+        })
+      } else {
+        setStats({ pending: 0, approved: 0, rejected: 0, total: 0 })
+      }
     } catch (err) {
       setError(err.response?.data?.message || 'Gagal memuat data')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [hasPermission])
 
   useEffect(() => { fetchData() }, [fetchData])
 
@@ -91,32 +95,36 @@ export default function DashboardKepalaBidang() {
           </div>
           <p className="mt-4 text-sm font-semibold text-gray-800">Persetujuan Laporan</p>
           <p className="text-xs text-gray-400 mt-1">{stats.pending} perlu review</p>
-          <button
-            onClick={() => navigate('/kepala-bidang/persetujuan-laporan')}
-            className="mt-3 text-xs font-bold text-brand-600 hover:text-brand-700 cursor-pointer"
-          >
-            Lihat Semua →
-          </button>
+          {hasPermission('wfh.report.approve') && (
+            <button
+              onClick={() => navigate('/kepala-bidang/persetujuan-laporan')}
+              className="mt-3 text-xs font-bold text-brand-600 hover:text-brand-700 cursor-pointer"
+            >
+              Lihat Semua →
+            </button>
+          )}
         </div>
       </div>
 
       {/* Quick Links */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <button
-          onClick={() => navigate('/kepala-bidang/persetujuan-laporan')}
-          className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-left hover:bg-gray-50 transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-brand-100 text-brand-600 rounded-xl flex items-center justify-center shrink-0">
-              <FileText size={20} />
+        {hasPermission('wfh.report.approve') && (
+          <button
+            onClick={() => navigate('/kepala-bidang/persetujuan-laporan')}
+            className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm text-left hover:bg-gray-50 transition-colors cursor-pointer"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-brand-100 text-brand-600 rounded-xl flex items-center justify-center shrink-0">
+                <FileText size={20} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-gray-900">Persetujuan Laporan Kegiatan</p>
+                <p className="text-xs text-gray-400">Setujui atau tolak laporan kerja pegawai</p>
+              </div>
+              <ChevronRight size={18} className="text-gray-300 shrink-0" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900">Persetujuan Laporan Kegiatan</p>
-              <p className="text-xs text-gray-400">Setujui atau tolak laporan kerja pegawai</p>
-            </div>
-            <ChevronRight size={18} className="text-gray-300 shrink-0" />
-          </div>
-        </button>
+          </button>
+        )}
 
         <button
           onClick={() => navigate('/kepala-bidang/profil')}

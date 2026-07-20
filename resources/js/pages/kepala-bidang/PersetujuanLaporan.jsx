@@ -3,6 +3,7 @@ import { FileText, CheckCircle2, XCircle, Clock, Check, X, Loader2, RefreshCw, S
 import { getAdminReports, getReportDetail } from "../../api/admin"
 import { wfhApi } from "../../api/wfh"
 import { SkeletonTable, SkeletonCard, SkeletonBlock } from "../../components/ui/Skeleton"
+import { useAuth } from "../../context/AuthContext"
 
 const STATUS_META = {
   draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
@@ -12,6 +13,7 @@ const STATUS_META = {
 }
 
 export default function PersetujuanLaporan() {
+  const { hasPermission } = useAuth()
   const [tab, setTab] = useState('pending')
   const [loading, setLoading] = useState(true)
   const [reports, setReports] = useState([])
@@ -275,22 +277,26 @@ export default function PersetujuanLaporan() {
               {/* Approve/Reject buttons — only for pending */}
               {detail.status === 'pending' && (
                 <div className="px-5 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-end gap-2">
-                  <button
-                    onClick={() => handleReject(detail.id)}
-                    disabled={actionLoading === detail.id}
-                    className="flex items-center gap-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {actionLoading === detail.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
-                    Tolak
-                  </button>
-                  <button
-                    onClick={() => handleApprove(detail.id)}
-                    disabled={actionLoading === detail.id}
-                    className="flex items-center gap-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
-                  >
-                    {actionLoading === detail.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
-                    Setujui
-                  </button>
+                  {hasPermission('wfh.report.reject') && (
+                    <button
+                      onClick={() => handleReject(detail.id)}
+                      disabled={actionLoading === detail.id}
+                      className="flex items-center gap-1 rounded-lg bg-red-100 hover:bg-red-200 text-red-600 px-4 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {actionLoading === detail.id ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                      Tolak
+                    </button>
+                  )}
+                  {hasPermission('wfh.report.approve') && (
+                    <button
+                      onClick={() => handleApprove(detail.id)}
+                      disabled={actionLoading === detail.id}
+                      className="flex items-center gap-1 rounded-lg bg-green-100 hover:bg-green-200 text-green-700 px-4 py-2 text-xs font-semibold transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {actionLoading === detail.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+                      Setujui
+                    </button>
+                  )}
                 </div>
               )}
             </div>
