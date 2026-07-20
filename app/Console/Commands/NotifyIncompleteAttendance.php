@@ -29,7 +29,7 @@ class NotifyIncompleteAttendance extends Command
             });
 
         // Get all active users
-        $users = User::where('is_active', true)->get();
+        $users = User::where('is_active', true)->get(['id', 'name', 'email']);
 
         $sent = 0;
         $skipped = 0;
@@ -52,7 +52,7 @@ class NotifyIncompleteAttendance extends Command
             }
 
             $user->notify(new WfhIncompleteAttendanceNotification(Carbon::parse($date), $missing));
-            Cache::put($cacheKey, true, Carbon::tomorrow()->startOfDay());
+            Cache::put($cacheKey, true, Carbon::parse($date)->endOfDay());
             $sent++;
         }
 

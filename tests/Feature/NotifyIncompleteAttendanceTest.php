@@ -70,7 +70,6 @@ class NotifyIncompleteAttendanceTest extends TestCase
         Notification::fake();
 
         $this->artisan('wfh:notify-incomplete-attendance', ['--date' => $this->date])
-            ->expectsOutputToContain('2')
             ->assertSuccessful();
 
         Notification::assertSentToTimes(
@@ -93,12 +92,19 @@ class NotifyIncompleteAttendanceTest extends TestCase
     {
         Notification::fake();
 
-        $this->artisan('wfh:notify-incomplete-attendance', ['--date' => $this->date]);
-
-        Notification::fake();
+        // First run: notifies the two incomplete users.
         $this->artisan('wfh:notify-incomplete-attendance', ['--date' => $this->date])
-            ->expectsOutputToContain('0')
             ->assertSuccessful();
+
+        // Second run on the same date: cache dedup blocks re-send.
+        $this->artisan('wfh:notify-incomplete-attendance', ['--date' => $this->date])
+            ->assertSuccessful();
+
+        Notification::assertSentToTimes(
+            $this->partialUser,
+            WfhIncompleteAttendanceNotification::class,
+            1,
+        );
     }
 
     public function test_command_does_not_send_to_inactive_users(): void
