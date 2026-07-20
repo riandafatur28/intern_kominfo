@@ -4,8 +4,6 @@ namespace App\Support\Import;
 
 use App\Models\Team;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
@@ -72,8 +70,9 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             'phone' => trim($row['telepon'] ?? ''),
             'rank' => trim($row['pangkat_golongan'] ?? ''),
             'position' => trim($row['jabatan'] ?? ''),
-            'password' => Hash::make(Str::random(12)),
+            'password' => config('app.default_user_password'),
             'is_active' => true,
+            'must_change_password' => true,
         ]);
     }
 

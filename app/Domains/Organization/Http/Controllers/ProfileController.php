@@ -41,7 +41,10 @@ class ProfileController extends Controller
     public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
         $user = $request->user();
-        $user->update(['password' => $request->input('password')]);
+        $user->update([
+            'password' => $request->input('password'),
+            'must_change_password' => false,
+        ]);
 
         return response()->json([
             'success' => true,
