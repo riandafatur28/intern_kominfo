@@ -108,7 +108,7 @@ class LeadDashboardTest extends TestCase
         $response->assertStatus(403);
     }
 
-    public function test_admin_can_access_lead_dashboard(): void
+    public function test_admin_without_field_id_is_rejected(): void
     {
         $admin = User::factory()->create([
             'is_active' => true,
@@ -117,10 +117,23 @@ class LeadDashboardTest extends TestCase
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
 
-        $response = $this->getJson('/api/changes/dashboard');
+        $this->getJson('/api/changes/dashboard')
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
 
-        $response->assertStatus(200)
-            ->assertJsonPath('success', true);
+    public function test_admin_nonexistent_field_id_returns_404(): void
+    {
+        $admin = User::factory()->create([
+            'is_active' => true,
+            'must_change_password' => false,
+        ]);
+        $admin->assignRole('admin');
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/changes/dashboard?field_id=999999')
+            ->assertStatus(404)
+            ->assertJsonPath('success', false);
     }
 
     public function test_admin_can_filter_by_field_id(): void
