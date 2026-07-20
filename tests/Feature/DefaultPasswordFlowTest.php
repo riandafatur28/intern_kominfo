@@ -6,7 +6,6 @@ use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -23,7 +22,6 @@ class DefaultPasswordFlowTest extends TestCase
     {
         parent::setUp();
         $this->artisan('db:seed', ['--class' => 'RolePermissionSeeder']);
-        Cache::flush();
 
         $field = Field::create(['name' => 'Bidang Test']);
         $this->team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);

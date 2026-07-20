@@ -19,9 +19,9 @@ class AdminUserSeeder extends Seeder
             'name' => 'Administrator',
             'nip' => '0000000000',
             'email' => 'admin@kominfo.go.id',
-            'password' => config('app.admin_password', 'admin123'),
+            'password' => config('app.admin_password'),
             'is_active' => true,
-            'must_change_password' => false,
+            'must_change_password' => true,
         ]);
 
         $admin->assignRole('admin');

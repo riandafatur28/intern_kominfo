@@ -17,7 +17,7 @@ return new class extends Migration
         });
 
         // Existing rows have already been through first login; only new accounts enforce the change.
-        DB::table('users')->whereNull('must_change_password')->orWhere('must_change_password', true)->update(['must_change_password' => false]);
+        DB::table('users')->update(['must_change_password' => false]);
     }
 
     /**

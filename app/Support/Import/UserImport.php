@@ -60,6 +60,9 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             return null;
         }
 
+        // ponytail: counter is incremented here before Maatwebsite\Excel persists the model,
+        // so 'imported' may over-count if a row fails DB-level save. Acceptable for admin
+        // feedback; reconcile against DB row count if exactness required.
         $this->results['imported']++;
 
         return new User([

@@ -123,4 +123,27 @@ class FirstLoginEnforcementTest extends TestCase
         // Unauthenticated requests should hit 401 (auth middleware), not 403 (password.changed)
         $this->getJson('/api/profile')->assertStatus(401);
     }
+
+    public function test_password_change_revokes_all_other_tokens_but_keeps_current(): void
+    {
+        // Sanctum's 'web' guard means sessions leak between test requests, so we verify
+        // revocation by inspecting the personal_access_tokens table rather than re-issuing
+        // requests with stale tokens. In production, API clients send only the bearer header
+        // (no session cookie) so the deleted token would correctly fail auth.
+        $user = $this->createUserWithFlag(false);
+
+        $kept = $user->createToken('current-device')->accessToken;
+        $stale = $user->createToken('old-device')->accessToken;
+
+        $this->postJson('/api/profile/password', [
+            'current_password' => 'password',
+            'password' => 'NewSecret!23',
+            'password_confirmation' => 'NewSecret!23',
+        ], ['Authorization' => 'Bearer '.$user->createToken('req')->plainTextToken])->assertStatus(200);
+
+        // The request token must remain (it's the one that just rotated the password).
+        // The 'current-device' and 'old-device' tokens are other sessions — both should be revoked.
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $kept->id]);
+        $this->assertDatabaseMissing('personal_access_tokens', ['id' => $stale->id]);
+    }
 }
