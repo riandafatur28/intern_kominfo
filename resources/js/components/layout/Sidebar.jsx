@@ -8,6 +8,8 @@ import { assetUrl } from '../../utils/url';
 
 const ADMIN_NAV = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: null },
+    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
     { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
     { to: '/manajemen-pengguna', icon: Users, label: 'Manajemen Pengguna', perm: 'user.manage' },
     { to: '/manajemen-role', icon: Shield, label: 'Manajemen Role', perm: 'role.manage' },
