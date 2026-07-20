@@ -29,13 +29,21 @@ const TEAM_LEAD_NAV = [
     { to: '/team-lead/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'change.initiation.view' },
     { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
     { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+    { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan', perm: 'change.initiation.create' },
     { to: '/team-lead/permintaan-persetujuan', icon: CheckSquare, label: 'Permintaan Persetujuan', perm: 'change.initiation.approve' },
+    { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
+    { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
+    { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
     { to: '/team-lead/profil', icon: User, label: 'Profil Saya', perm: null },
 ];
 
 const KEPALA_BIDANG_NAV = [
     { to: '/kepala-bidang/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'wfh.monitoring.view' },
+    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
     { to: '/kepala-bidang/persetujuan-laporan', icon: FileText, label: 'Persetujuan Laporan', perm: 'wfh.report.approve' },
+    { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
+    { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
     { to: '/kepala-bidang/profil', icon: User, label: 'Profil Saya', perm: null },
 ];
 
