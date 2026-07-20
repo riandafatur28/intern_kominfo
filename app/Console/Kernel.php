@@ -13,6 +13,10 @@ class Kernel extends ConsoleKernel
     protected function schedule(Schedule $schedule): void
     {
         $schedule->command('auth:purge-expired-otps')->dailyAt('02:00');
+
+        $schedule->command('wfh:notify-incomplete-attendance')
+            ->dailyAt('15:00')
+            ->when(fn () => in_array(now()->isoWeekday(), config('wfh.allowed_days', [])));
     }
 
     /**
