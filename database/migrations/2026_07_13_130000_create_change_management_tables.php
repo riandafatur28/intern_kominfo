@@ -18,7 +18,7 @@ return new class extends Migration
         Schema::create('change_initiations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('field_id')->constrained('fields')->cascadeOnDelete();
-            $table->foreignId('initiator_id')->constrained('users')->cascadeOnDelete();
+            $table->foreignId('initiator_id')->nullable()->constrained('users')->cascadeOnDelete();
             $table->foreignId('reviewer_id')->nullable()->constrained('users')->nullOnDelete();
             $table->string('doc_number')->unique();
             $table->date('initiation_date');
@@ -73,15 +73,16 @@ return new class extends Migration
             $table->primary(['change_implementation_id', 'change_type_id']);
         });
 
-        Schema::create('change_implementation_attachments', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('change_implementation_id')->constrained('change_implementations')->cascadeOnDelete();
-            $table->string('path');
-            $table->integer('sort_order')->default(0);
-            $table->timestamps();
+            Schema::create('change_implementation_attachments', function (Blueprint $table) {
+        $table->id();
+        $table->unsignedBigInteger('change_implementation_id');
+        $table->string('path');
+        $table->integer('sort_order')->default(0);
+        $table->timestamps();
 
-            $table->index('change_implementation_id');
-        });
+        $table->foreign('change_implementation_id', 'ch_att_fk')->references('id')->on('change_implementations')->cascadeOnDelete();
+        $table->index('change_implementation_id');
+    });
     }
 
     public function down(): void
