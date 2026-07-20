@@ -15,49 +15,40 @@ class OtpService
      */
     public function issue(string $email): array
     {
-        // Check cooldown
-        $existing = PasswordResetOtp::where('email', $email)
-            ->whereNull('used_at')
-            ->where('expires_at', '>', now())
-            ->first();
+        // Find any prior row for this email (active, expired, or used).
+        // Cooldown applies only to a still-active record.
+        $existing = PasswordResetOtp::where('email', $email)->first();
 
-        if ($existing) {
+        if ($existing && $existing->used_at === null && $existing->expires_at->isFuture()) {
             $elapsed = abs($existing->created_at->diffInSeconds(now()));
             $cooldownSeconds = config('otp.cooldown_seconds');
 
             if ($elapsed < $cooldownSeconds) {
-                $remaining = $cooldownSeconds - $elapsed;
-
                 return [
                     'code' => '',
                     'expires_at' => $existing->expires_at,
-                    'cooldown_remaining' => $remaining,
+                    'cooldown_remaining' => $cooldownSeconds - $elapsed,
                 ];
             }
         }
 
-        // Generate OTP
+        // Generate a fresh OTP and upsert on the unique(email) key. This handles
+        // first-issue, post-cooldown, post-expiry, and post-use re-issue without
+        // tripping the unique constraint.
         $code = $this->generateCode();
-        $codeHash = Hash::make($code);
         $expiresAt = Carbon::now()->addMinutes(config('otp.expires_minutes'));
 
-        if ($existing) {
-            // Reuse existing record (avoids unique constraint violation)
-            $existing->update([
-                'code_hash' => $codeHash,
+        PasswordResetOtp::updateOrCreate(
+            ['email' => $email],
+            [
+                'code_hash' => Hash::make($code),
                 'attempts' => 0,
                 'expires_at' => $expiresAt,
                 'used_at' => null,
+                // Reset created_at so the next cooldown window starts fresh.
                 'created_at' => now(),
-            ]);
-        } else {
-            PasswordResetOtp::create([
-                'email' => $email,
-                'code_hash' => $codeHash,
-                'attempts' => 0,
-                'expires_at' => $expiresAt,
-            ]);
-        }
+            ],
+        );
 
         return [
             'code' => $code,
@@ -74,19 +65,16 @@ class OtpService
         $otp = PasswordResetOtp::where('email', $email)
             ->whereNull('used_at')
             ->where('expires_at', '>', now())
-            ->latest()
             ->first();
 
         if (! $otp) {
             return false;
         }
-
         if ($otp->isExhausted()) {
             $otp->update(['used_at' => now()]);
 
             return false;
         }
-
         if (! Hash::check($code, $otp->code_hash)) {
             $otp->increment('attempts');
 

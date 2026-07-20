@@ -24,11 +24,11 @@ class ResetPasswordOtpMailTest extends TestCase
     {
         Mail::fake();
 
-        Mail::mailer('resend')->to('test@example.com')->send(
+        Mail::mailer('resend')->to('test@example.com')->queue(
             new ResetPasswordOtpMail('654321', 15)
         );
 
-        Mail::mailer('resend')->assertSent(ResetPasswordOtpMail::class, function ($mail) {
+        Mail::mailer('resend')->assertQueued(ResetPasswordOtpMail::class, function ($mail) {
             return $mail->hasTo('test@example.com');
         });
     }

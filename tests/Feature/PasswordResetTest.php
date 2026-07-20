@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domains\Auth\Mail\ResetPasswordOtpMail;
+use App\Domains\Auth\Services\OtpService;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -50,10 +51,10 @@ class PasswordResetTest extends TestCase
         $this->postJson('/api/password/forgot', ['email' => 'user@test.com']);
         $this->postJson('/api/password/forgot', ['email' => 'ghost@test.com']);
 
-        Mail::assertSent(ResetPasswordOtpMail::class, function ($mail) {
+        Mail::assertQueued(ResetPasswordOtpMail::class, function ($mail) {
             return $mail->hasTo('user@test.com');
         });
-        Mail::assertNotSent(ResetPasswordOtpMail::class, function ($mail) {
+        Mail::assertNotQueued(ResetPasswordOtpMail::class, function ($mail) {
             return $mail->hasTo('ghost@test.com');
         });
     }
@@ -141,14 +142,54 @@ class PasswordResetTest extends TestCase
         $response = $this->postJson('/api/password/resend', ['email' => 'user@test.com']);
         $response->assertStatus(200);
 
-        Mail::assertSent(ResetPasswordOtpMail::class, function ($mail) {
+        Mail::assertQueued(ResetPasswordOtpMail::class, function ($mail) {
             return $mail->hasTo('user@test.com');
         });
     }
 
+    public function test_reset_returns_same_success_shape_for_any_email_with_valid_otp(): void
+    {
+        // Two emails, both with a valid OTP via the service; only one is a real user.
+        // Both must reset with identical success response — no email-existence leak.
+        $registered = $this->user;
+        $this->postJson('/api/password/forgot', ['email' => $registered->email]);
+        $registeredCode = $this->getOtpFromMail($registered->email);
+
+        // For the ghost, craft an OTP record directly via the service and capture its
+        // plaintext. Then read the code back through a re-issue after expiry.
+        $svc = app(OtpService::class);
+        $ghostIssue = $svc->issue('ghost2@test.com');
+        $ghostCode = $ghostIssue['code'];
+
+        $registeredResponse = $this->postJson('/api/password/reset', [
+            'email' => $registered->email,
+            'code' => $registeredCode,
+            'password' => 'NewPassw0rd!',
+            'password_confirmation' => 'NewPassw0rd!',
+        ]);
+        $ghostResponse = $this->postJson('/api/password/reset', [
+            'email' => 'ghost2@test.com',
+            'code' => $ghostCode,
+            'password' => 'NewPassw0rd!',
+            'password_confirmation' => 'NewPassw0rd!',
+        ]);
+
+        $this->assertSame($registeredResponse->status(), $ghostResponse->status());
+        $this->assertSame(
+            $registeredResponse->json('success'),
+            $ghostResponse->json('success'),
+        );
+        $this->assertSame(
+            $registeredResponse->json('message'),
+            $ghostResponse->json('message'),
+        );
+        // No user row was created for the ghost.
+        $this->assertDatabaseMissing('users', ['email' => 'ghost2@test.com']);
+    }
+
     private function getOtpFromMail(string $email): ?string
     {
-        $mailables = Mail::sent(ResetPasswordOtpMail::class, function ($mail) use ($email) {
+        $mailables = Mail::queued(ResetPasswordOtpMail::class, function ($mail) use ($email) {
             return $mail->hasTo($email);
         });
 

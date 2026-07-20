@@ -2,11 +2,12 @@
 
 namespace App\Domains\Auth\Mail;
 
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 
-class ResetPasswordOtpMail extends Mailable
+class ResetPasswordOtpMail extends Mailable implements ShouldQueue
 {
     /**
      * Create a new message instance.

@@ -115,4 +115,30 @@ class OtpServiceTest extends TestCase
         $this->assertDatabaseMissing('password_reset_otps', ['email' => 'expired@test.com']);
         $this->assertDatabaseMissing('password_reset_otps', ['email' => 'used2@test.com']);
     }
+
+    public function test_reissue_after_expiry_does_not_throw(): void
+    {
+        $this->service->issue('expire-then-reissue@test.com');
+        PasswordResetOtp::where('email', 'expire-then-reissue@test.com')
+            ->update(['expires_at' => Carbon::now()->subMinute()]);
+
+        // Before the fix this hit unique(email) violation.
+        $result = $this->service->issue('expire-then-reissue@test.com');
+
+        $this->assertNull($result['cooldown_remaining']);
+        $this->assertSame(config('otp.length'), strlen($result['code']));
+        $this->assertSame(1, PasswordResetOtp::where('email', 'expire-then-reissue@test.com')->count());
+    }
+
+    public function test_reissue_after_use_does_not_throw(): void
+    {
+        $issued = $this->service->issue('use-then-reissue@test.com');
+        $this->service->verify('use-then-reissue@test.com', $issued['code']);
+
+        $result = $this->service->issue('use-then-reissue@test.com');
+
+        $this->assertNull($result['cooldown_remaining']);
+        $this->assertSame(config('otp.length'), strlen($result['code']));
+        $this->assertSame(1, PasswordResetOtp::where('email', 'use-then-reissue@test.com')->count());
+    }
 }

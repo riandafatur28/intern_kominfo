@@ -21,18 +21,18 @@ class PasswordResetController extends Controller
     public function forgot(ForgotPasswordRequest $request): JsonResponse
     {
         $user = User::where('email', $request->email)->first();
+        $result = $this->otpService->issue($request->email);
 
-        if ($user) {
-            $result = $this->otpService->issue($user->email);
-
-            if ($result['cooldown_remaining'] === null) {
-                Mail::to($user->email)->send(
-                    new ResetPasswordOtpMail($result['code'], config('otp.expires_minutes'))
-                );
-            }
-        } else {
-            // Still generate OTP to prevent timing-based enumeration
-            $this->otpService->issue($request->email);
+        if ($result['cooldown_remaining'] === null) {
+            // Dispatch in both branches so response time is constant (anti-enumeration).
+            // Real delivery only for registered users; the log mailer swallows the OTP
+            // for unknown emails. Requires QUEUE_CONNECTION=database + a queue worker
+            // in prod for true constant-time; under sync queue the SMTP-vs-log delta
+            // is the residual timing signal.
+            $mailable = new ResetPasswordOtpMail($result['code'], config('otp.expires_minutes'));
+            $user
+                ? Mail::to($user->email)->queue($mailable)
+                : Mail::mailer('log')->to('otp-sink@local')->queue($mailable);
         }
 
         return response()->json([
@@ -54,11 +54,10 @@ class PasswordResetController extends Controller
             ], 429);
         }
 
-        if ($user) {
-            Mail::to($user->email)->send(
-                new ResetPasswordOtpMail($result['code'], config('otp.expires_minutes'))
-            );
-        }
+        $mailable = new ResetPasswordOtpMail($result['code'], config('otp.expires_minutes'));
+        $user
+            ? Mail::to($user->email)->queue($mailable)
+            : Mail::mailer('log')->to('otp-sink@local')->queue($mailable);
 
         return response()->json([
             'success' => true,
@@ -77,21 +76,19 @@ class PasswordResetController extends Controller
             ], 422);
         }
 
+        // verify() returned true → an OTP record exists for this email. If the user
+        // doesn't (dummy OTP created by forgot() for anti-enumeration), there is
+        // nothing to reset; return the same success response so existence isn't leaked.
         $user = User::where('email', $request->email)->first();
-        if (! $user) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Email tidak terdaftar.',
-            ], 422);
+        if ($user) {
+            $user->update([
+                'password' => Hash::make($request->password),
+                'must_change_password' => false,
+            ]);
+
+            // Revoke all existing tokens.
+            $user->tokens()->delete();
         }
-
-        $user->update([
-            'password' => Hash::make($request->password),
-            'must_change_password' => false,
-        ]);
-
-        // Revoke all existing tokens
-        $user->tokens()->delete();
 
         return response()->json([
             'success' => true,
