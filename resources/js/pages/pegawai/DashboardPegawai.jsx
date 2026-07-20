@@ -7,8 +7,8 @@ import { useAuth } from '../../context/AuthContext';
 function StatCard({ label, value, sub }) {
     return (
         <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 text-center">
-            <p className="text-base font-bold text-gray-800">{label}</p>
-            <p className="text-5xl font-extrabold text-gray-500 my-3 leading-none">{value}</p>
+            <p className="text-sm font-bold text-gray-800">{label}</p>
+            <p className="text-4xl font-extrabold text-gray-500 my-2 leading-none">{value}</p>
             <p className="text-xs text-gray-400">{sub}</p>
         </div>
     );
@@ -80,9 +80,8 @@ export default function DashboardPegawai() {
                     {activities.map((a, i) => (
                         <div
                             key={i}
-                            className={`flex items-start gap-6 py-4 ${
-                                i < activities.length - 1 ? 'border-b border-gray-100' : ''
-                            }`}
+                            className={`flex items-start gap-6 py-4 ${i < activities.length - 1 ? 'border-b border-gray-100' : ''
+                                }`}
                         >
                             <span className="text-sm text-gray-500 w-14 shrink-0">{a.time}</span>
                             <span className="text-sm text-gray-600">{a.text}</span>
