@@ -26,9 +26,36 @@ export function AuthProvider({ children }) {
         }
     }, []);
 
+    // Refresh user data without touching loading state (silent refresh)
+    const refreshPermissions = useCallback(async () => {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        try {
+            const res = await axios.get('/api/auth/me');
+            setUser(res.data.data);
+        } catch {
+            // ignore — keep current user state
+        }
+    }, []);
+
     useEffect(() => {
         fetchUser();
     }, [fetchUser]);
+
+    // Auto-refresh permissions when API returns 403 (permission changed server-side)
+    useEffect(() => {
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            async (error) => {
+                if (error.response?.status === 403) {
+                    // permissions mungkin berubah di server, refresh user data
+                    await refreshPermissions();
+                }
+                return Promise.reject(error);
+            }
+        );
+        return () => axios.interceptors.response.eject(interceptor);
+    }, [refreshPermissions]);
 
     const login = async (email, password) => {
         const res = await axios.post('/api/auth/login', { email, password });
@@ -62,7 +89,7 @@ export function AuthProvider({ children }) {
 
     return (
         <AuthContext.Provider value={{
-            user, login, logout, loading, fetchUser,
+            user, login, logout, loading, fetchUser, refreshPermissions,
             hasPermission, hasRole,
             isAuthenticated: !!user,
             demoMode: false,
