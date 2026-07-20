@@ -41,6 +41,7 @@ class AuthController extends Controller
             'data' => [
                 'token' => $token,
                 'user' => $this->userData($user),
+                'must_change_password' => (bool) $user->must_change_password,
             ],
         ]);
     }
@@ -81,6 +82,7 @@ class AuthController extends Controller
                 ? asset("storage/{$user->photo_path}")
                 : null,
             'is_active' => $user->is_active,
+            'must_change_password' => (bool) $user->must_change_password,
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name')->values(),
         ];
