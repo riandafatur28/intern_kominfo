@@ -79,12 +79,14 @@ php artisan test
 
 ## API Structure
 - `/api/auth/*` — Login, me, logout
+- `/api/password/*` — Forgot/reset password via OTP (public, throttled)
 - `/api/profile/*` — Profile view, update, signature upload
 - `/api/admin/users/*` — User CRUD + Excel import
-- `/api/wfh/*` — Attendance, reports, approval flow, PDF export
+- `/api/wfh/*` — Attendance (3 sesi: pagi/siang/sore), reports, approval flow, PDF export
 - `/api/changes/*` — Initiation, implementation, review, PDF export
-- `/api/admin/wfh/monitoring` — Admin attendance monitoring
-
+- `/api/changes/dashboard` — Lead dashboard: initiation counts per status (kepala_bidang/admin)
+- `/api/admin/wfh/dashboard` — Admin WFH dashboard: total pegawai, laporan terkirim/pending
+- `/api/admin/wfh/monitoring` — Admin attendance monitoring board
 ## Architecture
 - Domain-driven: `app/Domains/{Auth,Organization,Wfh,ChangeManagement}`
 - Repository pattern with interfaces for testability
@@ -100,6 +102,32 @@ php artisan test
 ## Config
 - `config/wfh.php` — Allowed WFH days (default: Friday)
 - `config/change-mgmt.php` — Document number prefix format
+- `config/otp.php` — OTP expiry, cooldown, length, max attempts (all configurable via env)
+- `config/mail.php` — Mailer configuration; set `MAIL_MAILER=resend` dan `RESEND_API_KEY` untuk pengiriman OTP & notifikasi via Resend
+
+## Cron / Scheduled Tasks
+
+Application membutuhkan cron entry untuk menjalankan scheduled tasks:
+
+```bash
+* * * * * cd /path/to/project && php artisan schedule:run >> /dev/null 2>&1
+```
+
+### Daftar Jadwal
+
+| Waktu | Command | Deskripsi |
+|-------|---------|-----------|
+| 15:00 (hari WFH saja) | `wfh:notify-incomplete-attendance` | Kirim email ke user yang belum lengkap absensi 3 sesi |
+| 02:00 (setiap hari) | `auth:purge-expired-otps` | Hapus OTP expired/used yang tidak diperlukan |
+
+### Env Wajib
+
+Pastikan variabel berikut di-set di `.env` (non-produksi bisa `MAIL_MAILER=log` untuk test tanpa Resend):
+```
+RESEND_API_KEY=re_xxxxxxxxxxxx
+MAIL_MAILER=resend
+MAIL_FROM_ADDRESS=noreply@kominfo.jatimprov.go.id
+```
 
 ## CI/CD Pipeline
 
