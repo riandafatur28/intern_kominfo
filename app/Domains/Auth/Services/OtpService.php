@@ -33,21 +33,30 @@ class OtpService
                     'cooldown_remaining' => $remaining,
                 ];
             }
-
-            // Expire old OTP so we can issue a new one
-            $existing->update(['used_at' => now()]);
         }
 
         // Generate OTP
         $code = $this->generateCode();
+        $codeHash = Hash::make($code);
         $expiresAt = Carbon::now()->addMinutes(config('otp.expires_minutes'));
 
-        PasswordResetOtp::create([
-            'email' => $email,
-            'code_hash' => Hash::make($code),
-            'attempts' => 0,
-            'expires_at' => $expiresAt,
-        ]);
+        if ($existing) {
+            // Reuse existing record (avoids unique constraint violation)
+            $existing->update([
+                'code_hash' => $codeHash,
+                'attempts' => 0,
+                'expires_at' => $expiresAt,
+                'used_at' => null,
+                'created_at' => now(),
+            ]);
+        } else {
+            PasswordResetOtp::create([
+                'email' => $email,
+                'code_hash' => $codeHash,
+                'attempts' => 0,
+                'expires_at' => $expiresAt,
+            ]);
+        }
 
         return [
             'code' => $code,

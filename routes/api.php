@@ -23,6 +23,16 @@ use Illuminate\Support\Facades\Route;
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
 
+// Password Reset (public)
+Route::prefix('password')->group(function () {
+    Route::post('forgot', [\App\Domains\Auth\Http\Controllers\PasswordResetController::class, 'forgot'])
+        ->middleware('throttle:5,1');
+    Route::post('resend', [\App\Domains\Auth\Http\Controllers\PasswordResetController::class, 'resend'])
+        ->middleware('throttle:5,1');
+    Route::post('reset', [\App\Domains\Auth\Http\Controllers\PasswordResetController::class, 'reset'])
+        ->middleware('throttle:5,1');
+});
+
 Route::middleware('auth:sanctum')->group(function () {
     // Auth — always available (password change flag emitted in response)
     Route::get('/auth/me', [AuthController::class, 'me']);
