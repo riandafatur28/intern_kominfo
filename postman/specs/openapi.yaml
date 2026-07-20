@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 2.0.0
+  version: 2.1.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -12,6 +12,12 @@ info:
     The `kepala_bidang` role (field head) approves WFH reports as "atasan langsung".
     The `kepala_tim` role (team leader) approves change initiations and reviews implementations.
     Admin is scoped to their own field (bidang).
+
+    Default-password policy: every newly created account (via form, Excel import, or
+    seeder) is assigned the env-controlled APP_DEFAULT_USER_PASSWORD, flagged
+    must_change_password=true, and forced to rotate on first login. All authenticated
+    routes except POST /profile/password, GET /auth/me, and POST /auth/logout return
+    HTTP 403 {code:'must_change_password'} until the password is changed.
 servers:
   - url: http://localhost
     description: Local development server
@@ -33,6 +39,25 @@ components:
         message:
           type: string
           example: Email atau password salah.
+    MustChangePasswordResponse:
+      type: object
+      required: [success, code, message]
+      description: |
+        Returned (HTTP 403) by any authenticated route under the 'password.changed'
+        middleware when the user still has must_change_password=true.
+        Excluded routes (always reachable): POST /api/profile/password,
+        GET /api/auth/me, POST /api/auth/logout.
+      properties:
+        success:
+          type: boolean
+          example: false
+        code:
+          type: string
+          enum: [must_change_password]
+          example: must_change_password
+        message:
+          type: string
+          example: Password harus diganti pada login pertama.
     SuccessResponse:
       type: object
       required: [success, message]
@@ -84,18 +109,26 @@ components:
           example: Login berhasil.
         data:
           type: object
-          required: [token, user]
+          required: [token, user, must_change_password]
           properties:
             token:
               type: string
               example: "1|abcdef1234567890abcdef1234567890abcdef12"
             user:
               $ref: "#/components/schemas/AuthUser"
+            must_change_password:
+              type: boolean
+              description: |
+                Convenience duplicate of data.user.must_change_password at the top level
+                of the login response, so the frontend can branch on it without
+                unpacking the user object.
+              example: false
       example:
         success: true
         message: Login berhasil.
         data:
           token: "1|abcdef1234567890abcdef1234567890abcdef12"
+          must_change_password: false
           user:
             id: 1
             name: Budi Santoso
@@ -106,6 +139,7 @@ components:
             phone: "081234567890"
             signature_path: signatures/budi-signature.png
             is_active: true
+            must_change_password: false
             roles: [staf]
             permissions: [wfh.attendance.create, wfh.report.create]
             team:
@@ -153,6 +187,15 @@ components:
         is_active:
           type: boolean
           example: true
+        must_change_password:
+          type: boolean
+          description: |
+            True when the user must rotate their password on first login (or after an
+            admin-triggered reset). The frontend should redirect to the change-password
+            page when this flag is true; all API routes except POST /profile/password,
+            GET /auth/me, and POST /auth/logout will return 403 {code:'must_change_password'}
+            until the password is changed.
+          example: false
         roles:
           type: array
           items:
@@ -224,6 +267,30 @@ components:
         signature_url: http://localhost/storage/signatures/budi-signature.png
         is_active: true
         roles: [staf]
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, password, password_confirmation]
+      properties:
+        current_password:
+          type: string
+          format: password
+          description: The user's current password (validated against stored hash).
+          example: Kominfo@123
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: The new password.
+          example: NewRahasia!23
+        password_confirmation:
+          type: string
+          format: password
+          description: Must match `password`.
+          example: NewRahasia!23
+      example:
+        current_password: Kominfo@123
+        password: NewRahasia!23
+        password_confirmation: NewRahasia!23
     UpdateProfileRequest:
       type: object
       properties:
@@ -276,7 +343,12 @@ components:
     # ── User Management ─────────────────────────────────────────────
     StoreUserRequest:
       type: object
-      required: [name, nip, email, password, roles]
+      required: [name, nip, email, roles]
+      description: |
+        Password is no longer client-supplied. The backend assigns the env-controlled
+        default password (APP_DEFAULT_USER_PASSWORD) to every new account and marks
+        must_change_password=true so the user is forced to rotate on first login.
+        Any 'password' field sent in the request body is silently ignored.
       properties:
         name:
           type: string
@@ -309,12 +381,6 @@ components:
           maxLength: 20
           nullable: true
           example: "081345678901"
-        password:
-          type: string
-          format: password
-          minLength: 8
-          maxLength: 255
-          example: rahasiaBudi123
         roles:
           type: array
           items:
@@ -329,14 +395,13 @@ components:
             type: string
           example: [wfh.report.approve]
       example:
-        name: Budi Santoso
+        name: Dewi Lestari
         nip: "199503152024011002"
-        email: budi@kominfo.go.id
+        email: dewi@kominfo.go.id
         team_id: 3
         rank: Penata Muda
         position: Programmer
         phone: "081234567890"
-        password: rahasiaBudi123
         roles: [staf]
     UpdateUserRequest:
       type: object
@@ -504,7 +569,44 @@ components:
           name: Siti Nurhaliza
         field:
           id: 1
-          name: Bidang Teknologi Informasi
+    TeamsListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            type: object
+            required: [id, name, field]
+            properties:
+              id:
+                type: integer
+                example: 3
+              name:
+                type: string
+                example: Tim Aplikasi
+              field:
+                type: object
+                nullable: true
+                required: [id, name]
+                properties:
+                  id:
+                    type: integer
+                    example: 1
+                  name:
+                    type: string
+                    example: Bidang Aplikasi Informatika
+      example:
+        success: true
+        data:
+          - id: 3
+            name: Tim Aplikasi
+            field:
+              id: 1
+              name: Bidang Aplikasi Informatika
     UserListResponse:
       type: object
       required: [success, data, meta]
@@ -1695,6 +1797,7 @@ paths:
                 message: Login berhasil.
                 data:
                   token: "1|abcdef1234567890abcdef1234567890abcdef12"
+                  must_change_password: false
                   user:
                     id: 1
                     name: Budi Santoso
@@ -1705,6 +1808,7 @@ paths:
                     phone: "081234567890"
                     signature_path: signatures/budi-signature.png
                     is_active: true
+                    must_change_password: false
                     roles: [staf]
                     permissions: [wfh.attendance.create, wfh.report.create]
                     team:
@@ -1767,6 +1871,7 @@ paths:
                   phone: "081234567890"
                   signature_path: signatures/budi-signature.png
                   is_active: true
+                  must_change_password: false
                   roles: [staf]
                   permissions: [wfh.attendance.create, wfh.report.create]
                   team:
@@ -1966,6 +2071,51 @@ paths:
               example:
                 success: false
                 message: "Format file harus PNG, JPG, atau JPEG."
+  /api/profile/password:
+    post:
+      tags: [Profile]
+      summary: Change current user password
+      description: |
+        Rotates the current user's password, clears must_change_password, and
+        revokes all tokens except the one making the request.
+
+        Reachable even when must_change_password=true (excluded from the
+        'password.changed' middleware) so the user can complete first-login rotation.
+      operationId: changePassword
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: Password berhasil diperbarui.
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "422":
+          description: Validation error (current_password mismatch, password too short, confirmation mismatch)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Password lama tidak sesuai."
   # ── User Management ──────────────────────────────────────────────
   /api/admin/users:
     get:
@@ -2023,7 +2173,6 @@ paths:
               rank: Pengatur Muda
               position: Staf Pelaksana
               phone: "081345678901"
-              password: passwordbaru123
               roles: [staf]
       responses:
         "201":
@@ -2390,6 +2539,49 @@ paths:
               example:
                 success: false
                 message: Import gagal. Silakan periksa format file.
+  /api/admin/teams:
+    get:
+      tags: [User Management]
+      summary: List teams (optionally filtered by field/bidang)
+      description: |
+        Returns all teams ordered by name. Pass `field_id` to restrict to teams
+        belonging to a specific bidang. Without the filter all teams are returned
+        (backward compatible). Requires `user.manage` permission.
+      operationId: listTeams
+      parameters:
+        - name: field_id
+          in: query
+          required: false
+          description: Filter teams by field (bidang) ID. Omit to list all teams.
+          schema:
+            type: integer
+            minimum: 1
+          example: 1
+      responses:
+        "200":
+          description: Team list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamsListResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission user.manage (or must_change_password still true)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
   # ── RBAC Management ──────────────────────────────────────────────
   /api/admin/roles:
     get:
