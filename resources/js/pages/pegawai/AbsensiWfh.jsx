@@ -138,7 +138,6 @@ export default function AbsensiWfh() {
     return (
         <div className="max-w-[1200px] mx-auto">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Absensi WFH</h1>
-            <p className="text-sm text-gray-400 mt-1">Unggah foto kehadiran WFH untuk setiap sesi</p>
 
             {/* Status kehadiran */}
             <div className="mt-6">
@@ -150,16 +149,16 @@ export default function AbsensiWfh() {
                     <div className="relative flex items-center">
                         <div className="h-1.5 bg-gray-200 rounded-full w-full" />
                         <div
-                            className="h-1.5 bg-brand-600 rounded-full absolute top-0 left-0 transition-all"
+                            className="h-1.5 bg-indigo-500 rounded-full absolute top-0 left-0 transition-all"
                             style={{ width: `${percent}%` }}
                         />
                         {/* dots */}
                         <div className="absolute inset-0 flex items-center justify-between">
-                            <span className="w-5 h-5 rounded-full bg-brand-600 border-4 border-white shadow" />
-                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 50 ? 'bg-brand-600' : 'bg-gray-300'}`} />
-                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 100 ? 'bg-brand-600' : 'bg-brand-600'}`} />
+                            <span className="w-5 h-5 rounded-full bg-indigo-500 border-4 border-white shadow" />
+                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 50 ? 'bg-indigo-500' : 'bg-gray-300'}`} />
+                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 100 ? 'bg-indigo-500' : 'bg-indigo-500'}`} />
                         </div>
-                        <span className="absolute -top-7 right-0 text-lg font-extrabold text-brand-600">{percent}%</span>
+                        <span className="absolute -top-7 right-0 text-lg font-extrabold text-indigo-500">{percent}%</span>
                     </div>
                     <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
                         <span>Pagi</span>

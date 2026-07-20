@@ -10,6 +10,34 @@ export async function createUser(payload) {
 }
 
 /**
+ * Fetch users (paginated). Requires user.manage.
+ * @param {Object} params - { page, per_page }
+ * @returns {Promise<{ data: Array, meta: Object }>}
+ */
+export async function getUsers(params = {}) {
+    const res = await axios.get('/api/admin/users', { params });
+    return res.data;
+}
+
+/**
+ * Update an existing user.
+ * @param {number} id
+ * @param {Object} payload - { name, nip, email, team_id, rank, position, phone, is_active, roles[] }
+ */
+export async function updateUser(id, payload) {
+    const res = await axios.put(`/api/admin/users/${id}`, payload);
+    return res.data;
+}
+
+/**
+ * Delete a user.
+ */
+export async function deleteUser(id) {
+    const res = await axios.delete(`/api/admin/users/${id}`);
+    return res.data;
+}
+
+/**
  * Fetch all roles (requires role.manage). Returns [{ id, name, permissions }].
  */
 export async function getRoles() {
@@ -23,6 +51,20 @@ export async function getRoles() {
 export async function getTeams() {
     const res = await axios.get('/api/admin/teams');
     return res.data.data;
+}
+
+/**
+ * Derive the unique list of fields (bidang) from teams.
+ * NOTE: sumber saat ini /admin/teams (butuh user.manage). Idealnya backend
+ * menyediakan endpoint GET /fields yang bisa diakses semua inisiator.
+ * @returns {Promise<Array<{id:number, name:string}>>}
+ */
+export async function getFields() {
+    const res = await axios.get('/api/admin/teams');
+    const teams = res.data.data ?? [];
+    const map = new Map();
+    teams.forEach((t) => { if (t.field) map.set(t.field.id, t.field); });
+    return [...map.values()];
 }
 
 /**

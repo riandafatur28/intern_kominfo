@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow } from 'lucide-react';
+import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
@@ -9,6 +9,7 @@ import { assetUrl } from '../../utils/url';
 const ADMIN_NAV = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH' },
+    { to: '/manajemen-pengguna', icon: Users, label: 'Manajemen Pengguna' },
     { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet' },
     { to: '/profil', icon: User, label: 'Profil Saya' },
 ];

@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
-import { createUser, getRoles, getTeams } from '../../api/admin';
+import { createUser, updateUser, getRoles, getTeams } from '../../api/admin';
 
 const emptyForm = {
     name: '',
@@ -12,9 +12,15 @@ const emptyForm = {
     phone: '',
     password: '',
     roles: [],
+    is_active: true,
 };
 
-export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
+/**
+ * Modal tambah/edit pengguna.
+ * @param {Object|null} user - jika diisi, modal masuk mode edit.
+ */
+export default function TambahPenggunaModal({ open, onClose, onSuccess, user = null }) {
+    const isEdit = !!user;
     const [form, setForm] = useState(emptyForm);
     const [teams, setTeams] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -25,21 +31,38 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
 
     useEffect(() => {
         if (!open) return;
-        // reset when opened
-        setForm(emptyForm);
         setErrors({});
         setGeneralError('');
+
+        if (isEdit) {
+            setForm({
+                name: user.name ?? '',
+                nip: user.nip ?? '',
+                email: user.email ?? '',
+                team_id: user.team?.id ?? '',
+                rank: user.rank ?? '',
+                position: user.position ?? '',
+                phone: user.phone ?? '',
+                password: '',
+                roles: user.roles ?? [],
+                is_active: user.is_active ?? true,
+            });
+        } else {
+            setForm(emptyForm);
+        }
+
         setLoadingOptions(true);
         Promise.all([getTeams().catch(() => []), getRoles().catch(() => [])])
             .then(([teamsData, rolesData]) => {
                 setTeams(teamsData || []);
                 setRoles(rolesData || []);
-                // default role = staf if available
-                const staf = (rolesData || []).find((r) => r.name === 'staf');
-                if (staf) setForm((f) => ({ ...f, roles: ['staf'] }));
+                if (!isEdit) {
+                    const staf = (rolesData || []).find((r) => r.name === 'staf');
+                    if (staf) setForm((f) => ({ ...f, roles: ['staf'] }));
+                }
             })
             .finally(() => setLoadingOptions(false));
-    }, [open]);
+    }, [open, user]);
 
     const setField = (key, value) => {
         setForm((f) => ({ ...f, [key]: value }));
@@ -62,27 +85,39 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
         setGeneralError('');
         setErrors({});
 
-        const payload = {
-            name: form.name,
-            nip: form.nip,
-            email: form.email,
-            team_id: form.team_id || null,
-            rank: form.rank || null,
-            position: form.position || null,
-            phone: form.phone || null,
-            password: form.password,
-            roles: form.roles,
-        };
-
         try {
-            await createUser(payload);
+            if (isEdit) {
+                await updateUser(user.id, {
+                    name: form.name,
+                    nip: form.nip,
+                    email: form.email,
+                    team_id: form.team_id || null,
+                    rank: form.rank || null,
+                    position: form.position || null,
+                    phone: form.phone || null,
+                    is_active: form.is_active,
+                    roles: form.roles,
+                });
+            } else {
+                await createUser({
+                    name: form.name,
+                    nip: form.nip,
+                    email: form.email,
+                    team_id: form.team_id || null,
+                    rank: form.rank || null,
+                    position: form.position || null,
+                    phone: form.phone || null,
+                    password: form.password,
+                    roles: form.roles,
+                });
+            }
             onSuccess?.();
             onClose();
         } catch (err) {
             if (err.response?.status === 422 && err.response.data?.errors) {
                 setErrors(err.response.data.errors);
             } else {
-                setGeneralError(err.response?.data?.message || 'Gagal menambah pengguna.');
+                setGeneralError(err.response?.data?.message || `Gagal ${isEdit ? 'memperbarui' : 'menambah'} pengguna.`);
             }
         } finally {
             setSubmitting(false);
@@ -95,7 +130,7 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
         <Modal
             open={open}
             onClose={onClose}
-            title="Tambah Pengguna"
+            title={isEdit ? 'Edit Pengguna' : 'Tambah Pengguna'}
             width="max-w-2xl"
             footer={
                 <>
@@ -112,7 +147,7 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                         disabled={submitting || loadingOptions}
                         className="px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
                     >
-                        {submitting ? 'Menyimpan...' : 'Simpan'}
+                        {submitting ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Simpan')}
                     </button>
                 </>
             }
@@ -157,16 +192,18 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                     />
                 </Field>
 
-                <Field label="Password" required error={fieldError('password')}>
-                    <input
-                        type="password"
-                        value={form.password}
-                        onChange={(e) => setField('password', e.target.value)}
-                        className={inputCls(fieldError('password'))}
-                        placeholder="Minimal 8 karakter"
-                        required
-                    />
-                </Field>
+                {!isEdit && (
+                    <Field label="Password" required error={fieldError('password')}>
+                        <input
+                            type="password"
+                            value={form.password}
+                            onChange={(e) => setField('password', e.target.value)}
+                            className={inputCls(fieldError('password'))}
+                            placeholder="Minimal 8 karakter"
+                            required
+                        />
+                    </Field>
+                )}
 
                 <Field label="Tim" error={fieldError('team_id')}>
                     <select
@@ -213,6 +250,19 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                     />
                 </Field>
 
+                {isEdit && (
+                    <Field label="Status Akun" error={fieldError('is_active')}>
+                        <select
+                            value={form.is_active ? '1' : '0'}
+                            onChange={(e) => setField('is_active', e.target.value === '1')}
+                            className={inputCls(fieldError('is_active'))}
+                        >
+                            <option value="1">Aktif</option>
+                            <option value="0">Nonaktif</option>
+                        </select>
+                    </Field>
+                )}
+
                 <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                         Role <span className="text-red-500">*</span>
@@ -225,11 +275,10 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                                     type="button"
                                     key={r.id}
                                     onClick={() => toggleRole(r.name)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                                        active
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${active
                                             ? 'bg-indigo-500 border-indigo-500 text-white'
                                             : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                        }`}
                                 >
                                     {r.name}
                                 </button>
@@ -245,11 +294,10 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
 }
 
 function inputCls(hasError) {
-    return `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition ${
-        hasError
+    return `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition ${hasError
             ? 'border-red-300 focus:ring-red-200'
             : 'border-gray-200 focus:ring-blue-500 focus:border-transparent'
-    }`;
+        }`;
 }
 
 function Field({ label, required, error, children }) {

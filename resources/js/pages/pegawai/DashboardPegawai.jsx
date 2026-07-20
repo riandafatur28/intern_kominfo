@@ -7,7 +7,7 @@ function StatCard({ label, value, sub }) {
     return (
         <div className="bg-white rounded-2xl border border-gray-200 px-6 py-5 text-center">
             <p className="text-sm font-bold text-gray-800">{label}</p>
-            <p className="text-4xl font-extrabold text-gray-500 my-2 leading-none">{value}</p>
+            <p className="text-4xl font-extrabold text-gray-900 my-2 leading-none">{value}</p>
             <p className="text-xs text-gray-400">{sub}</p>
         </div>
     );
@@ -55,10 +55,7 @@ export default function DashboardPegawai() {
 
     return (
         <div className="max-w-[1200px] mx-auto space-y-8">
-            <div>
-                <h1 className="text-3xl font-extrabold text-gray-900">Dashboard</h1>
-                <p className="text-sm text-gray-400 mt-1">Ringkasan aktivitas dan akses cepat modul Anda</p>
-            </div>
+            <h1 className="text-3xl font-extrabold text-gray-900">Dashboard</h1>
 
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
@@ -68,8 +65,8 @@ export default function DashboardPegawai() {
             </div>
 
             {/* Aktivitas hari ini */}
-            <div>
-                <div className="flex items-center justify-between border-b border-gray-200 pb-3">
+            <div className="bg-white rounded-2xl border border-gray-200 p-6">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
                     <h2 className="text-lg font-bold text-gray-900">Aktivitas hari ini</h2>
                     <span className="text-base font-bold text-gray-900">{today}</span>
                 </div>

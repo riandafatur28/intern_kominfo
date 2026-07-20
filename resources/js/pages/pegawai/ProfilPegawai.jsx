@@ -209,7 +209,6 @@ export default function ProfilPegawai() {
         return (
             <div className="max-w-[1200px] mx-auto">
                 <h1 className="text-3xl font-extrabold text-gray-900">Profil Saya</h1>
-                <p className="text-sm text-gray-400 mt-1">Kelola informasi akun dan keamanan Anda</p>
                 <LoadingSpinner text="Memuat profil..." />
             </div>
         );
@@ -218,8 +217,7 @@ export default function ProfilPegawai() {
     if (loadError) {
         return (
             <div className="max-w-[1200px] mx-auto">
-                <h1 className="text-3xl font-extrabold text-gray-900">Profil Saya</h1>
-                <p className="text-sm text-gray-400 mt-1 mb-6">Kelola informasi akun dan keamanan Anda</p>
+                <h1 className="text-3xl font-extrabold text-gray-900 mb-6">Profil Saya</h1>
                 <ErrorAlert message={loadError} onRetry={loadProfile} />
             </div>
         );
@@ -228,7 +226,6 @@ export default function ProfilPegawai() {
     return (
         <div className="max-w-[1200px] mx-auto">
             <h1 className="text-3xl font-extrabold text-gray-900">Profil Saya</h1>
-            <p className="text-sm text-gray-400 mt-1">Kelola informasi akun dan keamanan Anda</p>
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
                 {/* ---- Profile card ---- */}

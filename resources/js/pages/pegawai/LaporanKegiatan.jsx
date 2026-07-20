@@ -29,7 +29,7 @@ function StatCard({ label, value }) {
             <p className="text-center text-base font-bold text-gray-800 pb-3 border-b border-gray-100">
                 {label}
             </p>
-            <p className="text-center text-4xl font-extrabold text-brand-700 mt-4">{value}</p>
+            <p className="text-center text-3xl font-extrabold text-gray-900 mt-4">{value}</p>
         </div>
     );
 }
@@ -102,10 +102,6 @@ export default function LaporanKegiatan() {
     }, []);
 
     useEffect(() => { load(); }, [load]);
-
-    const today = new Date().toLocaleDateString('id-ID', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
 
     const totalKegiatan = rows.length;
     const totalMinutes = rows.reduce((sum, r) => {
@@ -207,7 +203,6 @@ export default function LaporanKegiatan() {
     return (
         <div className="max-w-[1200px] mx-auto">
             <h1 className="text-3xl font-extrabold text-gray-900">Laporan Kegiatan</h1>
-            <p className="text-sm text-gray-500 mt-1">Catat aktivitas WFH Anda · {today}</p>
 
             {loadError && <div className="mt-6"><ErrorAlert message={loadError} onRetry={load} /></div>}
 
@@ -222,7 +217,7 @@ export default function LaporanKegiatan() {
                 {editable && (
                     <button
                         onClick={openAdd}
-                        className="flex items-center gap-2 bg-brand-700 hover:bg-brand-600 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
+                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
                     >
                         <Plus size={18} strokeWidth={2.5} />
                         Tambah Kegiatan

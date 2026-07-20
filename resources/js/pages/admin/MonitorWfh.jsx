@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
-    Calendar, RefreshCw, FileDown, Search, ChevronDown, Check, X,
+    Filter, RefreshCw, FileDown, Search, ChevronDown, Check, X,
     Eye, MessageSquare, Download, Loader2,
 } from 'lucide-react';
 import { getMonitoringBoard, getReportDetail, approveReport, rejectReport } from '../../api/admin';
@@ -35,14 +35,43 @@ function fmtDateTime(t) {
     return isNaN(d) ? t : d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
+const pad2 = (n) => String(n).padStart(2, '0');
+const toDateStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
+
 // Default ke hari Jumat terakhir (hari WFH) secara dinamis, bukan tanggal statis.
 function mostRecentFriday() {
     const d = new Date();
     const diff = (d.getDay() - 5 + 7) % 7; // 5 = Jumat
     d.setDate(d.getDate() - diff);
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return toDateStr(d);
 }
 const DEFAULT_DATE = mostRecentFriday();
+
+// Semua hari Jumat (hari WFH) dalam sebuah bulan 'YYYY-MM'.
+function fridaysInMonth(ym) {
+    if (!ym) return [];
+    const [y, m] = ym.split('-').map(Number);
+    const res = [];
+    const d = new Date(y, m - 1, 1);
+    while (d.getMonth() === m - 1) {
+        if (d.getDay() === 5) res.push(toDateStr(d));
+        d.setDate(d.getDate() + 1);
+    }
+    return res;
+}
+
+// Pilih Jumat default dalam bulan: Jumat terakhir yang <= hari ini, jika tidak ada
+// (bulan masa depan) pakai Jumat pertama.
+function pickFridayForMonth(fridays) {
+    if (!fridays.length) return '';
+    const today = toDateStr(new Date());
+    const past = fridays.filter((d) => d <= today);
+    return past.length ? past[past.length - 1] : fridays[0];
+}
+
+function fmtFriday(d) {
+    return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 function fmtTime(t) {
     if (!t) return '-';
@@ -54,7 +83,15 @@ function fmtTime(t) {
 export default function MonitorWfh() {
     const { user, hasPermission } = useAuth();
     const canApprove = hasPermission('wfh.report.approve');
+    const [month, setMonth] = useState(DEFAULT_DATE.slice(0, 7));
     const [date, setDate] = useState(DEFAULT_DATE);
+    const fridays = useMemo(() => fridaysInMonth(month), [month]);
+
+    const handleMonthChange = (val) => {
+        setMonth(val);
+        setDate(pickFridayForMonth(fridaysInMonth(val)));
+        setPage(1);
+    };
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [status, setStatus] = useState('');
@@ -117,14 +154,34 @@ export default function MonitorWfh() {
             <div className="flex items-start justify-between flex-wrap gap-3">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Monitoring WFH</h1>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <div className="relative">
+                    {/* Filter bulan */}
+                    <div className="relative flex items-center">
+                        <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
                         <input
-                            type="date"
+                            type="month"
+                            value={month}
+                            onChange={(e) => handleMonthChange(e.target.value)}
+                            title="Filter bulan WFH"
+                            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    {/* Pilih Jumat di bulan tsb */}
+                    <div className="relative">
+                        <select
                             value={date}
                             onChange={(e) => { setDate(e.target.value); setPage(1); }}
-                            className="pl-3 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <Calendar size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                            title="Pilih hari WFH (Jumat)"
+                            className="appearance-none pl-4 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        >
+                            {fridays.length === 0 ? (
+                                <option value="">Tidak ada Jumat</option>
+                            ) : (
+                                fridays.map((f) => (
+                                    <option key={f} value={f}>{fmtFriday(f)}</option>
+                                ))
+                            )}
+                        </select>
+                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                     <button
                         onClick={fetchBoard}

@@ -8,6 +8,7 @@ import RoleProfil from '../pages/RoleProfil.jsx';
 import StatusLaporanWfh from '../pages/admin/StatusLaporanWfh.jsx';
 import MonitorWfh from '../pages/admin/MonitorWfh.jsx';
 import GoogleSpreadsheet from '../pages/admin/GoogleSpreadsheet.jsx';
+import ManajemenPengguna from '../pages/admin/ManajemenPengguna.jsx';
 import AbsensiWfh from '../pages/pegawai/AbsensiWfh.jsx';
 import LaporanKegiatan from '../pages/pegawai/LaporanKegiatan.jsx';
 import InisiasiPerubahan from '../pages/pegawai/InisiasiPerubahan.jsx';
@@ -36,6 +37,7 @@ export const router = createBrowserRouter([
             { path: 'dashboard', element: <RoleDashboard /> },
             { path: 'status-laporan', element: <StatusLaporanWfh /> },
             { path: 'monitor-wfh', element: <MonitorWfh /> },
+            { path: 'manajemen-pengguna', element: <ManajemenPengguna /> },
             { path: 'spreadsheet', element: <GoogleSpreadsheet /> },
             { path: 'profil', element: <RoleProfil /> },
             { path: 'absensi-wfh', element: <AbsensiWfh /> },
