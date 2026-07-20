@@ -2,6 +2,7 @@
 
 namespace App\Notifications;
 
+use App\Support\Constants\WfhSession;
 use Carbon\Carbon;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -20,12 +21,7 @@ class WfhIncompleteAttendanceNotification extends Notification
 
     public function toMail(object $notifiable): MailMessage
     {
-        $sessionLabels = array_map(fn ($s) => match ($s) {
-            'pagi' => 'Pagi',
-            'siang' => 'Siang',
-            'sore' => 'Sore',
-            default => $s,
-        }, $this->missingSessions);
+        $sessionLabels = array_map(WfhSession::label(...), $this->missingSessions);
         $sessionList = implode(', ', $sessionLabels);
         $dateStr = $this->date->format('d/m/Y');
 

@@ -5,6 +5,7 @@ namespace App\Console\Commands;
 use App\Domains\Wfh\Models\WfhAttendance;
 use App\Models\User;
 use App\Notifications\WfhIncompleteAttendanceNotification;
+use App\Support\Constants\WfhSession;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Cache;
@@ -14,8 +15,6 @@ class NotifyIncompleteAttendance extends Command
     protected $signature = 'wfh:notify-incomplete-attendance {--date= : Target date (default: today)}';
 
     protected $description = 'Kirim notifikasi ke user yang belum lengkap absensi WFH';
-
-    private const SESSIONS = ['pagi', 'siang', 'sore'];
 
     public function handle(): void
     {
@@ -37,7 +36,7 @@ class NotifyIncompleteAttendance extends Command
 
         foreach ($users as $user) {
             $attended = $attendanceMap[$user->id] ?? [];
-            $missing = array_values(array_filter(self::SESSIONS, fn ($s) => ! isset($attended[$s])));
+            $missing = array_values(array_filter(WfhSession::ALL, fn ($s) => ! isset($attended[$s])));
 
             if (empty($missing)) {
                 $skipped++;

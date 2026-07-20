@@ -4,6 +4,7 @@ namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Http\Requests\CheckInRequest;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
+use App\Support\Constants\WfhSession;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
@@ -22,7 +23,7 @@ class AttendanceController extends Controller
 
         $user = $request->user();
         $date = $request->input('date', now()->toDateString());
-        $session = $request->input('session', 'pagi');
+        $session = $request->input('session', WfhSession::PAGI);
 
         if ($date !== now()->toDateString()) {
             return response()->json(['success' => false, 'message' => 'Absensi hanya dapat dilakukan pada hari ini.'], 422);
