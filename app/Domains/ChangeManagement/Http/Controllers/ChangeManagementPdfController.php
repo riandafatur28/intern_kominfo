@@ -22,7 +22,6 @@ class ChangeManagementPdfController extends Controller
 
     public function exportInitiation(int $id): Response|JsonResponse
     {
-        $this->authorize('change.initiation.export_pdf');
 
         $initiation = $this->repo->findInitiationWithRelations($id);
 
@@ -80,7 +79,6 @@ class ChangeManagementPdfController extends Controller
 
     public function exportImplementation(int $id): Response|JsonResponse
     {
-        $this->authorize('change.implementation.export_pdf');
 
         $impl = $this->repo->findImplementationWithRelations($id);
 

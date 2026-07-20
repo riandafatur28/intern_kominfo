@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, X, Menu } from 'lucide-react';
+import { X, Menu } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
@@ -40,17 +40,7 @@ export default function Topbar({ collapsed, onToggle }) {
             </div>
 
             <div className="flex items-center gap-6">
-                <div className="relative">
-                    <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-text-secondary" />
-                    <input
-                        type="text"
-                        placeholder="Cari..."
-                        autoComplete="off"
-                        className="pl-10 pr-4 py-[9px] w-64 bg-bg-page border-none rounded-full text-sm outline-none focus:ring-2 focus:ring-brand-100 transition-all"
-                    />
-                </div>
-
-                <div className="flex items-center gap-3 pl-6 border-l border-border-light">
+                <div className="flex items-center gap-3 border-l border-border-light">
                     <div className="text-right">
                         <p className="text-sm font-semibold text-text-primary leading-tight">
                             {user?.name ?? 'User'}

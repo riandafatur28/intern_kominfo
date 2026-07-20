@@ -89,6 +89,7 @@ export default function MonitoringInisiasi() {
     const [selectedItem, setSelectedItem] = useState(null);
     const [showDetail, setShowDetail] = useState(false);
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [generatedIds, setGeneratedIds] = useState(new Set());
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -119,13 +120,13 @@ export default function MonitoringInisiasi() {
 
     const filteredData = data.filter((item) => {
         if (filterPdf === 'ready') return item.status === 'approved';
-        if (filterPdf === 'done') return item.status === 'completed';
+        if (filterPdf === 'done') return item.status === 'completed' || generatedIds.has(item.id);
         if (filterPdf === 'waiting') return item.status === 'pending' && !item.review_status;
         return true;
     });
 
     const readyForPdf = data.filter(i => i.status === 'approved').length;
-    const alreadyGenerated = data.filter(i => i.status === 'completed').length;
+    const alreadyGenerated = data.filter(i => i.status === 'completed' || generatedIds.has(i.id)).length;
     const waitingApproval = data.filter(i => i.status === 'pending' && !i.review_status).length;
 
     const pdfStatCards = [
@@ -151,6 +152,7 @@ export default function MonitoringInisiasi() {
             a.download = `CR-${id}-lengkap.pdf`;
             document.body.appendChild(a); a.click(); a.remove();
             window.URL.revokeObjectURL(url);
+            setGeneratedIds(prev => new Set(prev).add(id));
             fetchData();
         } catch { alert('Gagal generate PDF (demo/backend tidak tersedia)'); }
         finally { setPdfLoading(false); }

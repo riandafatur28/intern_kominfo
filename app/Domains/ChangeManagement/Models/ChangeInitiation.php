@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Str;
 
 class ChangeInitiation extends Model
 {
@@ -30,6 +31,17 @@ class ChangeInitiation extends Model
         'initiator_signed_at',
         'verification_token',
     ];
+
+    protected static function boot(): void
+    {
+        parent::boot();
+
+        static::creating(function (self $model) {
+            if (empty($model->verification_token)) {
+                $model->verification_token = Str::random(32);
+            }
+        });
+    }
 
     protected $casts = [
         'initiation_date' => 'date',

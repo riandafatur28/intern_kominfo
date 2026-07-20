@@ -70,18 +70,14 @@
             <tr>
                 <td>
                     <div class="signature-role">Inisiator Perubahan</div>
-                    <div class="signature-box">
-                        <img src="{{ $initiatorSig }}" alt="signature">
-                    </div>
+                    <div class="signature-box"></div>
                     <div class="signature-name">{{ $initiatorName }}</div>
                     <div class="signature-nip">NIP. {{ $initiatorNip }}</div>
                     <div class="signature-position">{{ $initiatorPosition }}</div>
                 </td>
                 <td>
                     <div class="signature-role">Disetujui Oleh</div>
-                    <div class="signature-box">
-                        <img src="{{ $reviewerSig }}" alt="signature">
-                    </div>
+                    <div class="signature-box"></div>
                     <div class="signature-name">{{ $reviewerName }}</div>
                     <div class="signature-nip">NIP. {{ $reviewerNip }}</div>
                     <div class="signature-position">{{ $reviewerPosition }}</div>

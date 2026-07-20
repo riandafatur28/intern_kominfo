@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Loader2, FileDown, X } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, RefreshCw, AlertCircle, Loader2, Eye, X } from 'lucide-react';
 import { changesApi } from '../../api/changes';
 import { demoInitiations } from '../../utils/mockData';
 import { useAuth } from '../../context/AuthContext';
@@ -8,6 +8,7 @@ import Card from '../../components/ui/Card';
 import Button from '../../components/ui/Button';
 import LoadingSpinner from '../../components/ui/LoadingSpinner';
 import EmptyState from '../../components/ui/EmptyState';
+import Modal from '../../components/ui/Modal';
 
 export default function Arsip() {
     const { demoMode } = useAuth();
@@ -17,6 +18,8 @@ export default function Arsip() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [search, setSearch] = useState('');
+    const [selectedItem, setSelectedItem] = useState(null);
+    const [showDetail, setShowDetail] = useState(false);
 
     const fetchData = useCallback(async () => {
         setLoading(true);
@@ -146,24 +149,10 @@ export default function Arsip() {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    {row.status === 'approved' && (
-                                                        <button onClick={async () => {
-                                                            try {
-                                                                const res = await changesApi.getInitiationPdf(row.id);
-                                                                const url = window.URL.createObjectURL(new Blob([res.data]));
-                                                                const a = document.createElement('a');
-                                                                a.href = url;
-                                                                a.download = `CR-${row.doc_number || row.id}.pdf`;
-                                                                document.body.appendChild(a); a.click(); a.remove();
-                                                                window.URL.revokeObjectURL(url);
-                                                            } catch { alert('Gagal download PDF'); }
-                                                        }} className="p-1.5 hover:bg-gray-100 rounded-md text-brand-500 transition-colors" title="Download PDF">
-                                                            <FileDown size={16} />
-                                                        </button>
-                                                    )}
-
-                                                </div>
+                                                <button onClick={() => { setSelectedItem(row); setShowDetail(true); }}
+                                                    className="p-1.5 hover:bg-gray-100 rounded-md text-text-secondary hover:text-text-primary transition-colors" title="Lihat detail">
+                                                    <Eye size={16} />
+                                                </button>
                                             </td>
                                         </tr>
                                     ))}
@@ -187,6 +176,36 @@ export default function Arsip() {
                     </>
                 )}
             </Card>
+
+            {/* Detail Modal */}
+            <Modal open={showDetail} onClose={() => setShowDetail(false)} title="Detail Arsip" width="max-w-2xl">
+                {selectedItem && (
+                    <div className="space-y-6">
+                        <div>
+                            <p className="text-sm text-brand-500 font-bold">{selectedItem.doc_number}</p>
+                            <p className="text-lg font-bold text-text-primary mt-1">{selectedItem.description}</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            {[
+                                { label: 'Inisiator', value: selectedItem.initiator?.name },
+                                { label: 'Bidang', value: selectedItem.field?.name },
+                                { label: 'Tanggal Diajukan', value: selectedItem.initiation_date },
+                                { label: 'Dibutuhkan Tanggal', value: selectedItem.needed_by_date || '-' },
+                                { label: 'Status', value: selectedItem.status },
+                                { label: 'Reviewer', value: selectedItem.reviewer?.name || '-' },
+                                { label: 'Deskripsi', value: selectedItem.description, full: true },
+                                { label: 'Alasan', value: selectedItem.reason || '-', full: true },
+                                { label: 'Alasan Review', value: selectedItem.review_reason || '-', full: true },
+                            ].map((f, i) => (
+                                <div key={i} className={f.full ? 'col-span-2' : ''}>
+                                    <p className="text-xs text-text-secondary mb-1">{f.label}</p>
+                                    <p className="text-sm font-semibold text-text-primary">{f.value || '-'}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

@@ -113,7 +113,7 @@ class ReportPdfController extends Controller
 
     public function exportTeam(Request $request, Team $team): Response|JsonResponse
     {
-        $this->authorize('wfh.report.export_pdf');
+        // Permission checked via route middleware
 
         $admin = $request->user();
         $fieldId = $admin->team?->field?->id;

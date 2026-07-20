@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileText, Users, Clock, CheckCircle, XCircle, ArrowRight, RefreshCw } from 'lucide-react';
+import { FileText, Clock, CheckCircle, XCircle, ArrowRight, RefreshCw } from 'lucide-react';
 import { changesApi } from '../../api/changes';
 import { demoInitiations } from '../../utils/mockData';
 import { useAuth } from '../../context/AuthContext';
@@ -148,7 +148,6 @@ export default function Dashboard() {
                                                 <th className="text-left text-xs font-bold text-text-secondary uppercase tracking-wider px-6 py-4">BIDANG</th>
                                                 <th className="text-left text-xs font-bold text-text-secondary uppercase tracking-wider px-6 py-4">TGL MASUK</th>
                                                 <th className="text-left text-xs font-bold text-text-secondary uppercase tracking-wider px-6 py-4">STATUS</th>
-                                                <th className="text-left text-xs font-bold text-text-secondary uppercase tracking-wider px-6 py-4">AKSI</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -159,9 +158,6 @@ export default function Dashboard() {
                                                     <td className="px-6 py-4 text-sm text-text-secondary">{row.field?.name ?? '-'}</td>
                                                     <td className="px-6 py-4 text-sm text-text-secondary">{row.initiation_date ?? '-'}</td>
                                                     <td className="px-6 py-4"><StatusBadge status={row.status} /></td>
-                                                    <td className="px-6 py-4">
-                                                        <button className="text-sm text-brand-500 hover:underline font-bold">Detail</button>
-                                                    </td>
                                                 </tr>
                                             ))}
                                         </tbody>
