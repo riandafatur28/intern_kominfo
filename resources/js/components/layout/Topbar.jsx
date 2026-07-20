@@ -12,6 +12,9 @@ const PAGE_LABELS = {
     '/absensi-wfh': 'Absensi WFH',
     '/laporan-kegiatan': 'Laporan Kegiatan',
     '/inisiasi-perubahan': 'Inisiasi Perubahan',
+    '/change-dashboard': 'Dashboard Perubahan',
+    '/manajemen-inisiasi': 'Manajemen Inisiasi',
+    '/arsip': 'Status & Arsip',
 };
 
 const PEGAWAI_ROLES = ['pegawai', 'staf'];

@@ -248,9 +248,22 @@ export default function InisiasiPerubahan() {
                                             <td className="px-6 py-4"><RiwayatStatus status={r.status} /></td>
                                             <td className="px-6 py-4">
                                                 {r.status === 'approved' || r.status === 'pending' ? (
-                                                    <a href={`/api/changes/initiations/${r.id}/pdf`} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline">
+                                                    <button onClick={async () => {
+                                                        try {
+                                                            const res = await changesApi.getInitiationPdf(r.id);
+                                                            const url = window.URL.createObjectURL(new Blob([res.data]));
+                                                            const a = document.createElement('a');
+                                                            a.href = url;
+                                                            a.download = `CR-${r.doc_number || r.id}.pdf`;
+                                                            document.body.appendChild(a); a.click(); a.remove();
+                                                            window.URL.revokeObjectURL(url);
+                                                        } catch (e) {
+                                                            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
+                                                            alert(msg);
+                                                        }
+                                                    }} className="text-brand-500 hover:underline cursor-pointer">
                                                         Lihat PDF
-                                                    </a>
+                                                    </button>
                                                 ) : (
                                                     <span className="text-gray-400">-</span>
                                                 )}

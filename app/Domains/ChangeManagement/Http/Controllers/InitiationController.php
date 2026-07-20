@@ -53,6 +53,7 @@ class InitiationController extends Controller
             'description' => $request->input('description'),
             'reason' => $request->input('reason'),
             'status' => 'draft',
+            'verification_token' => bin2hex(random_bytes(32)),
         ]);
 
         return response()->json([

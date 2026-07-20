@@ -34,6 +34,7 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
+        $user->load(['team.field', 'roles.permissions']);
 
         return response()->json([
             'success' => true,

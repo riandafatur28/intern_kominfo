@@ -11,6 +11,9 @@ import GoogleSpreadsheet from '../pages/admin/GoogleSpreadsheet.jsx';
 import AbsensiWfh from '../pages/pegawai/AbsensiWfh.jsx';
 import LaporanKegiatan from '../pages/pegawai/LaporanKegiatan.jsx';
 import InisiasiPerubahan from '../pages/pegawai/InisiasiPerubahan.jsx';
+import Arsip from '../pages/change-management/Arsip.jsx';
+import ChangeDashboard from '../pages/change-management/Dashboard.jsx';
+import MonitoringInisiasi from '../pages/change-management/MonitoringInisiasi.jsx';
 
 export const router = createBrowserRouter([
     {
@@ -38,6 +41,9 @@ export const router = createBrowserRouter([
             { path: 'absensi-wfh', element: <AbsensiWfh /> },
             { path: 'laporan-kegiatan', element: <LaporanKegiatan /> },
             { path: 'inisiasi-perubahan', element: <InisiasiPerubahan /> },
+            { path: 'arsip', element: <Arsip /> },
+            { path: 'change-dashboard', element: <ChangeDashboard /> },
+            { path: 'manajemen-inisiasi', element: <MonitoringInisiasi /> },
         ],
     },
 ]);
