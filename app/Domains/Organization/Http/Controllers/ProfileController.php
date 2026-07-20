@@ -41,7 +41,14 @@ class ProfileController extends Controller
     public function changePassword(ChangePasswordRequest $request): JsonResponse
     {
         $user = $request->user();
-        $user->update(['password' => $request->input('password')]);
+        $user->update([
+            'password' => $request->input('password'),
+            'must_change_password' => false,
+        ]);
+
+        // Revoke all other tokens so password rotation invalidates stale sessions.
+        $current = $request->user()->currentAccessToken();
+        $user->tokens()->where('id', '!=', $current->id)->delete();
 
         return response()->json([
             'success' => true,
