@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown, ChevronLeft, ChevronRight, Calendar, ChevronDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown, Calendar, ChevronDown } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -91,12 +91,6 @@ export default function LaporanKegiatan() {
     useEffect(() => {
         setSelectedDate('');
     }, [month]);
-
-    const navigateMonth = (dir) => {
-        const d = new Date(month + '-01T00:00:00');
-        d.setMonth(d.getMonth() + dir);
-        setMonth(d.toISOString().slice(0, 7));
-    };
 
     /* unique dates in current month that have reports */
     const monthDates = useMemo(() => {
@@ -363,20 +357,6 @@ export default function LaporanKegiatan() {
                         </select>
                         <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
-                    <button
-                        onClick={() => navigateMonth(-1)}
-                        className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
-                        title="Bulan sebelumnya"
-                    >
-                        <ChevronLeft size={15} />
-                    </button>
-                    <button
-                        onClick={() => navigateMonth(1)}
-                        className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
-                        title="Bulan berikutnya"
-                    >
-                        <ChevronRight size={15} />
-                    </button>
                     <button
                         onClick={() => { setMonth(currentMonth); setSelectedDate(''); }}
                         className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
