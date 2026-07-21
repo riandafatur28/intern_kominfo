@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown } from 'lucide-react';
+import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown, ChevronLeft, ChevronRight, Calendar, ChevronDown } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -354,45 +354,59 @@ export default function LaporanKegiatan() {
             )}
 
             {/* Filter / period */}
-            <div className="flex items-center gap-2 mt-6 flex-wrap">
-                {/* Mode toggle */}
-                <div className="flex bg-gray-100 rounded-lg p-0.5">
-                    {['daily','weekly','monthly'].map((m) => (
-                        <button
-                            key={m}
-                            onClick={() => { setViewMode(m); setSelectedDate(todayStr()); }}
-                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
-                                viewMode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                            }`}
-                        >
-                            {m === 'daily' ? 'Harian' : m === 'weekly' ? 'Mingguan' : 'Bulanan'}
-                        </button>
-                    ))}
+            <div className="flex items-center gap-3 mt-6 flex-wrap">
+                {/* Mode */}
+                <div className="relative">
+                    <select
+                        value={viewMode}
+                        onChange={(e) => { setViewMode(e.target.value); setSelectedDate(todayStr()); }}
+                        className="appearance-none pl-4 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                    >
+                        <option value="daily">Harian</option>
+                        <option value="weekly">Mingguan</option>
+                        <option value="monthly">Bulanan</option>
+                    </select>
+                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                 </div>
 
                 {/* Nav */}
                 <div className="flex items-center gap-1">
-                    <button onClick={() => navigatePeriod(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer" title="Sebelumnya">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                    <button onClick={() => navigatePeriod(-1)} className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 transition-colors cursor-pointer" title="Sebelumnya">
+                        <ChevronLeft size={16} />
                     </button>
                     <span className="text-sm font-semibold text-gray-700 min-w-[180px] text-center select-none">{periodLabel}</span>
-                    <button onClick={() => navigatePeriod(1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer" title="Selanjutnya">
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    <button onClick={() => navigatePeriod(1)} className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 transition-colors cursor-pointer" title="Selanjutnya">
+                        <ChevronRight size={16} />
                     </button>
                 </div>
 
+                {/* Date / Month picker */}
                 {viewMode === 'daily' && (
-                    <input
-                        type="date"
-                        value={selectedDate}
-                        onChange={(e) => setSelectedDate(e.target.value)}
-                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500"
-                    />
+                    <div className="relative">
+                        <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
+                        <input
+                            type="date"
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                )}
+                {viewMode === 'monthly' && (
+                    <div className="relative">
+                        <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
+                        <input
+                            type="month"
+                            value={selectedDate.slice(0, 7)}
+                            onChange={(e) => setSelectedDate(e.target.value + '-01')}
+                            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
                 )}
 
                 <button
                     onClick={() => setSelectedDate(todayStr())}
-                    className="text-xs font-semibold text-brand-500 hover:text-brand-600 px-2 py-1.5 cursor-pointer"
+                    className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
                 >
                     Hari Ini
                 </button>
