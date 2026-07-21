@@ -42,6 +42,17 @@ function nowHHMM() {
     return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
 }
 
+function fmtTime(t) {
+    if (!t) return '?';
+    // handle "12:22" or "2026-07-21T05:22:54.000000Z"
+    const p = t.includes('T') ? t.split('T')[1] : t.includes(' ') ? t.split(' ')[1] : t;
+    return p.slice(0, 5);
+}
+
+function todayStr() {
+    return new Date().toISOString().slice(0, 10);
+}
+
 const EMPTY_FORM = { start: nowHHMM(), end: '', activity: '', link: '' };
 
 export default function LaporanKegiatan() {
@@ -53,7 +64,11 @@ export default function LaporanKegiatan() {
     const [toast, setToast] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
+    // editingId = null → create new report; number → update existing report (append activity)
     const [editingId, setEditingId] = useState(null);
+    // editingActivityIdx = null → new activity; number → edit that specific activity
+    const [editingActivityIdx, setEditingActivityIdx] = useState(null);
+
     const showToast = (type, message) => {
         setToast({ type, message });
         setTimeout(() => setToast(null), 3500);
@@ -89,24 +104,42 @@ export default function LaporanKegiatan() {
                 const [h, m] = t.split(':').map(Number);
                 return (h || 0) * 60 + (m || 0);
             };
-            const diff = toMin(a.end_time) - toMin(a.start_time);
+            const diff = toMin(fmtTime(a.end_time)) - toMin(fmtTime(a.start_time));
             return s + (diff > 0 ? diff : 0);
         }, sum);
     }, 0);
     const totalWaktu = `${Math.floor(totalMinutes / 60)}j ${totalMinutes % 60}m`;
 
-    /* form handling */
-    const openAdd = () => { setForm({ ...EMPTY_FORM, start: nowHHMM() }); setEditingId(null); setShowModal(true); };
+    /* ── Form handling ── */
 
-    const openEdit = (row) => {
-        const a = row.activities?.[0] || {};
+    // Find today's draft report (so we can append to it)
+    const todayDraft = rows.find(r => r.report_date === todayStr() && r.status === 'draft');
+
+    // "Tambah Kegiatan" — append to today's draft or create new report
+    const openAdd = () => {
+        setForm({ ...EMPTY_FORM, start: nowHHMM() });
+        if (todayDraft) {
+            // Append to existing today's draft
+            setEditingId(todayDraft.id);
+            setEditingActivityIdx(null); // new activity
+        } else {
+            setEditingId(null);
+            setEditingActivityIdx(null);
+        }
+        setShowModal(true);
+    };
+
+    // "Edit" — edit a specific activity in a report
+    const openEdit = (report, activityIdx) => {
+        const a = report.activities[activityIdx];
         setForm({
-            start: (a.start_time || '').slice(0, 5),
-            end: (a.end_time || '').slice(0, 5),
+            start: fmtTime(a.start_time),
+            end: fmtTime(a.end_time),
             activity: a.activity || '',
             link: a.links?.[0]?.url || '',
         });
-        setEditingId(row.id);
+        setEditingId(report.id);
+        setEditingActivityIdx(activityIdx);
         setShowModal(true);
     };
 
@@ -114,16 +147,63 @@ export default function LaporanKegiatan() {
         e.preventDefault();
         setSaving(true);
         try {
-            const activities = [{
-                start_time: form.start,
-                end_time: form.end,
-                activity: form.activity,
-                ...(form.link ? { links: [form.link] } : {}),
-            }];
+            const td = todayStr();
             if (editingId) {
-                await wfhApi.updateReport(editingId, { activities, report_date: new Date().toISOString().slice(0, 10) });
+                // Update existing report: merge old activities with new/changed one
+                const target = rows.find(r => r.id === editingId);
+                const oldActs = target?.activities ?? [];
+
+                let newActivities;
+                if (editingActivityIdx !== null && editingActivityIdx < oldActs.length) {
+                    // Editing an existing activity
+                    newActivities = oldActs.map((a, i) =>
+                        i === editingActivityIdx
+                            ? {
+                                start_time: form.start,
+                                end_time: form.end,
+                                activity: form.activity,
+                                ...(form.link ? { links: [form.link] } : {}),
+                            }
+                            : {
+                                start_time: fmtTime(a.start_time),
+                                end_time: fmtTime(a.end_time),
+                                activity: a.activity,
+                                ...(a.links?.length ? { links: a.links.map(l => l.url) } : {}),
+                            }
+                    );
+                } else {
+                    // Appending new activity
+                    newActivities = [
+                        ...oldActs.map(a => ({
+                            start_time: fmtTime(a.start_time),
+                            end_time: fmtTime(a.end_time),
+                            activity: a.activity,
+                            ...(a.links?.length ? { links: a.links.map(l => l.url) } : {}),
+                        })),
+                        {
+                            start_time: form.start,
+                            end_time: form.end,
+                            activity: form.activity,
+                            ...(form.link ? { links: [form.link] } : {}),
+                        },
+                    ];
+                }
+
+                await wfhApi.updateReport(editingId, {
+                    activities: newActivities,
+                    report_date: target?.report_date || td,
+                });
             } else {
-                await wfhApi.createReport({ activities, report_date: new Date().toISOString().slice(0, 10) });
+                // Create new report with this one activity
+                await wfhApi.createReport({
+                    activities: [{
+                        start_time: form.start,
+                        end_time: form.end,
+                        activity: form.activity,
+                        ...(form.link ? { links: [form.link] } : {}),
+                    }],
+                    report_date: td,
+                });
             }
             setShowModal(false);
             await fetchReports();
@@ -153,7 +233,7 @@ export default function LaporanKegiatan() {
             const u = r.user ?? {};
             const s = r.supervisor ?? {};
             const kegiatan = (r.activities ?? []).map((a) => ({
-                waktu: a.start_time && a.end_time ? `${a.start_time.slice(0,5)} - ${a.end_time.slice(0,5)}` : (a.start_time || '').slice(0,5),
+                waktu: a.start_time && a.end_time ? `${fmtTime(a.start_time)} - ${fmtTime(a.end_time)}` : fmtTime(a.start_time),
                 kegiatan: a.activity,
                 links: (a.links ?? []).map((l) => l.url).filter(Boolean),
             }));
@@ -224,12 +304,12 @@ export default function LaporanKegiatan() {
                         className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                        Kirim Laporan
+                        Kirim Semua Laporan
                     </button>
                 )}
             </div>
 
-            {/* Table */}
+            {/* Table — grouped by report, each shows all activities */}
             <div className="bg-white rounded-2xl border border-gray-200 mt-6 overflow-hidden">
                 {/* Desktop table */}
                 <div className="overflow-x-auto hidden md:block">
@@ -250,15 +330,19 @@ export default function LaporanKegiatan() {
                             ) : rows.length === 0 ? (
                                 <tr><td colSpan={6} className="text-center py-16 text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</td></tr>
                             ) : rows.map((r) => {
-                                const a = r.activities?.[0] || {};
-                                const fmtTime = (t) => { if (!t) return '?'; const p = t.includes('T') ? t.split('T')[1] : t.includes(' ') ? t.split(' ')[1] : t; return p.slice(0, 5); };
-                                return (
-                                    <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40">
-                                        <td className="px-8 py-4 text-sm text-gray-600">{r.report_date}</td>
+                                const acts = r.activities ?? [];
+                                const rowspan = Math.max(acts.length, 1);
+                                return acts.map((a, idx) => (
+                                    <tr key={`${r.id}-${idx}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40">
+                                        {idx === 0 && (
+                                            <td className="px-8 py-4 text-sm text-gray-600 align-top" rowSpan={rowspan}>
+                                                {r.report_date}
+                                            </td>
+                                        )}
                                         <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
                                             {fmtTime(a.start_time)} – {fmtTime(a.end_time)}
                                         </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 max-w-[240px] truncate">{a.activity}</td>
+                                        <td className="px-6 py-4 text-sm text-gray-600 max-w-[240px]">{a.activity}</td>
                                         <td className="px-6 py-4 text-sm">
                                             {a.links?.[0]?.url ? (
                                                 <a href={a.links[0].url} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all">
@@ -266,25 +350,27 @@ export default function LaporanKegiatan() {
                                                 </a>
                                             ) : <span className="text-gray-400">-</span>}
                                         </td>
-                                        <td className="px-6 py-4 text-center"><StatusBadge status={r.status} /></td>
-                                        <td className="px-6 py-4">
+                                        <td className="px-6 py-4 text-center align-top">
+                                            {idx === 0 ? <StatusBadge status={r.status} /> : ''}
+                                        </td>
+                                        <td className="px-6 py-4 align-top">
                                             <div className="flex items-center justify-end gap-3">
                                                 {r.status === 'draft' && hasPermission('wfh.report.update') && (
-                                                    <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-brand-500 transition-colors" title="Edit">
+                                                    <button onClick={() => openEdit(r, idx)} className="text-gray-500 hover:text-brand-500 transition-colors" title="Edit">
                                                         <Pencil size={17} />
                                                     </button>
                                                 )}
-                                                {r.status === 'draft' && hasPermission('wfh.report.submit') && (
+                                                {idx === 0 && r.status === 'draft' && hasPermission('wfh.report.submit') && (
                                                     <button onClick={() => handleSubmit(r.id)} className="text-blue-600 hover:text-blue-700 transition-colors" title="Kirim">
                                                         <Send size={17} />
                                                     </button>
                                                 )}
-                                                {hasPermission('wfh.report.export_pdf') && (
+                                                {idx === 0 && hasPermission('wfh.report.export_pdf') && (
                                                     <button onClick={() => handleDownloadPdf(r.id)} className="text-indigo-500 hover:text-indigo-600 transition-colors" title="Cetak Laporan">
                                                         <FileDown size={17} />
                                                     </button>
                                                 )}
-                                                {hasPermission('wfh.report.delete') && (
+                                                {idx === 0 && hasPermission('wfh.report.delete') && (
                                                     <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-600 transition-colors" title="Hapus">
                                                         <Trash2 size={17} />
                                                     </button>
@@ -292,7 +378,7 @@ export default function LaporanKegiatan() {
                                             </div>
                                         </td>
                                     </tr>
-                                );
+                                ));
                             })}
                         </tbody>
                     </table>
@@ -304,33 +390,33 @@ export default function LaporanKegiatan() {
                     ) : rows.length === 0 ? (
                         <div className="py-16 text-center text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</div>
                     ) : rows.map((r) => {
-                        const a = r.activities?.[0] || {};
-                        const fmtTime = (t) => { if (!t) return '?'; const p = t.includes('T') ? t.split('T')[1] : t.includes(' ') ? t.split(' ')[1] : t; return p.slice(0, 5); };
+                        const acts = r.activities ?? [];
                         return (
                             <div key={r.id} className="p-4 space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-gray-700">{r.report_date} &middot; {fmtTime(a.start_time)} – {fmtTime(a.end_time)}</span>
+                                    <span className="text-sm font-semibold text-gray-700">{r.report_date}</span>
                                     <StatusBadge status={r.status} />
                                 </div>
-                                <p className="text-sm text-gray-600">{a.activity}</p>
-                                {a.links?.[0]?.url && (
-                                    <a href={a.links[0].url} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all text-sm block">
-                                        {a.links[0].url}
-                                    </a>
-                                )}
-                                {r.status === 'draft' && hasPermission('wfh.report.update') && (
-                                    <div className="flex items-center gap-4 pt-1">
-                                        <button onClick={() => openEdit(r)} className="flex items-center gap-1 text-gray-500 hover:text-brand-500 text-sm">
-                                            <Pencil size={15} /> Edit
-                                        </button>
+                                {acts.map((a, idx) => (
+                                    <div key={idx} className="border-l-2 border-gray-200 pl-3 space-y-1">
+                                        <span className="text-xs text-gray-500">{fmtTime(a.start_time)} – {fmtTime(a.end_time)}</span>
+                                        <p className="text-sm text-gray-600">{a.activity}</p>
+                                        {a.links?.[0]?.url && (
+                                            <a href={a.links[0].url} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all text-sm block">
+                                                {a.links[0].url}
+                                            </a>
+                                        )}
+                                        {r.status === 'draft' && hasPermission('wfh.report.update') && (
+                                            <button onClick={() => openEdit(r, idx)} className="flex items-center gap-1 text-gray-500 hover:text-brand-500 text-sm pt-1">
+                                                <Pencil size={14} /> Edit
+                                            </button>
+                                        )}
                                     </div>
-                                )}
+                                ))}
                                 {r.status === 'draft' && hasPermission('wfh.report.submit') && (
-                                    <div className="flex items-center gap-4 pt-1">
-                                        <button onClick={() => handleSubmit(r.id)} className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
-                                            <Send size={15} /> Kirim
-                                        </button>
-                                    </div>
+                                    <button onClick={() => handleSubmit(r.id)} className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
+                                        <Send size={15} /> Kirim
+                                    </button>
                                 )}
                                 {hasPermission('wfh.report.export_pdf') && (
                                     <button onClick={() => handleDownloadPdf(r.id)} className="flex items-center gap-1 text-indigo-500 hover:text-indigo-600 text-sm">
@@ -363,7 +449,7 @@ export default function LaporanKegiatan() {
             <Modal
                 open={showModal}
                 onClose={() => setShowModal(false)}
-                title={editingId ? 'Edit Kegiatan' : 'Tambah Kegiatan'}
+                title={editingId && editingActivityIdx !== null ? 'Edit Kegiatan' : 'Tambah Kegiatan'}
                 footer={
                     <div className="flex gap-3">
                         <Button variant="secondary" onClick={() => setShowModal(false)}>Batal</Button>
