@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown, ChevronLeft, ChevronRight, Calendar, ChevronDown } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
@@ -60,28 +60,7 @@ function formatDate(d) {
     return d;
 }
 
-function getWeekRange(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    const day = d.getDay(); // 0=Sun
-    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
-    const mon = new Date(d.setDate(diff));
-    const sun = new Date(mon);
-    sun.setDate(mon.getDate() + 6);
-    return {
-        date_from: mon.toISOString().slice(0, 10),
-        date_to: sun.toISOString().slice(0, 10),
-    };
-}
 
-function getMonthRange(dateStr) {
-    const d = new Date(dateStr + 'T00:00:00');
-    const first = new Date(d.getFullYear(), d.getMonth(), 1);
-    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
-    return {
-        date_from: first.toISOString().slice(0, 10),
-        date_to: last.toISOString().slice(0, 10),
-    };
-}
 
 const EMPTY_FORM = { start: nowHHMM(), end: '', activity: '', link: '' };
 
@@ -97,33 +76,33 @@ export default function LaporanKegiatan() {
     const [editingId, setEditingId] = useState(null);
     const [editingActivityIdx, setEditingActivityIdx] = useState(null);
 
-    /* ── Filter / period ── */
-    const [viewMode, setViewMode] = useState('daily'); // daily | weekly | monthly
-    const [selectedDate, setSelectedDate] = useState(todayStr());
+    /* ── Filter ── */
+    const currentMonth = todayStr().slice(0, 7);
+    const [month, setMonth] = useState(currentMonth);
+    const [selectedDate, setSelectedDate] = useState(''); // '' = semua
 
-    const dateRange = (() => {
-        if (viewMode === 'daily') return { date_from: selectedDate, date_to: selectedDate };
-        if (viewMode === 'weekly') return getWeekRange(selectedDate);
-        return getMonthRange(selectedDate);
+    const monthRange = (() => {
+        const first = month + '-01';
+        const d = new Date(first + 'T00:00:00');
+        const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
+        return { date_from: first, date_to: last };
     })();
 
-    const navigatePeriod = (dir) => {
-        const d = new Date(selectedDate + 'T00:00:00');
-        if (viewMode === 'daily') d.setDate(d.getDate() + dir);
-        else if (viewMode === 'weekly') d.setDate(d.getDate() + dir * 7);
-        else d.setMonth(d.getMonth() + dir);
-        setSelectedDate(d.toISOString().slice(0, 10));
+    useEffect(() => {
+        setSelectedDate('');
+    }, [month]);
+
+    const navigateMonth = (dir) => {
+        const d = new Date(month + '-01T00:00:00');
+        d.setMonth(d.getMonth() + dir);
+        setMonth(d.toISOString().slice(0, 7));
     };
 
-    const periodLabel = (() => {
-        if (viewMode === 'daily') return formatDate(selectedDate);
-        if (viewMode === 'weekly') {
-            const r = getWeekRange(selectedDate);
-            return `${formatDate(r.date_from)} — ${formatDate(r.date_to)}`;
-        }
-        const d = new Date(selectedDate + 'T00:00:00');
-        return d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
-    })();
+    /* unique dates in current month that have reports */
+    const monthDates = useMemo(() => {
+        const dates = [...new Set(rows.map(r => r.report_date).filter(Boolean))];
+        return dates.sort().reverse().filter(d => d.startsWith(month));
+    }, [rows, month]);
 
     const showToast = (type, message) => {
         setToast({ type, message });
@@ -139,8 +118,8 @@ export default function LaporanKegiatan() {
         setError('');
         try {
             const res = await wfhApi.getReports({
-                date_from: dateRange.date_from,
-                date_to: dateRange.date_to,
+                date_from: monthRange.date_from,
+                date_to: monthRange.date_to,
                 per_page: 100,
             });
             setRows(res.data.data || []);
@@ -150,13 +129,18 @@ export default function LaporanKegiatan() {
         } finally {
             setLoading(false);
         }
-    }, [dateRange.date_from, dateRange.date_to]);
+    }, [monthRange.date_from, monthRange.date_to]);
 
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
+    /* rows displayed — filtered by selectedDate if set */
+    const displayedRows = selectedDate
+        ? rows.filter(r => r.report_date === selectedDate)
+        : rows;
+
     /* aggregate stats */
-    const totalKegiatan = rows.reduce((sum, r) => sum + (r.activities?.length ?? 0), 0);
-    const totalMinutes = rows.reduce((sum, r) => {
+    const totalKegiatan = displayedRows.reduce((sum, r) => sum + (r.activities?.length ?? 0), 0);
+    const totalMinutes = displayedRows.reduce((sum, r) => {
         if (!r.activities) return sum;
         return r.activities.reduce((s, a) => {
             const toMin = (t) => {
@@ -345,72 +329,66 @@ export default function LaporanKegiatan() {
     };
 
     return (
-        <div className="max-w-[1200px] mx-auto">
-            <h1 className="text-3xl font-extrabold text-gray-900">Laporan Kegiatan</h1>
-            <p className="text-sm text-gray-500 mt-1">{today}</p>
-
-            {error && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
-            )}
-
-            {/* Filter / period */}
-            <div className="flex items-center gap-3 mt-6 flex-wrap">
-                {/* Mode */}
-                <div className="relative">
-                    <select
-                        value={viewMode}
-                        onChange={(e) => { setViewMode(e.target.value); setSelectedDate(todayStr()); }}
-                        className="appearance-none pl-4 pr-10 py-2.5 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                    >
-                        <option value="daily">Harian</option>
-                        <option value="weekly">Mingguan</option>
-                        <option value="monthly">Bulanan</option>
-                    </select>
-                    <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+        <div className="max-w-[1200px] mx-auto space-y-5 relative">
+            {/* Header — title + filter inline (seperti MonitorWfh) */}
+            <div className="flex items-start justify-between flex-wrap gap-3">
+                <div>
+                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Laporan Kegiatan</h1>
+                    <p className="text-sm text-gray-500 mt-1">{today}</p>
                 </div>
-
-                {/* Nav */}
-                <div className="flex items-center gap-1">
-                    <button onClick={() => navigatePeriod(-1)} className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 transition-colors cursor-pointer" title="Sebelumnya">
-                        <ChevronLeft size={16} />
-                    </button>
-                    <span className="text-sm font-semibold text-gray-700 min-w-[180px] text-center select-none">{periodLabel}</span>
-                    <button onClick={() => navigatePeriod(1)} className="p-2 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-gray-500 transition-colors cursor-pointer" title="Selanjutnya">
-                        <ChevronRight size={16} />
-                    </button>
-                </div>
-
-                {/* Date / Month picker */}
-                {viewMode === 'daily' && (
-                    <div className="relative">
-                        <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
-                        <input
-                            type="date"
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                )}
-                {viewMode === 'monthly' && (
-                    <div className="relative">
+                <div className="flex items-center gap-2 flex-wrap">
+                    {/* Filter bulan */}
+                    <div className="relative flex items-center">
                         <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
                         <input
                             type="month"
-                            value={selectedDate.slice(0, 7)}
-                            onChange={(e) => setSelectedDate(e.target.value + '-01')}
+                            value={month}
+                            onChange={(e) => setMonth(e.target.value)}
+                            title="Filter bulan"
                             className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         />
                     </div>
-                )}
-
-                <button
-                    onClick={() => setSelectedDate(todayStr())}
-                    className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
-                >
-                    Hari Ini
-                </button>
+                    {/* Pilih tanggal */}
+                    <div className="relative">
+                        <select
+                            value={selectedDate}
+                            onChange={(e) => setSelectedDate(e.target.value)}
+                            title="Pilih tanggal"
+                            className="appearance-none pl-4 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        >
+                            <option value="">Semua Tanggal</option>
+                            {monthDates.map((d) => (
+                                <option key={d} value={d}>{formatDate(d)}</option>
+                            ))}
+                        </select>
+                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                    </div>
+                    <button
+                        onClick={() => navigateMonth(-1)}
+                        className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                        title="Bulan sebelumnya"
+                    >
+                        <ChevronLeft size={15} />
+                    </button>
+                    <button
+                        onClick={() => navigateMonth(1)}
+                        className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                        title="Bulan berikutnya"
+                    >
+                        <ChevronRight size={15} />
+                    </button>
+                    <button
+                        onClick={() => { setMonth(currentMonth); setSelectedDate(''); }}
+                        className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
+                    >
+                        Bulan Ini
+                    </button>
+                </div>
             </div>
+
+            {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
+            )}
 
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6 max-w-2xl">
@@ -429,10 +407,10 @@ export default function LaporanKegiatan() {
                         Tambah Kegiatan
                     </button>
                 )}
-                {rows.length > 0 && hasPermission('wfh.report.submit') && (
+                {displayedRows.length > 0 && hasPermission('wfh.report.submit') && (
                     <button
                         onClick={() => {
-                            rows.filter(r => r.status === 'draft').forEach(r => handleSubmit(r.id));
+                            displayedRows.filter(r => r.status === 'draft').forEach(r => handleSubmit(r.id));
                         }}
                         disabled={saving}
                         className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
@@ -461,9 +439,9 @@ export default function LaporanKegiatan() {
                         <tbody>
                             {loading ? (
                                 <tr><td colSpan={6} className="px-0 py-0"><SkeletonTable rows={4} cols={6} /></td></tr>
-                            ) : rows.length === 0 ? (
+                            ) : displayedRows.length === 0 ? (
                                 <tr><td colSpan={6} className="text-center py-16 text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</td></tr>
-                            ) : rows.map((r) => {
+                            ) : displayedRows.map((r) => {
                                 const acts = r.activities ?? [];
                                 const rowspan = Math.max(acts.length, 1);
                                 return acts.map((a, idx) => (
@@ -521,9 +499,9 @@ export default function LaporanKegiatan() {
                 <div className="md:hidden divide-y divide-gray-50">
                     {loading ? (
                         <div className="px-4 py-6"><SkeletonTable rows={3} cols={1} /></div>
-                    ) : rows.length === 0 ? (
+                    ) : displayedRows.length === 0 ? (
                         <div className="py-16 text-center text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</div>
-                    ) : rows.map((r) => {
+                    ) : displayedRows.map((r) => {
                         const acts = r.activities ?? [];
                         return (
                             <div key={r.id} className="p-4 space-y-2">
