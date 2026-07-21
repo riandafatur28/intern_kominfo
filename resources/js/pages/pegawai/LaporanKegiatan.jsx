@@ -53,6 +53,36 @@ function todayStr() {
     return new Date().toISOString().slice(0, 10);
 }
 
+function formatDate(d) {
+    if (!d) return '-';
+    const p = d.split('-');
+    if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;
+    return d;
+}
+
+function getWeekRange(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const day = d.getDay(); // 0=Sun
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+    const mon = new Date(d.setDate(diff));
+    const sun = new Date(mon);
+    sun.setDate(mon.getDate() + 6);
+    return {
+        date_from: mon.toISOString().slice(0, 10),
+        date_to: sun.toISOString().slice(0, 10),
+    };
+}
+
+function getMonthRange(dateStr) {
+    const d = new Date(dateStr + 'T00:00:00');
+    const first = new Date(d.getFullYear(), d.getMonth(), 1);
+    const last = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+    return {
+        date_from: first.toISOString().slice(0, 10),
+        date_to: last.toISOString().slice(0, 10),
+    };
+}
+
 const EMPTY_FORM = { start: nowHHMM(), end: '', activity: '', link: '' };
 
 export default function LaporanKegiatan() {
@@ -64,10 +94,36 @@ export default function LaporanKegiatan() {
     const [toast, setToast] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
-    // editingId = null → create new report; number → update existing report (append activity)
     const [editingId, setEditingId] = useState(null);
-    // editingActivityIdx = null → new activity; number → edit that specific activity
     const [editingActivityIdx, setEditingActivityIdx] = useState(null);
+
+    /* ── Filter / period ── */
+    const [viewMode, setViewMode] = useState('daily'); // daily | weekly | monthly
+    const [selectedDate, setSelectedDate] = useState(todayStr());
+
+    const dateRange = (() => {
+        if (viewMode === 'daily') return { date_from: selectedDate, date_to: selectedDate };
+        if (viewMode === 'weekly') return getWeekRange(selectedDate);
+        return getMonthRange(selectedDate);
+    })();
+
+    const navigatePeriod = (dir) => {
+        const d = new Date(selectedDate + 'T00:00:00');
+        if (viewMode === 'daily') d.setDate(d.getDate() + dir);
+        else if (viewMode === 'weekly') d.setDate(d.getDate() + dir * 7);
+        else d.setMonth(d.getMonth() + dir);
+        setSelectedDate(d.toISOString().slice(0, 10));
+    };
+
+    const periodLabel = (() => {
+        if (viewMode === 'daily') return formatDate(selectedDate);
+        if (viewMode === 'weekly') {
+            const r = getWeekRange(selectedDate);
+            return `${formatDate(r.date_from)} — ${formatDate(r.date_to)}`;
+        }
+        const d = new Date(selectedDate + 'T00:00:00');
+        return d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' });
+    })();
 
     const showToast = (type, message) => {
         setToast({ type, message });
@@ -82,7 +138,11 @@ export default function LaporanKegiatan() {
         setLoading(true);
         setError('');
         try {
-            const res = await wfhApi.getReports({ per_page: 50 });
+            const res = await wfhApi.getReports({
+                date_from: dateRange.date_from,
+                date_to: dateRange.date_to,
+                per_page: 100,
+            });
             setRows(res.data.data || []);
         } catch (e) {
             setError(e.response?.data?.message || 'Gagal memuat laporan.');
@@ -90,7 +150,7 @@ export default function LaporanKegiatan() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [dateRange.date_from, dateRange.date_to]);
 
     useEffect(() => { fetchReports(); }, [fetchReports]);
 
@@ -293,6 +353,51 @@ export default function LaporanKegiatan() {
                 <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
             )}
 
+            {/* Filter / period */}
+            <div className="flex items-center gap-2 mt-6 flex-wrap">
+                {/* Mode toggle */}
+                <div className="flex bg-gray-100 rounded-lg p-0.5">
+                    {['daily','weekly','monthly'].map((m) => (
+                        <button
+                            key={m}
+                            onClick={() => { setViewMode(m); setSelectedDate(todayStr()); }}
+                            className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-colors cursor-pointer ${
+                                viewMode === m ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                            }`}
+                        >
+                            {m === 'daily' ? 'Harian' : m === 'weekly' ? 'Mingguan' : 'Bulanan'}
+                        </button>
+                    ))}
+                </div>
+
+                {/* Nav */}
+                <div className="flex items-center gap-1">
+                    <button onClick={() => navigatePeriod(-1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer" title="Sebelumnya">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" /></svg>
+                    </button>
+                    <span className="text-sm font-semibold text-gray-700 min-w-[180px] text-center select-none">{periodLabel}</span>
+                    <button onClick={() => navigatePeriod(1)} className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 cursor-pointer" title="Selanjutnya">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" /></svg>
+                    </button>
+                </div>
+
+                {viewMode === 'daily' && (
+                    <input
+                        type="date"
+                        value={selectedDate}
+                        onChange={(e) => setSelectedDate(e.target.value)}
+                        className="border border-gray-200 rounded-lg px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500"
+                    />
+                )}
+
+                <button
+                    onClick={() => setSelectedDate(todayStr())}
+                    className="text-xs font-semibold text-brand-500 hover:text-brand-600 px-2 py-1.5 cursor-pointer"
+                >
+                    Hari Ini
+                </button>
+            </div>
+
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6 max-w-2xl">
                 <StatCard label="Total Kegiatan" value={totalKegiatan} />
@@ -351,7 +456,7 @@ export default function LaporanKegiatan() {
                                     <tr key={`${r.id}-${idx}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40">
                                         {idx === 0 && (
                                             <td className="px-8 py-4 text-sm text-gray-600 align-top" rowSpan={rowspan}>
-                                                {r.report_date}
+                                                {formatDate(r.report_date)}
                                             </td>
                                         )}
                                         <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
@@ -409,7 +514,7 @@ export default function LaporanKegiatan() {
                         return (
                             <div key={r.id} className="p-4 space-y-2">
                                 <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-gray-700">{r.report_date}</span>
+                                    <span className="text-sm font-semibold text-gray-700">{formatDate(r.report_date)}</span>
                                     <StatusBadge status={r.status} />
                                 </div>
                                 {acts.map((a, idx) => (
