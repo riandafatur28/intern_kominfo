@@ -10,6 +10,8 @@ use App\Domains\Wfh\Repositories\EloquentWfhRepository;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Support\Signature\ImageSignatureService;
 use App\Support\Signature\SignatureServiceInterface;
+use App\Support\Wfh\AttendancePhotoServiceInterface;
+use App\Support\Wfh\InterventionAttendancePhotoService;
 use Illuminate\Support\ServiceProvider;
 
 class RepositoryServiceProvider extends ServiceProvider
@@ -33,6 +35,10 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             ChangeManagementRepositoryInterface::class,
             EloquentChangeManagementRepository::class,
+        );
+        $this->app->bind(
+            AttendancePhotoServiceInterface::class,
+            InterventionAttendancePhotoService::class,
         );
     }
 
