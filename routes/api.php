@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // WFH Module
+    Route::get('/wfh/attendance', [AttendanceController::class, 'index']);
     Route::post('/wfh/attendance', [AttendanceController::class, 'checkIn'])
         ->middleware('permission:wfh.attendance.create');
 

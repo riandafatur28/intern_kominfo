@@ -1,13 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Filter, RefreshCw, FileDown, Search, ChevronDown, Check, X,
-    Eye, MessageSquare, Download, Loader2,
+    Eye, Download, Loader2,
 } from 'lucide-react';
 import { getMonitoringBoard, getReportDetail, getAdminReports, approveReport, rejectReport } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
 import { assetUrl } from '../../utils/url';
-import { printWfhFull, printWfhFullBatch } from '../../pdf';
+import { wfhFullHtml, wfhFullBatchHtml, openPrintWindow, fillPrintWindow } from '../../pdf';
 import Modal from '../../components/ui/Modal';
 
 const STATUS_OPTIONS = [
@@ -40,39 +39,32 @@ function fmtDateTime(t) {
 const pad2 = (n) => String(n).padStart(2, '0');
 const toDateStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-// Default ke hari Jumat terakhir (hari WFH) secara dinamis, bukan tanggal statis.
-function mostRecentFriday() {
-    const d = new Date();
-    const diff = (d.getDay() - 5 + 7) % 7; // 5 = Jumat
-    d.setDate(d.getDate() - diff);
-    return toDateStr(d);
-}
-const DEFAULT_DATE = mostRecentFriday();
+const DEFAULT_DATE = toDateStr(new Date());
 
-// Semua hari Jumat (hari WFH) dalam sebuah bulan 'YYYY-MM'.
-function fridaysInMonth(ym) {
+// Semua tanggal dalam sebuah bulan 'YYYY-MM'.
+function daysInMonth(ym) {
     if (!ym) return [];
     const [y, m] = ym.split('-').map(Number);
     const res = [];
     const d = new Date(y, m - 1, 1);
     while (d.getMonth() === m - 1) {
-        if (d.getDay() === 5) res.push(toDateStr(d));
+        res.push(toDateStr(d));
         d.setDate(d.getDate() + 1);
     }
     return res;
 }
 
-// Pilih Jumat default dalam bulan: Jumat terakhir yang <= hari ini, jika tidak ada
-// (bulan masa depan) pakai Jumat pertama.
-function pickFridayForMonth(fridays) {
-    if (!fridays.length) return '';
+// Pilih tanggal default: hari ini bila ada di bulan itu, jika tidak tanggal terakhir <= hari ini.
+function pickDayForMonth(days) {
+    if (!days.length) return '';
     const today = toDateStr(new Date());
-    const past = fridays.filter((d) => d <= today);
-    return past.length ? past[past.length - 1] : fridays[0];
+    if (days.includes(today)) return today;
+    const past = days.filter((d) => d <= today);
+    return past.length ? past[past.length - 1] : days[0];
 }
 
 function fmtFriday(d) {
-    return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    return new Date(d).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function fmtTime(t) {
@@ -108,16 +100,36 @@ function reportToPdfData(report, unitKerja, fallbackDate) {
     };
 }
 
+/** Data PDF minimal untuk pegawai yang sudah absen namun belum mengirim laporan kegiatan. */
+function boardEmpToPdfData(emp, unitKerja, fallbackDate) {
+    return {
+        nama: emp.name ?? '-',
+        nip: emp.nip ?? '-',
+        pangkat: '-',
+        jabatan: '-',
+        unitKerja: unitKerja ?? '-',
+        tanggalPelaksanaan: fmtFriday(fallbackDate),
+        kegiatan: [],
+        isApproved: false,
+        makerName: (emp.name ?? '').toUpperCase(),
+        makerNip: emp.nip ?? '-',
+        makerSignatureUrl: null,
+        supervisorName: '-',
+        supervisorNip: '-',
+        supervisorSignatureUrl: null,
+    };
+}
+
 export default function MonitorWfh() {
     const { user, hasPermission } = useAuth();
     const canApprove = hasPermission('wfh.report.approve');
     const [month, setMonth] = useState(DEFAULT_DATE.slice(0, 7));
     const [date, setDate] = useState(DEFAULT_DATE);
-    const fridays = useMemo(() => fridaysInMonth(month), [month]);
+    const days = useMemo(() => daysInMonth(month), [month]);
 
     const handleMonthChange = (val) => {
         setMonth(val);
-        setDate(pickFridayForMonth(fridaysInMonth(val)));
+        setDate(pickDayForMonth(daysInMonth(val)));
         setPage(1);
     };
     const [search, setSearch] = useState('');
@@ -157,13 +169,6 @@ export default function MonitorWfh() {
         fetchBoard();
     }, [fetchBoard]);
 
-    const handleSendReminder = (emp) => {
-        // TODO: hubungkan ke endpoint backend pengiriman notifikasi/peringatan
-        // saat sudah tersedia (misal: POST /api/admin/wfh/reminders).
-        setToast(`Peringatan untuk ${emp.name} akan dikirim setelah fitur notifikasi backend tersedia.`);
-        setTimeout(() => setToast(''), 4000);
-    };
-
     const stats = data?.stats;
     const employees = data?.employees ?? [];
     const meta = data?.meta;
@@ -177,17 +182,33 @@ export default function MonitorWfh() {
             setTimeout(() => setToast(''), 4000);
             return;
         }
+        // Buka window SEKARANG (dalam handler klik) agar tidak diblokir popup.
+        const win = openPrintWindow();
+        if (!win) {
+            setToast('Popup diblokir browser. Izinkan popup untuk situs ini.');
+            setTimeout(() => setToast(''), 4000);
+            return;
+        }
         try {
             const report = await getReportDetail(emp.report_id);
-            printWfhFull({
-                report: reportToPdfData(report, unitKerja, date),
+            const rd = reportToPdfData(report, unitKerja, date);
+            const html = wfhFullHtml({
+                report: rd,
                 attendance: {
                     tanggal: fmtFriday(date),
                     unitKerja,
                     rows: [{ no: 1, nama: report.user?.name ?? emp.name, pagi: null, siang: null, sore: null }],
+                    makerName: rd.makerName,
+                    makerNip: rd.makerNip,
+                    makerSignatureUrl: rd.makerSignatureUrl,
+                    supervisorName: rd.supervisorName,
+                    supervisorNip: rd.supervisorNip,
+                    supervisorSignatureUrl: rd.supervisorSignatureUrl,
                 },
             });
+            fillPrintWindow(win, html);
         } catch {
+            try { win.close(); } catch { /* ignore */ }
             setToast('Gagal memuat laporan untuk PDF.');
             setTimeout(() => setToast(''), 4000);
         }
@@ -195,26 +216,76 @@ export default function MonitorWfh() {
 
     // Generate semua laporan pegawai (tanggal terpilih) jadi satu file PDF.
     const handleGeneratePdf = async () => {
-        setToast('Menyiapkan PDF...');
+        // Buka window SEKARANG (dalam handler klik) agar tidak diblokir popup.
+        const win = openPrintWindow();
+        if (!win) {
+            setToast('Popup diblokir browser. Izinkan popup untuk situs ini.');
+            setTimeout(() => setToast(''), 4000);
+            return;
+        }
         try {
-            const res = await getAdminReports({ date_from: date, date_to: date, per_page: 100 });
-            const reports = res.data ?? [];
-            if (reports.length === 0) {
-                setToast('Belum ada laporan pada tanggal ini.');
+            // 1) Ambil SEMUA pegawai pada tanggal terpilih dari monitoring board
+            //    (lintas halaman) — inilah daftar otoritatif siapa saja yang absen.
+            let employeesAll = [];
+            let bp = 1;
+            let bLast = 1;
+            do {
+                const board = await getMonitoringBoard({ date, per_page: 100, page: bp });
+                employeesAll = employeesAll.concat(board.employees ?? []);
+                bLast = board.meta?.last_page ?? 1;
+                bp += 1;
+            } while (bp <= bLast);
+
+            // Sertakan pegawai yang sudah absen (minimal satu sesi) ATAU sudah kirim laporan.
+            const targets = employeesAll.filter(
+                (e) => e.report_id || e.sessions?.pagi || e.sessions?.siang || e.sessions?.sore,
+            );
+
+            if (targets.length === 0) {
+                try { win.close(); } catch { /* ignore */ }
+                setToast('Belum ada pegawai yang absen pada tanggal ini.');
                 setTimeout(() => setToast(''), 4000);
                 return;
             }
-            const list = reports.map((r, i) => ({
-                report: reportToPdfData(r, unitKerja, date),
-                attendance: {
-                    tanggal: fmtFriday(date),
-                    unitKerja,
-                    rows: [{ no: i + 1, nama: r.user?.name ?? '-', pagi: null, siang: null, sore: null }],
-                },
-            }));
+
+            // 2) Ambil SEMUA laporan (lintas halaman) untuk melengkapi bagian kegiatan.
+            let reports = [];
+            let rp = 1;
+            let rLast = 1;
+            do {
+                const res = await getAdminReports({ date_from: date, date_to: date, per_page: 100, page: rp });
+                reports = reports.concat(res.data ?? []);
+                rLast = res.meta?.last_page ?? 1;
+                rp += 1;
+            } while (rp <= rLast);
+            const reportByUser = {};
+            reports.forEach((r) => { if (r.user?.id) reportByUser[r.user.id] = r; });
+
+            // 3) Bangun daftar PDF untuk setiap pegawai yang absen.
+            const list = targets.map((emp, i) => {
+                const report = reportByUser[emp.id];
+                const rd = report
+                    ? reportToPdfData(report, unitKerja, date)
+                    : boardEmpToPdfData(emp, unitKerja, date);
+                return {
+                    report: rd,
+                    attendance: {
+                        tanggal: fmtFriday(date),
+                        unitKerja,
+                        rows: [{ no: i + 1, nama: emp.name ?? rd.nama, pagi: null, siang: null, sore: null }],
+                        makerName: rd.makerName,
+                        makerNip: rd.makerNip,
+                        makerSignatureUrl: rd.makerSignatureUrl,
+                        supervisorName: rd.supervisorName,
+                        supervisorNip: rd.supervisorNip,
+                        supervisorSignatureUrl: rd.supervisorSignatureUrl,
+                    },
+                };
+            });
             setToast('');
-            printWfhFullBatch(list, { tanggal: fmtFriday(date) });
+            fillPrintWindow(win, wfhFullBatchHtml(list, { tanggal: fmtFriday(date) }));
         } catch {
+            try { win.close(); } catch { /* ignore */ }
             setToast('Gagal menyiapkan PDF.');
             setTimeout(() => setToast(''), 4000);
         }
@@ -242,13 +313,13 @@ export default function MonitorWfh() {
                         <select
                             value={date}
                             onChange={(e) => { setDate(e.target.value); setPage(1); }}
-                            title="Pilih hari WFH (Jumat)"
+                            title="Pilih tanggal WFH"
                             className="appearance-none pl-4 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                         >
-                            {fridays.length === 0 ? (
-                                <option value="">Tidak ada Jumat</option>
+                            {days.length === 0 ? (
+                                <option value="">Tidak ada tanggal</option>
                             ) : (
-                                fridays.map((f) => (
+                                days.map((f) => (
                                     <option key={f} value={f}>{fmtFriday(f)}</option>
                                 ))
                             )}
@@ -372,7 +443,7 @@ export default function MonitorWfh() {
                                                 <td className="px-6 py-4 text-sm text-gray-500">{emp.catatan}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex justify-center">
-                                                        <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
+                                                        <PreviewDropdown emp={emp} date={date} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -399,7 +470,7 @@ export default function MonitorWfh() {
                                                     <p className="text-xs text-gray-400">{emp.nip}</p>
                                                 </div>
                                             </div>
-                                            <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
+                                            <PreviewDropdown emp={emp} date={date} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
                                         </div>
                                         <div className="flex items-center gap-4 text-xs text-gray-500">
                                             <SessionPill label="Pagi" ok={emp.sessions.pagi} />
@@ -506,105 +577,29 @@ function StatusBadge({ status }) {
     );
 }
 
-function PreviewDropdown({ emp, date, onSendReminder, onDownload, canApprove, onChanged }) {
-    const [open, setOpen] = useState(false);
+function PreviewDropdown({ emp, date, onDownload, canApprove, onChanged }) {
     const [showDetail, setShowDetail] = useState(false);
-    const [menuPos, setMenuPos] = useState(null);
-    const triggerRef = useRef(null);
-    const menuRef = useRef(null);
-
-    const MENU_WIDTH = 208; // w-52
-
-    const openMenu = () => {
-        const rect = triggerRef.current?.getBoundingClientRect();
-        if (rect) {
-            setMenuPos({
-                top: rect.bottom + 4,
-                left: Math.max(8, rect.right - MENU_WIDTH),
-            });
-        }
-        setOpen(true);
-    };
-
-    const toggleMenu = () => (open ? setOpen(false) : openMenu());
-
-    // Tutup dropdown saat klik di luar, scroll, atau resize
-    useEffect(() => {
-        if (!open) return;
-        const handleClick = (e) => {
-            if (
-                triggerRef.current?.contains(e.target) ||
-                menuRef.current?.contains(e.target)
-            ) return;
-            setOpen(false);
-        };
-        const handleClose = () => setOpen(false);
-        document.addEventListener('mousedown', handleClick);
-        window.addEventListener('scroll', handleClose, true);
-        window.addEventListener('resize', handleClose);
-        return () => {
-            document.removeEventListener('mousedown', handleClick);
-            window.removeEventListener('scroll', handleClose, true);
-            window.removeEventListener('resize', handleClose);
-        };
-    }, [open]);
-
-    const handleDownload = () => {
-        onDownload?.(emp);
-        setOpen(false);
-    };
-
-    const handleReminder = () => {
-        onSendReminder?.(emp);
-        setOpen(false);
-    };
 
     return (
-        <div className="inline-flex flex-col items-center" ref={triggerRef}>
-            {/* Trigger: Preview + tombol dropdown */}
-            <div className="flex items-center gap-1">
-                <button
-                    type="button"
-                    onClick={() => setShowDetail(true)}
-                    title="Preview laporan"
-                    className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
-                >
-                    <Eye size={19} />
-                    <span className="text-[11px] font-medium text-gray-500">Preview</span>
-                </button>
-                <button
-                    type="button"
-                    onClick={toggleMenu}
-                    aria-label="Aksi lainnya"
-                    aria-expanded={open}
-                    className="p-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
-                >
-                    <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-                </button>
-            </div>
-
-            {/* Dropdown: Peringatan + Unduh (portal agar tidak terpotong tabel) */}
-            {open && menuPos && createPortal(
-                <div
-                    ref={menuRef}
-                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
-                    className="bg-white border border-gray-100 rounded-xl shadow-lg z-50 py-1 text-left"
-                >
-                    <button
-                        onClick={handleReminder}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
-                    >
-                        <MessageSquare size={16} /> Peringatan
-                    </button>
-                    <button
-                        onClick={handleDownload}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                    >
-                        <Download size={16} /> Unduh Perorangan
-                    </button>
-                </div>,
-                document.body
-            )}
+        <div className="inline-flex items-center gap-3">
+            <button
+                type="button"
+                onClick={() => setShowDetail(true)}
+                title="Preview laporan"
+                className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+            >
+                <Eye size={19} />
+                <span className="text-[11px] font-medium text-gray-500">Preview</span>
+            </button>
+            <button
+                type="button"
+                onClick={() => onDownload?.(emp)}
+                title="Unduh laporan perorangan"
+                className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+            >
+                <Download size={19} />
+                <span className="text-[11px] font-medium text-gray-500">Unduh</span>
+            </button>
 
             {showDetail && (
                 <ReportDetailModal
@@ -795,4 +790,5 @@ function ReportDetailModal({ reportId, empName, date, canApprove, onChanged, onC
         </Modal>
     );
 }
+
 

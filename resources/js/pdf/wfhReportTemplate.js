@@ -1,5 +1,5 @@
 import { escapeHtml } from './printDocument';
-import { DISCLAIMER, kopHtml, wrapDocument } from './shared';
+import { kopHtml, wrapDocument } from './shared';
 
 /**
  * Bagian isi (satu halaman) Laporan Pelaksanaan Tugas WFH — tanpa <html>/<style>.
@@ -87,11 +87,10 @@ export function wfhReportBody(data) {
             </div>
         </div>
 
-        <div class="footer">
+        ${(qrBlock || bsreLogoUrl) ? `<div class="footer">
             ${bsreLogoUrl ? `<img class="bsre" src="${escapeHtml(bsreLogoUrl)}" alt="BSrE" />` : ''}
-            <div class="note">${escapeHtml(DISCLAIMER)}</div>
             ${qrBlock}
-        </div>
+        </div>` : ''}
     </div>`;
 }
 

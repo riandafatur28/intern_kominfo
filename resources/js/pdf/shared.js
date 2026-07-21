@@ -9,9 +9,10 @@ export const DOC_STYLES = `
     * { box-sizing: border-box; }
     html, body { margin: 0; padding: 0; }
     body { font-family: Arial, Helvetica, sans-serif; color: #000; font-size: 11pt; line-height: 1.4; }
-    .page { display: flex; flex-direction: column; min-height: 255mm; }
+    .page { display: block; }
     .page + .page { page-break-before: always; }
-    .spacer { flex: 1 1 auto; min-height: 24px; }
+    .spacer { height: 48px; }
+    .ttd { page-break-inside: avoid; }
 
     .kop { display: flex; align-items: center; gap: 16px; border-bottom: 3px double #000; padding-bottom: 6px; }
     .kop img { width: 66px; height: auto; }
@@ -36,7 +37,7 @@ export const DOC_STYLES = `
     .muted { color: #777; }
     .link a { color: #1a56db; word-break: break-all; text-decoration: underline; font-size: 8.5pt; line-height: 1.5; }
     .lgap { height: 6px; }
-    .photo { max-width: 150px; max-height: 130px; object-fit: contain; }
+    .photo { display: block; margin: 4px auto; width: auto; height: auto; max-width: 130px; max-height: 165px; object-fit: contain; border: 1px solid #e5e7eb; border-radius: 3px; }
 
     .ttd { display: flex; justify-content: space-between; margin-top: 10px; }
     .ttd .col { width: 46%; text-align: center; font-size: 11pt; }

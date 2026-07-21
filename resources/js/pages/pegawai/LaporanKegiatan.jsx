@@ -9,13 +9,14 @@ import { assetUrl } from '../../utils/url';
 import { printWfhReport } from '../../pdf';
 
 /* ---------------- Status Badge ---------------- */
-const STATUS_LABEL = { draft: 'Draf', submitted: 'Terkirim', approved: 'Disetujui', rejected: 'Ditolak' };
+// Status laporan dari backend: draft → pending → approved/rejected.
+const STATUS_LABEL = { draft: 'Draf', pending: 'Menunggu Persetujuan', approved: 'Disetujui', rejected: 'Ditolak' };
 
 function StatusBadge({ status }) {
     const map = {
-        draft: 'bg-[#FCD9CC] text-[#C2410C]',
-        submitted: 'bg-[#C9F2D6] text-[#15803D]',
-        approved: 'bg-[#C9F2D6] text-[#15803D]',
+        draft: 'bg-gray-100 text-gray-600',
+        pending: 'bg-amber-100 text-amber-700',
+        approved: 'bg-green-100 text-green-700',
         rejected: 'bg-red-100 text-red-600',
     };
     return (

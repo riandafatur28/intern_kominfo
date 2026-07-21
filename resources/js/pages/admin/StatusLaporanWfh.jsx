@@ -4,18 +4,18 @@ import { ArrowLeft, FileText } from 'lucide-react';
 import { getAdminReports } from '../../api/admin';
 
 const STATUS_META = {
-    draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
-    pending: { label: 'Pending', cls: 'bg-amber-100 text-amber-700' },
+    draft: { label: 'Draf', cls: 'bg-gray-100 text-gray-600' },
+    pending: { label: 'Menunggu Persetujuan', cls: 'bg-amber-100 text-amber-700' },
     approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
     rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-700' },
 };
 
 const STATUS_FILTERS = [
     { value: '', label: 'Semua' },
-    { value: 'pending', label: 'Pending' },
+    { value: 'pending', label: 'Menunggu' },
     { value: 'approved', label: 'Disetujui' },
     { value: 'rejected', label: 'Ditolak' },
-    { value: 'draft', label: 'Draft' },
+    { value: 'draft', label: 'Draf' },
 ];
 
 export default function StatusLaporanWfh() {
@@ -67,11 +67,10 @@ export default function StatusLaporanWfh() {
                             setStatus(f.value);
                             setPage(1);
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                            status === f.value
+                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${status === f.value
                                 ? 'bg-indigo-500 border-indigo-500 text-white'
                                 : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                        }`}
+                            }`}
                     >
                         {f.label}
                     </button>

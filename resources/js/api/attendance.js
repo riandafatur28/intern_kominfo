@@ -1,6 +1,16 @@
 import axios from 'axios';
 
 /**
+ * Ambil daftar absensi milik user yang login (untuk riwayat & status sesi).
+ * @param {Object} params - { date, date_from, date_to }
+ * @returns {Promise<Array<{id, date, session, photo_url, check_in_at}>>}
+ */
+export async function getAttendance(params = {}) {
+    const res = await axios.get('/api/wfh/attendance', { params });
+    return res.data.data ?? [];
+}
+
+/**
  * Submit a WFH attendance check-in for a session.
  *
  * Backend contract (POST /api/wfh/attendance):

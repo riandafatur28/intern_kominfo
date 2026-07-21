@@ -8,7 +8,14 @@ import { kopHtml, wrapDocument } from './shared';
  * @param {string} [data.tanggal]
  * @param {string} [data.unitKerja]
  * @param {Array<{no?:number, nama:string, pagi?:string, siang?:string, sore?:string}>} data.rows
- * @param {string} [data.logoUrl="/images/logo.png"]
+ * @param {string} [data.logoUrl="/images/logo-jatim.png"]
+ * @param {string} [data.makerName]
+ * @param {string} [data.makerNip]
+ * @param {string} [data.makerSignatureUrl]
+ * @param {string} [data.supervisorName="-"]
+ * @param {string} [data.supervisorNip="-"]
+ * @param {string} [data.supervisorSignatureUrl]
+ * @param {string} [data.city="Surabaya"]
  */
 export function wfhAttendanceBody(data) {
     const {
@@ -17,6 +24,9 @@ export function wfhAttendanceBody(data) {
         unitKerja,
         rows = [],
         logoUrl = '/images/logo-jatim.png',
+        makerName, makerNip, makerSignatureUrl,
+        supervisorName = '-', supervisorNip = '-', supervisorSignatureUrl,
+        city = 'Surabaya',
     } = data;
 
     const cell = (url) => (url
@@ -36,6 +46,13 @@ export function wfhAttendanceBody(data) {
         unitKerja ? `Unit Kerja: ${escapeHtml(unitKerja)}` : '',
         tanggal ? `Tanggal: ${escapeHtml(tanggal)}` : '',
     ].filter(Boolean).join(' &bull; ');
+
+    const makerSig = makerSignatureUrl
+        ? `<img class="sig" src="${escapeHtml(makerSignatureUrl)}" alt="ttd" />`
+        : '<div class="sig-space"></div>';
+    const supSig = supervisorSignatureUrl
+        ? `<img class="sig" src="${escapeHtml(supervisorSignatureUrl)}" alt="ttd" />`
+        : '<div class="sig-space"></div>';
 
     return `
     <div class="page">
@@ -61,6 +78,25 @@ export function wfhAttendanceBody(data) {
                 ${body || '<tr><td colspan="5" class="c muted">Belum ada data absensi.</td></tr>'}
             </tbody>
         </table>
+
+        <div class="spacer"></div>
+
+        <div class="ttd">
+            <div class="col">
+                <div class="place">&nbsp;</div>
+                <div>Yang Membuat Laporan</div>
+                ${makerSig}
+                <div class="name">${escapeHtml(makerName || '-')}</div>
+                <div>${escapeHtml(makerNip || '-')}</div>
+            </div>
+            <div class="col">
+                <div class="place">${escapeHtml(city)}${tanggal ? ', ' + escapeHtml(tanggal) : ''}</div>
+                <div>Atasan Langsung</div>
+                ${supSig}
+                <div class="name">${escapeHtml(supervisorName)}</div>
+                <div>NIP. ${escapeHtml(supervisorNip)}</div>
+            </div>
+        </div>
     </div>`;
 }
 

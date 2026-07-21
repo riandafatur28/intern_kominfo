@@ -3,9 +3,11 @@
 namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Http\Requests\CheckInRequest;
+use App\Domains\Wfh\Models\WfhAttendance;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class AttendanceController extends Controller
@@ -15,6 +17,38 @@ class AttendanceController extends Controller
     public function __construct(
         private WfhRepositoryInterface $wfhRepository,
     ) {}
+
+    /**
+     * Daftar absensi milik user yang login (untuk riwayat & status sesi hari ini).
+     * Query opsional: date, date_from, date_to.
+     */
+    public function index(Request $request): JsonResponse
+    {
+        $query = WfhAttendance::where('user_id', $request->user()->id);
+
+        if ($request->filled('date')) {
+            $query->whereDate('date', $request->input('date'));
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('date', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('date', '<=', $request->input('date_to'));
+        }
+
+        $items = $query->orderByDesc('date')->orderBy('session')->get()->map(fn ($a) => [
+            'id' => $a->id,
+            'date' => $a->date->format('Y-m-d'),
+            'session' => $a->session,
+            'photo_url' => asset('storage/'.$a->photo_path),
+            'check_in_at' => $a->check_in_at,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+        ]);
+    }
 
     public function checkIn(CheckInRequest $request): JsonResponse
     {
