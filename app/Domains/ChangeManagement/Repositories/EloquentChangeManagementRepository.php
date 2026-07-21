@@ -21,7 +21,11 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
         $query = ChangeInitiation::with(['field', 'initiator', 'reviewer', 'implementations']);
 
         if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if (str_contains($filters['status'], ',')) {
+                $query->whereIn('status', explode(',', $filters['status']));
+            } else {
+                $query->where('status', $filters['status']);
+            }
         }
 
         if (isset($filters['field_id'])) {
