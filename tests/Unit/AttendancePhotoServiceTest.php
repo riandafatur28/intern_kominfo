@@ -47,9 +47,10 @@ class AttendancePhotoServiceTest extends TestCase
         $path = $this->service->store($photo, 3, '2026-07-17');
         $webpSize = Storage::disk('public')->size($path);
 
-        // WebP at quality 80 on a simple generated image should be comparable
-        // or smaller than the original JPEG
-        $this->assertLessThan($originalSize * 2, $webpSize);
+        // WebP at quality 80 produces a consistently smaller file than the
+        // source JPEG for these synthetic images (empirically ~10% of original).
+        $this->assertLessThanOrEqual($originalSize, $webpSize,
+            "WebP output ({$webpSize}B) should be <= original JPEG ({$originalSize}B)");
     }
 
     public function test_resizes_large_image_to_max_dimension(): void
@@ -62,7 +63,7 @@ class AttendancePhotoServiceTest extends TestCase
         $fullPath = Storage::disk('public')->path($path);
         [$width, $height] = getimagesize($fullPath);
 
-        $maxDimension = config('wfh.attendance_photo_max_dimension', 1280);
+        $maxDimension = config('images.attendance_photo_max_dimension', 1280);
         $this->assertLessThanOrEqual($maxDimension, max($width, $height));
     }
 

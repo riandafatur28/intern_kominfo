@@ -9,6 +9,7 @@ use App\Support\Wfh\AttendancePhotoServiceInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
@@ -31,11 +32,10 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Absensi hanya dapat dilakukan pada hari ini.'], 422);
         }
 
-        // Validate allowed day (default: Friday only)
-        $allowedDays = config('wfh.allowed_days', [5]); // 1=Mon..7=Sun, 5=Friday
-        $dayOfWeek = now()->parse($date)->dayOfWeekIso; // 1=Mon..7=Sun
+        // Validate allowed day
+        $allowedDays = config('wfh.allowed_days', [5]);
+        $dayOfWeek = now()->parse($date)->dayOfWeekIso;
 
-        // Friday in IsoWeek = 5
         if (! in_array($dayOfWeek, $allowedDays)) {
             return response()->json([
                 'success' => false,
@@ -52,17 +52,22 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // Store photo as WebP
         $photo = $request->file('photo');
         $path = $this->photoService->store($photo, $user->id, $date);
 
-        $attendance = $this->wfhRepository->createAttendance([
-            'user_id' => $user->id,
-            'date' => $date,
-            'session' => $session,
-            'photo_path' => $path,
-            'check_in_at' => now(),
-        ]);
+        try {
+            $attendance = $this->wfhRepository->createAttendance([
+                'user_id' => $user->id,
+                'date' => $date,
+                'session' => $session,
+                'photo_path' => $path,
+                'check_in_at' => now(),
+            ]);
+        } catch (\Throwable $e) {
+            // Orphan cleanup: remove stored photo if DB write fails
+            Storage::disk('public')->delete($path);
+            throw $e;
+        }
 
         return response()->json([
             'success' => true,

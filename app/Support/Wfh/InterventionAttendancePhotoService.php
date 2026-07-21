@@ -14,8 +14,8 @@ class InterventionAttendancePhotoService implements AttendancePhotoServiceInterf
     {
         $image = Image::decode($source->getRealPath());
 
-        $maxDimension = config('wfh.attendance_photo_max_dimension', 1280);
-        $quality = config('wfh.attendance_photo_quality', 80);
+        $maxDimension = config('images.attendance_photo_max_dimension', 1280);
+        $quality = config('images.attendance_photo_quality', 80);
 
         if (max($image->width(), $image->height()) > $maxDimension) {
             $image->scaleDown(width: $maxDimension, height: $maxDimension);
