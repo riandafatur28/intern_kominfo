@@ -20,11 +20,14 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
     {
         $query = ChangeInitiation::with(['field', 'initiator', 'reviewer', 'implementations']);
 
-        if (isset($filters['status'])) {
+            if (isset($filters['status'])) {
+        if ($filters['status'] === 'history') {
+            $query->whereIn('status', ['approved', 'rejected']);
+        } else {
             $query->where('status', $filters['status']);
         }
-
-        if (isset($filters['field_id'])) {
+    } 
+            if (isset($filters['field_id'])) {
             $query->where('field_id', $filters['field_id']);
         }
 

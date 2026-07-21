@@ -132,6 +132,10 @@ Route::middleware('auth:sanctum')->group(function () {
             ->middleware('permission:change.implementation.submit');
         Route::post('/changes/implementations/{id}/review', [ImplementationReviewController::class, 'review'])
             ->middleware('permission:change.implementation.review');
+        Route::get('/changes/dashboard', [InitiationController::class, 'dashboard'])
+            ->middleware('permission:change.initiation.view');
+        Route::get('/changes/initiations', [InitiationController::class, 'index'])
+            ->middleware('permission:change.initiation.view');
 
         // Change Management PDF Export
         Route::get('/changes/initiations/{id}/pdf', [ChangeManagementPdfController::class, 'exportInitiation'])

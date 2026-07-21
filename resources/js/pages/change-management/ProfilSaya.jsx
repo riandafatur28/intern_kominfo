@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react"
+import axios from "axios" 
 import {
   Hash,
   Building2,
@@ -7,7 +8,9 @@ import {
   ImageIcon,
   Upload,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Loader2,
+  Trash2
 } from "lucide-react"
 import { useAuth } from "../../context/AuthContext" 
 
@@ -16,96 +19,243 @@ export default function ProfilSaya() {
 
   const roleKey = user?.roles?.[0]
   const roleLabel = roleKey === 'kepala_tim' ? 'Team Lead' : (roleKey ?? 'WFH Admin')
-  const userUniqueKey = user?.email || user?.id || "guest"
-  const profileStorageKey = `user_profile_${userUniqueKey}`
-  const signatureStorageKey = `user_signature_${userUniqueKey}`
 
-  
+  // State Data Profil
   const [profileData, setProfileData] = useState({
-    nama: "Nama Pengguna",
-    email: "email@jatimprov.go.id",
-    telpon: "0895377689890",
-    nip: "1985021520100112002",
-    pangkat: "Penata Tingkat 1",
-    jabatan: "Administrator WFH",
-    bidang: "Bidang Aplikasi",
+    nama: "",
+    email: "",
+    telpon: "",
+    nip: "",
+    pangkat: "",
+    jabatan: "",
+    bidang: "",
   })
 
+  const [loading, setLoading] = useState(true) 
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isUploadingSignature, setIsUploadingSignature] = useState(false)
   const [signaturePreview, setSignaturePreview] = useState(null)
-
-  
-  useEffect(() => {
-    if (user) {
-      const savedData = localStorage.getItem(profileStorageKey)
-      const parsedData = savedData ? JSON.parse(savedData) : {}
-      
-      
-      const defaultJabatan = user.roles?.[0] === 'kepala_tim' ? 'Kepala Tim / Team Lead' : 'Administrator WFH'
-
-      setProfileData({
-        nama: parsedData.nama || user.name || "Nama Pengguna",
-        email: parsedData.email || user.email || "email@jatimprov.go.id",
-        telpon: parsedData.telpon || "0895377689890",
-        nip: parsedData.nip || "1985021520100112002",
-        pangkat: parsedData.pangkat || "Penata Tingkat 1",
-        jabatan: parsedData.jabatan || defaultJabatan,
-        bidang: parsedData.bidang || "Bidang Aplikasi",
-      })
-
-      
-      const savedSignature = localStorage.getItem(signatureStorageKey)
-      setSignaturePreview(savedSignature || null)
-    }
-  }, [user, userUniqueKey]) 
-
   const [showNotification, setShowNotification] = useState(false)
+  const [notificationMessage, setNotificationMessage] = useState("")
   const [errorMessage, setErrorMessage] = useState("")
   const fileInputRef = useRef(null)
+
+  // 🛠️ HELPER: Memastikan URL Gambar Menuju ke Storage Laravel
+  const getFullImageUrl = (url) => {
+    if (!url) return null;
+    
+    // Jika berupa Blob local atau URL eksternal penuh
+    if (url.startsWith("blob:") || url.startsWith("data:") || url.startsWith("http://") || url.startsWith("https://")) {
+      return url;
+    }
+
+    // Bersihkan slash di awal
+    let path = url.startsWith("/") ? url : `/${url}`;
+
+    // Otomatis tambahkan /storage jika backend hanya memberikan path folder (contoh: /signatures/xxx.jpg)
+    if (!path.startsWith("/storage/")) {
+      path = `/storage${path}`;
+    }
+
+    return `http://127.0.0.1:8000${path}`;
+  };
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true)
+        setErrorMessage("")
+
+        const response = await axios.get("/api/profile")
+        const resData = response.data.data || response.data
+
+        setProfileData({
+          nama: resData.name || resData.nama || "",
+          email: resData.email || "",
+          telpon: resData.phone || resData.telpon || "",
+          nip: resData.nip || "",
+          pangkat: resData.rank || resData.pangkat || "",
+          jabatan: resData.position || resData.jabatan || "",
+          bidang: resData.department || resData.bidang || "",
+        })
+
+        const rawSignature = resData.signature_url || resData.signature_path || resData.signature;
+        if (rawSignature) {
+          setSignaturePreview(getFullImageUrl(rawSignature))
+        }
+      } catch (err) {
+        console.error("Gagal mengambil data profil:", err)
+        setErrorMessage("Gagal mengambil data profil dari server.")
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProfileData()
+  }, [])
 
   const handleInputChange = (key, value) => {
     setProfileData((prev) => ({ ...prev, [key]: value }))
   }
 
-  const handleSaveChanges = (e) => {
+  const handleSaveChanges = async (e) => {
     e.preventDefault()
-    
-    localStorage.setItem(profileStorageKey, JSON.stringify(profileData))
-    
+    setIsSubmitting(true)
     setErrorMessage("")
-    setShowNotification(true)
-    setTimeout(() => setShowNotification(false), 3000)
+
+    try {
+      await axios.put("/api/profile", {
+        name: profileData.nama,
+        email: profileData.email,
+        phone: profileData.telpon,
+        nip: profileData.nip,
+        rank: profileData.pangkat,
+        position: profileData.jabatan,
+        department: profileData.bidang,
+      })
+
+      setNotificationMessage("Perubahan profil berhasil disimpan!")
+      setShowNotification(true)
+      setTimeout(() => setShowNotification(false), 3000)
+    } catch (err) {
+      console.error("Gagal menyimpan profil:", err)
+      setErrorMessage("Gagal menyimpan perubahan ke server. Periksa koneksi Anda.")
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
-  const handleFileChange = (event) => {
-    const file = event.target.files[0]
-    if (!file) return
+  const resizeImageIfNeeded = (file, maxPx = 1500) => {
+    return new Promise((resolve) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = (event) => {
+        const img = new Image()
+        img.src = event.target.result
+        img.onload = () => {
+          let width = img.width
+          let height = img.height
 
-    if (!file.type.startsWith("image/")) {
+          if (width > height) {
+            if (width > maxPx) {
+              height = Math.round((height * maxPx) / width)
+              width = maxPx
+            }
+          } else {
+            if (height > maxPx) {
+              width = Math.round((width * maxPx) / height)
+              height = maxPx
+            }
+          }
+
+          const canvas = document.createElement("canvas")
+          canvas.width = width
+          canvas.height = height
+          const ctx = canvas.getContext("2d")
+
+          ctx.fillStyle = "#FFFFFF"
+          ctx.fillRect(0, 0, width, height)
+
+          ctx.drawImage(img, 0, 0, width, height)
+
+          canvas.toBlob(
+            (blob) => {
+              const resizedFile = new File([blob], file.name.replace(/\.[^/.]+$/, "") + ".jpg", {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              })
+              resolve(resizedFile)
+            },
+            "image/jpeg",
+            0.95
+          )
+        }
+      }
+    })
+  }
+
+  const handleFileChange = async (event) => {
+    const rawFile = event.target.files[0]
+    if (!rawFile) return
+
+    if (!rawFile.type.startsWith("image/")) {
       setErrorMessage("File harus berupa gambar (PNG, JPG, atau JPEG)!")
       return
     }
 
-    const maxSizeInBytes = 2 * 1024 * 1024 
-    if (file.size > maxSizeInBytes) {
-      setErrorMessage("Ukuran file terlalu besar! Maksimal 2MB.")
-      return
-    }
-
     setErrorMessage("")
+    
+    // 🖼️ LANGSUNG TAMPILKAN PREVIEW LOKAL (Pasti muncul tanpa nunggu server)
+    const objectUrl = URL.createObjectURL(rawFile)
+    setSignaturePreview(objectUrl)
 
-    const reader = new FileReader()
-    reader.onloadend = () => {
-      const base64String = reader.result
-      setSignaturePreview(base64String)
-      localStorage.setItem(signatureStorageKey, base64String) 
+    setIsUploadingSignature(true)
+
+    try {
+      const fileToUpload = await resizeImageIfNeeded(rawFile, 1500)
+
+      const formData = new FormData()
+      formData.append("signature", fileToUpload)
+
+      const response = await axios.post("/api/profile/signature", formData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      })
+
+      const resSignature = response.data?.data?.signature_url || response.data?.signature_url || response.data?.data?.path || response.data?.path
+      
+      if (resSignature) {
+        setSignaturePreview(getFullImageUrl(resSignature))
+      }
+
+      setNotificationMessage("Tanda tangan digital berhasil diunggah!")
+      setShowNotification(true)
+      setTimeout(() => setShowNotification(false), 3000)
+    } catch (err) {
+      console.error("Gagal mengunggah tanda tangan:", err)
+      const apiErrorMsg = err.response?.data?.errors?.signature?.[0] || err.response?.data?.message
+      setErrorMessage(apiErrorMsg || "Gagal mengunggah tanda tangan ke server.")
+    } finally {
+      setIsUploadingSignature(false)
+      if (fileInputRef.current) fileInputRef.current.value = ""
     }
-    reader.readAsDataURL(file)
   }
 
-  const handleRemoveSignature = () => {
-    setSignaturePreview(null)
-    localStorage.removeItem(signatureStorageKey)
-    if (fileInputRef.current) fileInputRef.current.value = ""
+  const handleRemoveSignature = async () => {
+    setIsUploadingSignature(true)
+    setErrorMessage("")
+
+    try {
+      await axios.post("/api/profile/signature", { 
+        _method: "DELETE",
+        action: "delete" 
+      })
+
+      setSignaturePreview(null)
+      if (fileInputRef.current) fileInputRef.current.value = ""
+
+      setNotificationMessage("Tanda tangan digital berhasil dihapus!")
+      setShowNotification(true)
+      setTimeout(() => setShowNotification(false), 3000)
+    } catch (err) {
+      console.error("Gagal menghapus tanda tangan:", err)
+      const apiErrorMsg = err.response?.data?.message
+      setErrorMessage(apiErrorMsg || "Gagal menghapus tanda tangan dari server.")
+    } finally {
+      setIsUploadingSignature(false)
+    }
+  }
+
+  if (loading) {
+    return (
+      <main className="flex-1 flex items-center justify-center p-8">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <span className="text-sm font-medium">Memuat data profil...</span>
+        </div>
+      </main>
+    )
   }
 
   return (
@@ -114,7 +264,7 @@ export default function ProfilSaya() {
       {showNotification && (
         <div className="fixed top-5 right-5 z-50 flex items-center gap-3 rounded-lg bg-emerald-500 px-4 py-3 text-white shadow-lg animate-bounce">
           <CheckCircle2 className="h-5 w-5" />
-          <span className="text-sm font-medium">Perubahan profil berhasil disimpan!</span>
+          <span className="text-sm font-medium">{notificationMessage}</span>
         </div>
       )}
 
@@ -263,15 +413,24 @@ export default function ProfilSaya() {
               <div className="sm:col-span-2 mt-2">
                 <button
                   type="submit"
-                  className="w-full rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 active:bg-blue-800 shadow-sm cursor-pointer"
+                  disabled={isSubmitting}
+                  className="w-full flex justify-center items-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 active:bg-blue-800 shadow-sm cursor-pointer disabled:opacity-50"
                 >
-                  Simpan Perubahan
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Menyimpan...</span>
+                    </>
+                  ) : (
+                    "Simpan Perubahan"
+                  )}
                 </button>
               </div>
             </form>
           </section>
         </div>
 
+        {/* Section Tanda Tangan Digital */}
         <section className="mt-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <div className="mb-4">
             <h2 className="text-lg font-bold text-gray-900">
@@ -289,16 +448,22 @@ export default function ProfilSaya() {
               type="file"
               ref={fileInputRef}
               onChange={handleFileChange}
-              accept="image/*"
+              accept="image/png,image/jpeg,image/jpg"
               className="hidden"
             />
 
             <div 
-              onClick={() => fileInputRef.current.click()}
-              className="flex h-20 w-24 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-blue-400 hover:bg-blue-50/30 hover:text-blue-500 transition-all cursor-pointer overflow-hidden"
+              onClick={() => !isUploadingSignature && fileInputRef.current?.click()}
+              className="flex h-24 w-32 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-lg border border-dashed border-gray-300 bg-gray-50 text-gray-400 hover:border-blue-400 hover:bg-blue-50/30 hover:text-blue-500 transition-all cursor-pointer overflow-hidden relative"
             >
-              {signaturePreview ? (
-                <img src={signaturePreview} alt="Preview TTD" className="h-full w-full object-contain p-1" />
+              {isUploadingSignature ? (
+                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              ) : signaturePreview ? (
+                <img 
+                  src={signaturePreview} 
+                  alt="Tanda Tangan" 
+                  className="h-full w-full object-contain p-1"
+                />
               ) : (
                 <>
                   <ImageIcon className="h-6 w-6" />
@@ -310,14 +475,15 @@ export default function ProfilSaya() {
             <div className="flex flex-col items-center sm:items-start">
               <p className="mb-3 text-sm text-gray-500 max-w-md">
                 {signaturePreview 
-                  ? "Tanda tangan berhasil disimpan secara lokal! Klik tombol di bawah untuk mengganti atau menghapus." 
-                  : "Tanda tangan akan disimpan di memori browser dan siap digunakan untuk simulasi dokumen."}
+                  ? "Tanda tangan digital tersimpan di server. Klik tombol di bawah untuk mengganti atau menghapus." 
+                  : "Upload berkas tanda tangan (.png/.jpg). Sistem akan otomatis menyesuaikan ukuran dan memberi latar belakang putih solid."}
               </p>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current.click()}
-                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 shadow-sm cursor-pointer"
+                  disabled={isUploadingSignature}
+                  onClick={() => fileInputRef.current?.click()}
+                  className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50 shadow-sm cursor-pointer disabled:opacity-50"
                 >
                   <Upload className="h-4 w-4" />
                   {signaturePreview ? "Ganti" : "Upload Gambar"}
@@ -325,9 +491,11 @@ export default function ProfilSaya() {
                 {signaturePreview && (
                   <button
                     type="button"
+                    disabled={isUploadingSignature}
                     onClick={handleRemoveSignature}
-                    className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 cursor-pointer"
+                    className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 cursor-pointer disabled:opacity-50"
                   >
+                    <Trash2 className="h-4 w-4" />
                     Hapus
                   </button>
                 )}

@@ -38,6 +38,29 @@ class InitiationController extends Controller
         ]);
     }
 
+    public function dashboard(Request $request): JsonResponse
+    {
+        $this->authorize('change.initiation.view');
+
+
+        $pendingInitiations = $this->repo->paginateInitiations(100, ['status' => 'pending']);
+        $approvedInitiations = $this->repo->paginateInitiations(100, ['status' => 'approved']);
+        $rejectedInitiations = $this->repo->paginateInitiations(100, ['status' => 'rejected']);
+
+        return response()->json([
+            'success' => true,
+            'summary' => [
+                'pending_count'  => $pendingInitiations->total(),
+                'approved_count' => $approvedInitiations->total(),
+                'rejected_count' => $rejectedInitiations->total(),
+            ],
+            'pending_queue'  => InitiationResource::collection($pendingInitiations->items()),
+            'recent_history' => InitiationResource::collection(
+                array_merge($approvedInitiations->items(), $rejectedInitiations->items())
+            ),
+        ]);
+    }
+
     public function store(StoreInitiationRequest $request): JsonResponse
     {
         $this->authorize('change.initiation.create');

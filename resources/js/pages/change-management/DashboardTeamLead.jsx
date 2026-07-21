@@ -1,169 +1,113 @@
 import React, { useState, useEffect } from "react"
 import { useNavigate } from "react-router-dom"
-import { Clock, Check, X, CheckCircle2, XCircle, ChevronRight } from "lucide-react"
-import StatCard from "../../components/ui/StatCard"
+import axios from "axios"
+import { Clock, Check, X, CheckCircle2, XCircle, ChevronRight, Loader2 } from "lucide-react"
 import AntrianCard from "../../components/ui/AntrianCard"
 
-const defaultPending = [
-  {
-    id: "CR-2026-006",
-    name: "Rina Marlina",
-    info: "Bidang Informasi · Normal Change · 2026-06-03",
-    desc: "Pembaruan konten modul FAQ dan panduan pengguna di website utama.",
-    bidang: "Bidang Informasi",
-    jenis: "Normal Change",
-    tanggal: "2026-06-03",
-    alasan: "Pembaruan konten modul FAQ dan panduan pengguna di website utama.",
-    dampak: "Tidak ada downtime, perubahan langsung diterapkan secara asinkron.",
-    risiko: "Sangat Rendah - Hanya perubahan konten statis.",
-    evidence: "https://gitlab.jatimprov.go.id/issues/9012",
-    testing: "1. Visual check di browser Chrome dan Safari\n2. Verifikasi link navigasi baru",
-    implementasi: "Langsung deploy melalui Git runner otomatis."
-  },
-  {
-    id: "CR-2026-008",
-    name: "Ahmad Fauzi",
-    info: "Bidang Aplikasi · Normal Change · 2026-07-10",
-    desc: "Integrasi sistem masuk tunggal (SSO) untuk semua layanan internal Kominfo.",
-    bidang: "Bidang Aplikasi",
-    jenis: "Normal Change",
-    tanggal: "2026-07-10",
-    alasan: "Memahkan pegawai mengakses berbagai aplikasi internal dengan satu akun aman.",
-    dampak: "Potensi downtime singkat sekitar 5 menit saat migrasi sesi pengguna.",
-    risiko: "Sedang - Memerlukan sinkronisasi database pengguna aktif.",
-    evidence: "https://gitlab.jatimprov.go.id/issues/9015",
-    testing: "1. Uji login dengan berbagai role pengguna\n2. Verifikasi keamanan token JWT",
-    implementasi: "Deploy pada jam non-kerja (22:00 WIB)."
-  },
-  {
-    id: "CR-2026-009",
-    name: "Siti Rahma",
-    info: "Bidang Jaringan · Emergency Change · 2026-07-12",
-    desc: "Konfigurasi routing cadangan (failover) otomatis pada ISP sekunder.",
-    bidang: "Bidang Jaringan",
-    jenis: "Emergency Change",
-    tanggal: "2026-07-12",
-    alasan: "Menghindari putusnya koneksi internet utama jika terjadi gangguan pada link fiber optik utama.",
-    dampak: "Tidak ada downtime selama konfigurasi hot-standby dilakukan.",
-    risiko: "Rendah - Hanya menambahkan rute cadangan pada router core.",
-    evidence: "https://gitlab.jatimprov.go.id/issues/9016",
-    testing: "1. Simulasi pemutusan link utama\n2. Verifikasi waktu peralihan ke link cadangan",
-    implementasi: "Konfigurasi langsung di router core utama."
-  },
-  {
-    id: "CR-2026-010",
-    name: "Bambang Wijaya",
-    info: "Bidang Infrastruktur · Standard Change · 2026-07-14",
-    desc: "Pemeliharaan rutin dan pembersihan ruang penyimpanan pada server database e-Planning.",
-    bidang: "Bidang Infrastruktur",
-    jenis: "Standard Change",
-    tanggal: "2026-07-14",
-    alasan: "Kapasitas disk penyimpanan server database utama sudah mencapai batas aman 85%.",
-    dampak: "Layanan e-Planning akan diposisikan read-only selama proses optimasi (estimasi 15 menit).",
-    risiko: "Rendah - Prosedur standar pembersihan log usang.",
-    evidence: "https://gitlab.jatimprov.go.id/issues/9017",
-    testing: "1. Cek fungsionalitas query e-Planning\n2. Verifikasi sisa kapasitas penyimpanan pasca-optimasi",
-    implementasi: "Jadwal pemeliharaan berkala pada hari Sabtu jam 08:00 WIB."
-  },
-  {
-    id: "CR-2026-011",
-    name: "Dewi Lestari",
-    info: "Bidang Informasi · Normal Change · 2026-07-15",
-    desc: "Penambahan visualisasi grafik interaktif pada menu Dashboard Statistik Publik.",
-    bidang: "Bidang Informasi",
-    jenis: "Normal Change",
-    tanggal: "2026-07-15",
-    alasan: "Memenuhi permintaan masyarakat untuk visualisasi data statistik yang lebih interaktif dan mudah dibaca.",
-    dampak: "Tidak ada downtime, modul visualisasi berupa komponen frontend statis.",
-    risiko: "Sangat Rendah - Hanya perubahan pada sisi tampilan frontend.",
-    evidence: "https://gitlab.jatimprov.go.id/issues/9018",
-    testing: "1. Pengujian responsivitas grafik pada layar mobile dan desktop\n2. Validasi akurasi data grafik",
-    implementasi: "Merge request ke branch production dan deploy via CI/CD."
-  }
-]
-
-const defaultDecisions = [
-  { 
-    id: "CR-2026-004", 
-    name: "Rizal Firmansyah", 
-    date: "2026-07-16", 
-    status: "Approved",
-    bidang: "Bidang Jaringan",
-    jenis: "Normal Change",
-    catatan: "Disetujui secara instan via Simulator FE."
-  },
-  { 
-    id: "CR-2026-001", 
-    name: "Arif Budiman", 
-    date: "2026-07-16", 
-    status: "Approved",
-    bidang: "Bidang Aplikasi",
-    jenis: "Normal Change",
-    catatan: "Disetujui secara otomatis melalui sistem."
-  }
-]
-
 export default function DashboardTeamLead() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
-  const [pendingRequests, setPendingRequests] = useState(() => {
-    const saved = localStorage.getItem("shared_pending_v2");
-    return saved ? JSON.parse(saved) : defaultPending;
-  });
+  const [loading, setLoading] = useState(true)
+  const [actionLoadingId, setActionLoadingId] = useState(null)
+  
+  const [summary, setSummary] = useState({
+    pending_count: 0,
+    approved_count: 0,
+    rejected_count: 0
+  })
+  const [pendingRequests, setPendingRequests] = useState([])
+  const [recentDecisions, setRecentDecisions] = useState([])
 
-  const [recentDecisions, setRecentDecisions] = useState(() => {
-    const saved = localStorage.getItem("shared_decisions_v2");
-    return saved ? JSON.parse(saved) : defaultDecisions;
-  });
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true)
+      const response = await axios.get("/api/changes/dashboard")
+      const data = response.data
+
+      if (data.summary) {
+        setSummary(data.summary)
+      }
+
+      if (data.pending_queue) {
+        const mappedPending = data.pending_queue.map((item) => ({
+          db_id: item.id,
+          id: item.doc_number || `CR-${item.id}`,
+          name: item.initiator?.name || item.user_name || "Pemohon",
+          bidang: item.field?.name || item.department || "General",
+          jenis: item.change_type || "Change Request",
+          tanggal: item.initiation_date || item.created_at || "-",
+          desc: item.description || item.reason || "-"
+        }))
+        setPendingRequests(mappedPending)
+      }
+
+      if (data.recent_history) {
+        const mappedHistory = data.recent_history.map((item) => ({
+          db_id: item.id,
+          id: item.doc_number || `CR-${item.id}`,
+          name: item.initiator?.name || item.user_name || "Pemohon",
+          date: item.reviewed_at || item.updated_at || item.initiation_date || "-",
+          status: item.status === "approved" ? "Approved" : "Rejected",
+          bidang: item.field?.name || item.department || "-"
+        }))
+        setRecentDecisions(mappedHistory)
+      }
+    } catch (err) {
+      console.error("Gagal mengambil data dashboard:", err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    localStorage.setItem("shared_pending_v2", JSON.stringify(pendingRequests));
-  }, [pendingRequests]);
+    fetchDashboardData()
+  }, [])
 
-  useEffect(() => {
-    localStorage.setItem("shared_decisions_v2", JSON.stringify(recentDecisions));
-  }, [recentDecisions]);
+  const handleApprove = async (dbId) => {
+    try {
+      setActionLoadingId(dbId)
+      await axios.post(`/api/changes/initiations/${dbId}/approve`)
+      await fetchDashboardData()
+    } catch (err) {
+      console.error("Gagal menyetujui permohonan:", err)
+      alert(err.response?.data?.message || "Gagal menyetujui permohonan.")
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
 
-  const handleApprove = (id) => {
-    const target = pendingRequests.find(req => req.id === id);
-    if (!target) return;
-    setPendingRequests(prev => prev.filter(req => req.id !== id));
-    setRecentDecisions(prev => [{
-      id: target.id,
-      name: target.name,
-      date: new Date().toISOString().split('T')[0],
-      status: "Approved",
-      bidang: target.bidang,
-      jenis: target.jenis,
-      catatan: "Disetujui via Dashboard."
-    }, ...prev]);
-  };
+  const handleReject = async (dbId) => {
+    try {
+      setActionLoadingId(dbId)
+      await axios.post(`/api/changes/initiations/${dbId}/reject`, {
+        reason: "Ditolak via Dashboard Team Lead"
+      })
+      await fetchDashboardData()
+    } catch (err) {
+      console.error("Gagal menolak permohonan:", err)
+      alert(err.response?.data?.message || "Gagal menolak permohonan.")
+    } finally {
+      setActionLoadingId(null)
+    }
+  }
 
-  const handleReject = (id) => {
-    const target = pendingRequests.find(req => req.id === id);
-    if (!target) return;
-    setPendingRequests(prev => prev.filter(req => req.id !== id));
-    setRecentDecisions(prev => [{
-      id: target.id,
-      name: target.name,
-      date: new Date().toISOString().split('T')[0],
-      status: "Rejected",
-      bidang: target.bidang,
-      jenis: target.jenis,
-      catatan: "Ditolak via Dashboard."
-    }, ...prev]);
-  };
-
-  const todayStr = new Date().toISOString().split('T')[0];
-  const approvedTodayCount = recentDecisions.filter(item => item.status === "Approved" && item.date === todayStr).length;
+  if (loading) {
+    return (
+      <main className="flex-1 flex items-center justify-center p-8 min-h-[400px]">
+        <div className="flex items-center gap-3 text-gray-500">
+          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+          <span className="text-sm font-medium">Memuat data dashboard...</span>
+        </div>
+      </main>
+    )
+  }
 
   return (
     <main className="flex-1 overflow-y-auto px-4 sm:px-8 py-6 md:py-8">
       <h1 className="mb-6 text-2xl md:text-3xl font-bold text-gray-900">Dashboard Team Lead</h1>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-3">
-  
-        {/* CARD 1: Menunggu Persetujuan (Dinamis) */}
+        {/* CARD 1: Menunggu Persetujuan */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col justify-between min-h-[160px]">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-amber-100 text-amber-600 rounded-xl flex items-center justify-center">
@@ -172,34 +116,29 @@ export default function DashboardTeamLead() {
           </div>
           <div className="mt-4">
             <span className="text-3xl font-bold text-gray-900 block leading-none">
-              {pendingRequests.length}
+              {summary.pending_count}
             </span>
             <span className="text-sm font-semibold text-gray-500 mt-2 block">Menunggu Persetujuan</span>
             <span className="text-xs text-gray-400 mt-1 block">Perlu ditindaklanjuti</span>
           </div>
         </div>
 
-        {/* CARD 2: Disetujui (Dinamis) */}
+        {/* CARD 2: Disetujui */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col justify-between min-h-[160px] relative">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-emerald-100 text-emerald-600 rounded-xl flex items-center justify-center">
               <Check size={20} strokeWidth={2.5} />
             </div>
-            {approvedTodayCount > 0 && (
-              <span className="absolute top-6 right-6 rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-600 border border-emerald-100">
-                +{approvedTodayCount} hari ini
-              </span>
-            )}
           </div>
           <div className="mt-4">
             <span className="text-3xl font-bold text-gray-900 block leading-none">
-              {recentDecisions.filter(item => item.status === "Approved").length}
+              {summary.approved_count}
             </span>
             <span className="text-sm font-semibold text-gray-500 mt-2 block">Disetujui</span>
           </div>
         </div>
 
-        {/* CARD 3: Ditolak (Dinamis) */}
+        {/* CARD 3: Ditolak */}
         <div className="rounded-xl border border-gray-100 bg-white p-6 shadow-sm flex flex-col justify-between min-h-[160px]">
           <div className="flex items-center justify-between">
             <div className="w-10 h-10 bg-rose-100 text-rose-600 rounded-xl flex items-center justify-center">
@@ -208,12 +147,11 @@ export default function DashboardTeamLead() {
           </div>
           <div className="mt-4">
             <span className="text-3xl font-bold text-gray-900 block leading-none">
-              {recentDecisions.filter(item => item.status === "Rejected").length}
+              {summary.rejected_count}
             </span>
             <span className="text-sm font-semibold text-gray-500 mt-2 block">Ditolak</span>
           </div>
         </div>
-
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3 mt-6">
@@ -239,7 +177,7 @@ export default function DashboardTeamLead() {
             ) : (
               pendingRequests.map((req) => (
                 <AntrianCard
-                  key={req.id}
+                  key={req.db_id}
                   id={req.id}
                   name={req.name}
                   bidang={req.bidang}
@@ -248,19 +186,21 @@ export default function DashboardTeamLead() {
                 >
                   <p className="text-xs leading-relaxed text-gray-600 mb-3">{req.desc}</p>
                   <div className="flex flex-wrap gap-2">
-                    <button 
-                      onClick={() => handleApprove(req.id)}
-                      className="rounded-lg bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-200 cursor-pointer"
+                    <button
+                      onClick={() => handleApprove(req.db_id)}
+                      disabled={actionLoadingId === req.db_id}
+                      className="rounded-lg bg-green-100 px-3 py-1.5 text-xs font-medium text-green-700 hover:bg-green-200 cursor-pointer flex items-center gap-1 disabled:opacity-50"
                     >
-                      ✓ Setujui
+                      {actionLoadingId === req.db_id ? <Loader2 className="h-3 w-3 animate-spin" /> : "✓ Setujui"}
                     </button>
-                    <button 
-                      onClick={() => handleReject(req.id)}
-                      className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-200 cursor-pointer"
+                    <button
+                      onClick={() => handleReject(req.db_id)}
+                      disabled={actionLoadingId === req.db_id}
+                      className="rounded-lg bg-red-100 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-200 cursor-pointer flex items-center gap-1 disabled:opacity-50"
                     >
-                      ✕ Tolak
+                      {actionLoadingId === req.db_id ? <Loader2 className="h-3 w-3 animate-spin" /> : "✕ Tolak"}
                     </button>
-                    <button 
+                    <button
                       onClick={() => navigate("/team-lead/permintaan-persetujuan")}
                       className="flex items-center gap-1 px-2 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-700 cursor-pointer"
                     >
@@ -278,26 +218,30 @@ export default function DashboardTeamLead() {
           <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
             <h2 className="mb-4 text-base font-bold text-gray-900">Riwayat Persetujuan Terbaru</h2>
             <div className="space-y-4">
-              {recentDecisions.slice(0, 5).map((item) => (
-                <div key={item.id} className="flex items-center justify-between border-b border-gray-50 pb-3 last:border-0 last:pb-0 gap-2">
-                  <div className="flex items-start gap-3 min-w-0">
-                    {item.status === "Approved" ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
-                    ) : (
-                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                    )}
-                    <div className="min-w-0">
-                      <p className="text-xs font-bold text-gray-900 truncate">{item.name}</p>
-                      <p className="text-[10px] text-gray-400 truncate">{item.id} · {item.date}</p>
+              {recentDecisions.length === 0 ? (
+                <p className="text-xs text-gray-400 text-center py-4">Belum ada riwayat persetujuan.</p>
+              ) : (
+                recentDecisions.slice(0, 5).map((item, idx) => (
+                  <div key={item.db_id || idx} className="flex items-center justify-between border-b border-gray-50 pb-3 last:border-0 last:pb-0 gap-2">
+                    <div className="flex items-start gap-3 min-w-0">
+                      {item.status === "Approved" ? (
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-green-500" />
+                      ) : (
+                        <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-gray-900 truncate">{item.name}</p>
+                        <p className="text-[10px] text-gray-400 truncate">{item.id} · {item.date}</p>
+                      </div>
                     </div>
+                    <span className={`rounded px-2 py-0.5 text-[10px] font-bold shrink-0 ${
+                      item.status === "Approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
+                    }`}>
+                      {item.status === "Approved" ? "Disetujui" : "Ditolak"}
+                    </span>
                   </div>
-                  <span className={`rounded px-2 py-0.5 text-[10px] font-bold shrink-0 ${
-                    item.status === "Approved" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-600"
-                  }`}>
-                    {item.status === "Approved" ? "Disetujui" : "Ditolak"}
-                  </span>
-                </div>
-              ))}
+                ))
+              )}
             </div>
           </div>
         </div>
