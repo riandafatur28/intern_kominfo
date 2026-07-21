@@ -117,3 +117,67 @@ export async function getSpreadsheetSync(params = {}) {
     const res = await client.get('/admin/wfh/spreadsheet', { params });
     return res.data.data;
 }
+
+/**
+ * Fetch WFH report recaps (paginated, scoped to admin's field).
+ * @param {Object} params - { page, per_page }
+ */
+export async function getRecaps(params = {}) {
+    const res = await client.get('/admin/wfh/recaps', { params });
+    return res.data;
+}
+
+/**
+ * Create a new WFH report recap.
+ * @param {Object} payload - { team_id, period_start, period_end }
+ */
+export async function createRecap(payload) {
+    const res = await client.post('/admin/wfh/recaps', payload);
+    return res.data;
+}
+
+/**
+ * Get recap detail with all included reports and summary.
+ * @param {number} id
+ */
+export async function getRecapDetail(id) {
+    const res = await client.get(`/admin/wfh/recaps/${id}`);
+    return res.data.data;
+}
+
+/**
+ * Submit a recap to kepala bidang for signing.
+ * @param {number} id
+ */
+export async function submitRecap(id) {
+    const res = await client.post(`/admin/wfh/recaps/${id}/submit`);
+    return res.data;
+}
+
+/**
+ * Approve a recap as kepala bidang.
+ * @param {number} id
+ */
+export async function approveRecap(id) {
+    const res = await client.post(`/admin/wfh/recaps/${id}/approve`);
+    return res.data;
+}
+
+/**
+ * Reject a recap as kepala bidang.
+ * @param {number} id
+ * @param {string} reason
+ */
+export async function rejectRecap(id, reason) {
+    const res = await client.post(`/admin/wfh/recaps/${id}/reject`, { reason });
+    return res.data;
+}
+
+/**
+ * Delete a recap (only draft status).
+ * @param {number} id
+ */
+export async function deleteRecap(id) {
+    const res = await client.delete(`/admin/wfh/recaps/${id}`);
+    return res.data;
+}

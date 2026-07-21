@@ -2,10 +2,10 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom';
 import {
     Calendar, RefreshCw, FileDown, Search, ChevronDown, Check, X,
-    Eye, MessageSquare, Download, Loader2,
+    Eye, MessageSquare, Download, Loader2, Send,
 } from 'lucide-react';
 import axios from 'axios';
-import { getMonitoringBoard, getReportDetail } from '../../api/admin';
+import { getMonitoringBoard, getReportDetail, getRecaps } from '../../api/admin';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import { wfhApi } from '../../api/wfh';
 import { useAuth } from '../../context/AuthContext';
@@ -28,17 +28,19 @@ const now = new Date();
 const day = now.getDay();
 const fri = new Date(now);
 fri.setDate(now.getDate() + ((5 - day + 7) % 7));
-function mostRecentFriday() {
+function upcomingFriday() {
     const d = new Date();
-    const diff = (d.getDay() - 5 + 7) % 7;
-    d.setDate(d.getDate() - diff);
+    const day = d.getDay();
+    // 5 = Friday. If today ≤ Friday → this week's Friday. If Saturday → next week's Friday.
+    const diff = day <= 5 ? (5 - day) : (5 - day + 7);
+    d.setDate(d.getDate() + diff);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const dd = String(d.getDate()).padStart(2, '0');
     return `${y}-${m}-${dd}`;
 }
 
-const DEFAULT_DATE = mostRecentFriday();
+const DEFAULT_DATE = upcomingFriday();
 
 function fridaysInMonth(ym) {
     if (!ym) return [];
@@ -137,6 +139,52 @@ export default function MonitorWfh() {
 
     const teamId = user?.team?.id;
     const [pdfLoading, setPdfLoading] = useState(false);
+    const [recapLoading, setRecapLoading] = useState(false);
+    const [recaps, setRecaps] = useState([]);
+    const [recapsLoading, setRecapsLoading] = useState(false);
+    const [downloadRecapId, setDownloadRecapId] = useState(null);
+
+    const handleSubmitRecap = async () => {
+        if (!teamId) return;
+        setRecapLoading(true);
+        try {
+            // Hitung period: 1 minggu dari Jumat yang dipilih
+            const startDate = new Date(date);
+            const endDate = new Date(date);
+            endDate.setDate(endDate.getDate() + 6); // Sabtu minggu itu
+
+            const fmt = (d) => d.toISOString().split('T')[0];
+
+            // Buat rekap baru
+            const createRes = await wfhApi.createRecap({
+                team_id: teamId,
+                period_start: fmt(startDate),
+                period_end: fmt(endDate),
+            });
+            const recapId = createRes.data?.data?.id;
+
+            if (!recapId) {
+                throw new Error('Gagal membuat rekap.');
+            }
+
+            // Submit rekap ke kepala bidang
+            const submitRes = await wfhApi.submitRecap(recapId);
+            if (submitRes.data?.success) {
+                setToast('Rekap laporan berhasil diajukan ke Kepala Bidang untuk TTD.');
+                fetchRecaps();
+            } else {
+                throw new Error(submitRes.data?.message || 'Gagal mengajukan rekap.');
+            }
+            setTimeout(() => setToast(''), 4000);
+        } catch (e) {
+            const msg = e.response?.data?.message || e.message || 'Gagal mengajukan rekap.';
+            setToast(msg);
+            setTimeout(() => setToast(''), 5000);
+        } finally {
+            setRecapLoading(false);
+        }
+    };
+
     const handleGeneratePdf = async () => {
         if (!teamId) return;
         setPdfLoading(true);
@@ -153,6 +201,46 @@ export default function MonitorWfh() {
             alert(msg);
         } finally {
             setPdfLoading(false);
+        }
+    };
+
+    const fetchRecaps = useCallback(async () => {
+        if (!hasPermission('wfh.monitoring.view')) return;
+        try {
+            setRecapsLoading(true);
+            const res = await getRecaps({ per_page: 50 });
+            setRecaps(res.data || []);
+        } catch (e) {
+            // silent
+        } finally {
+            setRecapsLoading(false);
+        }
+    }, [hasPermission]);
+
+    useEffect(() => { fetchRecaps() }, [fetchRecaps]);
+
+    const handleDownloadRecapPdf = async (recap) => {
+        setDownloadRecapId(recap.id);
+        try {
+            const date = recap.period_start;
+            const teamId = recap.team_id;
+            const res = await axios.get(`/api/admin/wfh/teams/${teamId}/pdf`, {
+                params: { date },
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            const teamName = recap.team?.name?.replace(/\s+/g, '-') || teamId;
+            a.download = `Rekap-WFH-${teamName}-${date}.pdf`;
+            document.body.appendChild(a); a.click(); a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
+            setToast(msg);
+            setTimeout(() => setToast(''), 5000);
+        } finally {
+            setDownloadRecapId(null);
         }
     };
 
@@ -205,6 +293,16 @@ export default function MonitorWfh() {
                         >
                             {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
                             {pdfLoading ? 'Memproses...' : 'Generate Semua PDF'}
+                        </button>
+                    )}
+                    {hasPermission('wfh.monitoring.view') && (
+                        <button
+                            onClick={handleSubmitRecap}
+                            disabled={recapLoading}
+                            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        >
+                            {recapLoading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                            {recapLoading ? 'Mengajukan...' : 'Ajukan Rekap ke Kabid'}
                         </button>
                     )}
                 </div>
@@ -403,6 +501,57 @@ export default function MonitorWfh() {
                     </button>
                 </div>
             </div>
+
+            {/* Recap List */}
+            {hasPermission('wfh.monitoring.view') && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <h2 className="text-sm font-bold text-gray-900">Rekap yang Diajukan</h2>
+                        {recapsLoading && <Loader2 size={14} className="animate-spin text-gray-400" />}
+                    </div>
+                    {recaps.length === 0 ? (
+                        <div className="p-8 text-center text-sm text-gray-400">Belum ada rekap diajukan.</div>
+                    ) : (
+                        <div className="divide-y divide-gray-50">
+                            {recaps.map((r) => {
+                                const statusMeta = {
+                                    draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
+                                    pending: { label: 'Menunggu', cls: 'bg-amber-100 text-amber-700' },
+                                    approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
+                                    rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-600' },
+                                }[r.status] || { label: r.status, cls: 'bg-gray-100 text-gray-600' };
+                                const fmt = (d) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+                                return (
+                                    <div key={r.id} className="px-5 py-4 flex items-center justify-between gap-4">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">{r.team?.name || '—'}</p>
+                                                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${statusMeta.cls}`}>{statusMeta.label}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-400">{fmt(r.period_start)} — {fmt(r.period_end)}</p>
+                                            {r.admin && <p className="text-xs text-gray-400">Dibuat oleh: {r.admin.name}</p>}
+                                        </div>
+                                        <div className="shrink-0">
+                                            {r.status === 'approved' ? (
+                                                <button
+                                                    onClick={() => handleDownloadRecapPdf(r)}
+                                                    disabled={downloadRecapId === r.id}
+                                                    className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+                                                >
+                                                    {downloadRecapId === r.id ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                                                    Unduh
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-gray-400 italic">Menunggu TTD</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 bg-amber-500 text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg max-w-sm">

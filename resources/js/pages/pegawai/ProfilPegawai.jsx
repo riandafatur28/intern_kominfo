@@ -1,39 +1,29 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Hash, Building2, Briefcase, ShieldCheck, Upload, Save, Camera, Loader2 } from 'lucide-react';
-import { SkeletonLine, SkeletonBlock } from '../../components/ui/Skeleton';
+import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera } from 'lucide-react';
+import { getProfile, updateProfile, changePassword, uploadPhoto, uploadSignature } from '../../api/profile';
+import { SkeletonCard, SkeletonLine } from '../../components/ui/Skeleton';
 import { useAuth } from '../../context/AuthContext';
-import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
 
-/* ---------------- Info row (profile card) ---------------- */
-function InfoRow({ icon: Icon, label, value }) {
-    return (
-        <div className="flex items-start gap-3">
-            <Icon size={16} className="text-gray-400 mt-0.5 shrink-0" />
-            <div className="min-w-0">
-                <p className="text-xs text-gray-400">{label}</p>
-                <p className="text-sm font-bold text-gray-800 break-words">{value}</p>
-            </div>
-        </div>
-    );
+const ROLE_LABELS = {
+    admin: 'WFH Admin',
+    kepala_tim: 'Kepala Tim',
+    staf: 'Staf',
+    pegawai: 'Pegawai',
+};
+
+function roleLabel(roles = []) {
+    if (!roles.length) return '-';
+    return ROLE_LABELS[roles[0]] ?? roles[0];
 }
 
-const fieldCls =
-    'w-full px-4 py-2.5 border border-gray-200 rounded-lg text-sm text-gray-700 outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500 transition-all';
-
-function Field({ label, value, onChange, type = 'text', placeholder = '', readOnly = false, error }) {
+function initialsOf(name = '') {
     return (
-        <div>
-            <label className="block text-sm text-gray-600 mb-1.5">{label}</label>
-            <input
-                type={type}
-                value={value}
-                onChange={onChange}
-                placeholder={placeholder}
-                readOnly={readOnly}
-                className={`${fieldCls} ${readOnly ? 'bg-gray-50 text-gray-500 cursor-not-allowed' : ''} ${error ? 'border-red-300' : ''}`}
-            />
-            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
-        </div>
+        name
+            .split(' ')
+            .map((s) => s[0])
+            .join('')
+            .toUpperCase()
+            .slice(0, 2) || 'U'
     );
 }
 
@@ -41,90 +31,110 @@ export default function ProfilPegawai() {
     const { user: authUser, fetchUser } = useAuth();
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [toast, setToast] = useState(null); // { type, message }
+    const [error, setError] = useState('');
+    const [photoLoading, setPhotoLoading] = useState(false);
+    const [sigLoading, setSigLoading] = useState(false);
+    const sigInputRef = useRef(null);
     const photoInputRef = useRef(null);
 
-    const [form, setForm] = useState({
-        name: '', email: '', phone: '', nip: '', rank: '', position: '', field: '',
-    });
-    const setF = (k) => (v) => setForm((f) => ({ ...f, [k]: typeof v === 'function' ? v(f[k]) : v }));
+    // Toast notification
+    const [toast, setToast] = useState(null);
 
-    const [pwd, setPwd] = useState({ current: '', next: '', confirm: '' });
-    const setPwdF = (k) => (e) => setPwd((p) => ({ ...p, [k]: e.target.value }));
+    // Edit profile form
+    const [form, setForm] = useState({ name: '', email: '', phone: '', nip: '', rank: '', position: '', field: '' });
+    const [savingProfile, setSavingProfile] = useState(false);
 
-    const [photoLoading, setPhotoLoading] = useState(false);
+    // Password form
+    const [pwd, setPwd] = useState({ current_password: '', password: '', password_confirmation: '' });
+    const [savingPwd, setSavingPwd] = useState(false);
+    const [pwdErrors, setPwdErrors] = useState({});
 
-    const initials = (profile?.name || form.name || 'U')
-        .split(' ').map((s) => s[0]).join('').toUpperCase().slice(0, 2);
+    const showToast = (type, message) => {
+        setToast({ type, message });
+        setTimeout(() => setToast(null), 3500);
+    };
 
-    const roleLabel = (() => {
-        const roles = profile?.roles || authUser?.roles || [];
-        if (!roles.length) return '-';
-        const labels = { admin: 'WFH Admin', kepala_bidang: 'Kepala Bidang', kepala_tim: 'Kepala Tim', staf: 'Staf' };
-        return labels[roles[0]] || roles[0];
-    })();
+    const hydrate = (p) => {
+        setProfile(p);
+        setForm({
+            name: p.name ?? '',
+            email: p.email ?? '',
+            phone: p.phone ?? '',
+            nip: p.nip ?? '',
+            rank: p.rank ?? '',
+            position: p.position ?? '',
+            field: p.team?.field?.name ?? '',
+        });
+    };
 
     useEffect(() => {
+        setLoading(true);
         getProfile()
-            .then((p) => {
-                setProfile(p);
-                setForm({
-                    name: p.name || '',
-                    email: p.email || '',
-                    phone: p.phone || '',
-                    nip: p.nip || '',
-                    rank: p.rank || '',
-                    position: p.position || '',
-                    field: p.team?.field?.name || '',
-                });
-            })
-            .catch(() => {
-                // fallback to auth user
-                const u = authUser;
-                if (u) {
-                    setForm({
-                        name: u.name || '',
-                        email: u.email || '',
-                        phone: u.phone || '',
-                        nip: u.nip || '',
-                        rank: u.rank || '',
-                        position: u.position || '',
-                        field: u.team?.field?.name || '',
-                    });
-                }
-            })
+            .then(hydrate)
+            .catch((e) => setError(e.response?.data?.message || 'Gagal memuat profil.'))
             .finally(() => setLoading(false));
-    }, [authUser]);
+    }, []);
 
-    const handleSaveProfile = async (e) => {
+    const submitProfile = async (e) => {
         e.preventDefault();
+        setSavingProfile(true);
         try {
-            await updateProfile({ phone: form.phone, position: form.position, rank: form.rank });
+            const res = await updateProfile({
+                phone: form.phone,
+                position: form.position,
+                rank: form.rank,
+            });
+            hydrate(res.data);
+            showToast('success', res.message || 'Profil berhasil diperbarui.');
+        } catch (err) {
+            showToast('error', err.response?.data?.message || 'Gagal memperbarui profil.');
+        } finally {
+            setSavingProfile(false);
+        }
+    };
+
+    const submitPassword = async (e) => {
+        e.preventDefault();
+        setPwdErrors({});
+        setSavingPwd(true);
+        try {
+            const res = await changePassword(pwd);
+            setPwd({ current_password: '', password: '', password_confirmation: '' });
+            showToast('success', res.message || 'Password berhasil diperbarui.');
+        } catch (err) {
+            const status = err.response?.status;
+            if (status === 422) {
+                setPwdErrors(err.response.data.errors || {});
+                showToast('error', 'Periksa kembali input password Anda.');
+            } else {
+                showToast('error', err.response?.data?.message || 'Gagal memperbarui password.');
+            }
+        } finally {
+            setSavingPwd(false);
+        }
+    };
+
+    const submitSignature = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setSigLoading(true);
+        try {
+            const fd = new FormData();
+            fd.append('signature', file);
+            await uploadSignature(fd);
+            const fresh = await getProfile();
+            hydrate(fresh);
             await fetchUser?.();
-            setToast({ type: 'success', message: 'Profil berhasil diperbarui.' });
+            showToast('success', 'Tanda tangan berhasil diunggah.');
         } catch (err) {
-            setToast({ type: 'error', message: err.response?.data?.message || 'Gagal memperbarui profil.' });
+            showToast('error', err.response?.data?.message || 'Gagal mengunggah tanda tangan.');
+        } finally {
+            setSigLoading(false);
+            if (sigInputRef.current) sigInputRef.current.value = '';
         }
-        setTimeout(() => setToast(null), 3500);
     };
 
-    const handleChangePassword = async (e) => {
-        e.preventDefault();
-        if (pwd.next !== pwd.confirm) {
-            setToast({ type: 'error', message: 'Konfirmasi password tidak cocok.' });
-            return;
-        }
-        try {
-            await changePassword({ current_password: pwd.current, password: pwd.next, password_confirmation: pwd.confirm });
-            setToast({ type: 'success', message: 'Password berhasil diubah.' });
-            setPwd({ current: '', next: '', confirm: '' });
-        } catch (err) {
-            setToast({ type: 'error', message: err.response?.data?.message || 'Gagal mengubah password.' });
-        }
-        setTimeout(() => setToast(null), 3500);
-    };
-
-    const handlePhotoChange = async (e) => {
+    const submitPhoto = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
         setPhotoLoading(true);
@@ -132,195 +142,304 @@ export default function ProfilPegawai() {
             const fd = new FormData();
             fd.append('photo', file);
             await uploadPhoto(fd);
+            const fresh = await getProfile();
+            hydrate(fresh);
             await fetchUser?.();
-            setToast({ type: 'success', message: 'Foto profil berhasil diunggah.' });
+            showToast('success', 'Foto profil berhasil diunggah.');
         } catch (err) {
-            setToast({ type: 'error', message: err.response?.data?.message || 'Gagal mengunggah foto.' });
+            showToast('error', err.response?.data?.message || 'Gagal mengunggah foto profil.');
         } finally {
             setPhotoLoading(false);
+            if (photoInputRef.current) photoInputRef.current.value = '';
         }
-        setTimeout(() => setToast(null), 3500);
     };
 
     if (loading) {
         return (
-            <div className="max-w-[1200px] mx-auto space-y-6">
+            <div className="max-w-[800px] mx-auto space-y-6">
                 <div className="h-8 w-36 bg-gray-200 rounded animate-pulse" />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-4">
-                        <div className="flex flex-col items-center">
-                            <div className="w-24 h-24 rounded-full bg-gray-200 animate-pulse" />
-                            <SkeletonLine width="w-1/3" className="mt-4" />
-                            <SkeletonLine width="w-1/2" className="mt-2" />
-                        </div>
-                        <div className="space-y-3 pt-4">
-                            {Array.from({ length: 4 }).map((_, i) => (
-                                <div key={i} className="flex items-center gap-3">
-                                    <div className="w-5 h-5 bg-gray-200 rounded animate-pulse shrink-0" />
-                                    <div className="flex-1 space-y-1">
-                                        <SkeletonLine width="w-1/4" className="h-3" />
-                                        <SkeletonLine width="w-1/2" />
-                                    </div>
-                                </div>
-                            ))}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
+                    <div className="flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse shrink-0" />
+                        <div className="space-y-2 flex-1">
+                            <SkeletonLine width="w-1/3" />
+                            <SkeletonLine width="w-1/4" />
                         </div>
                     </div>
-                    <div className="space-y-6">
-                        <SkeletonBlock className="h-64" />
-                        <SkeletonBlock className="h-48" />
-                    </div>
+                    {Array.from({ length: 5 }).map((_, i) => (
+                        <div key={i} className="flex items-center gap-3">
+                            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse shrink-0" />
+                            <div className="flex-1 space-y-1">
+                                <SkeletonLine width="w-1/5" className="h-3" />
+                                <SkeletonLine width="w-1/3" />
+                            </div>
+                        </div>
+                    ))}
                 </div>
+                <SkeletonCard />
             </div>
         );
     }
 
+    if (error) {
+        return (
+            <div className="bg-red-50 border border-red-200 text-red-600 rounded-xl p-4 text-sm max-w-[1100px] mx-auto">
+                {error}
+            </div>
+        );
+    }
+
+    const p = profile;
+    const fieldName = p?.team?.field?.name ?? '-';
+    const roleTxt = roleLabel(p?.roles ?? authUser?.roles);
+
     return (
-        <div className="max-w-[1200px] mx-auto">
-            <h1 className="text-3xl font-extrabold text-gray-900">Profil Saya</h1>
+        <div className="max-w-[1100px] mx-auto space-y-6">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Profil Saya</h1>
 
-            {toast && (
-                <div className={`mt-4 p-3 rounded-lg text-sm ${
-                    toast.type === 'success'
-                        ? 'bg-green-50 border border-green-200 text-green-700'
-                        : 'bg-red-50 border border-red-200 text-red-600'
-                }`}>
-                    {toast.message}
-                </div>
-            )}
-
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-                {/* ---- Profile card ---- */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                    <div className="flex flex-col items-center text-center pb-6 border-b border-gray-100 relative">
-                        <div className="w-24 h-24 rounded-full bg-brand-500 flex items-center justify-center text-white text-3xl font-bold relative overflow-hidden">
-                            {photoLoading ? (
-                                <Loader2 size={28} className="animate-spin" />
-                            ) : (
-                                initials
-                            )}
-                            <button
-                                onClick={() => photoInputRef.current?.click()}
-                                className="absolute inset-0 bg-black/30 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity"
-                            >
-                                <Camera size={20} className="text-white" />
-                            </button>
-                        </div>
-                        <input ref={photoInputRef} type="file" accept="image/*" className="hidden" onChange={handlePhotoChange} />
-                        <h2 className="mt-4 text-lg font-bold text-gray-900">{form.name}</h2>
-                        <p className="text-sm text-gray-500">{form.position}</p>
-                        <p className="text-sm text-gray-400">{form.field}</p>
-                        {form.rank && (
-                            <span className="mt-2 inline-block bg-brand-100 text-brand-600 text-[11px] font-semibold px-3 py-1 rounded-full">
-                                {form.rank}
-                            </span>
-                        )}
-                    </div>
-
-                    <div className="pt-6 space-y-5">
-                        <InfoRow icon={Hash} label="NIP" value={form.nip} />
-                        <InfoRow icon={Building2} label="Bidang" value={form.field} />
-                        <InfoRow icon={Briefcase} label="Jabatan" value={form.position} />
-                        <InfoRow icon={ShieldCheck} label="Peran" value={roleLabel} />
-                    </div>
-                </div>
-
-                {/* ---- Edit Informasi Profil ---- */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                    <div className="pb-5 border-b border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-900">Edit Informasi Profil</h2>
-                        <p className="text-xs text-gray-400 mt-0.5">Perbarui Data Profil Anda</p>
-                    </div>
-                    <form onSubmit={handleSaveProfile} className="pt-6">
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-5">
-                            <Field label="Nama Lengkap" value={form.name} readOnly />
-                            <Field label="Email Dinas" value={form.email} readOnly />
-                            <Field label="No Telpon" value={form.phone} onChange={(e) => setF('phone')(e.target.value)} />
-                            <Field label="NIP" value={form.nip} readOnly />
-                            <Field label="Pangkat/Golongan" value={form.rank} onChange={(e) => setF('rank')(e.target.value)} />
-                            <Field label="Jabatan" value={form.position} onChange={(e) => setF('position')(e.target.value)} />
-                            <Field label="Bidang/Unit Kerja" value={form.field} readOnly />
-                            <div className="flex items-end justify-end">
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Left: Profile summary card */}
+                <div className="lg:col-span-5">
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 h-full">
+                        <div className="flex flex-col items-center text-center pb-6">
+                            <div className="relative w-24 h-24">
+                                {p?.photo_url ? (
+                                    <img src={p.photo_url} alt="Foto profil" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-100" />
+                                ) : (
+                                    <div className="w-24 h-24 rounded-full bg-indigo-500 flex items-center justify-center text-white text-3xl font-bold">
+                                        {initialsOf(p?.name)}
+                                    </div>
+                                )}
                                 <button
-                                    type="submit"
-                                    className="flex items-center gap-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+                                    onClick={() => photoInputRef.current?.click()}
+                                    disabled={photoLoading}
+                                    className="absolute -bottom-1 -right-1 w-8 h-8 bg-white rounded-full flex items-center justify-center shadow-md border border-gray-200 hover:bg-gray-50 transition-colors disabled:opacity-60"
+                                    title="Ubah foto profil"
                                 >
-                                    <Save size={16} />
-                                    Simpan
+                                    {photoLoading ? (
+                                        <Loader2 size={14} className="animate-spin text-indigo-500" />
+                                    ) : (
+                                        <Camera size={14} className="text-gray-500" />
+                                    )}
                                 </button>
+                                <input
+                                    ref={photoInputRef}
+                                    type="file"
+                                    accept="image/jpg,image/jpeg,image/png"
+                                    className="hidden"
+                                    onChange={submitPhoto}
+                                    disabled={photoLoading}
+                                />
                             </div>
+                            <h2 className="mt-4 text-lg font-bold text-gray-900">{p?.name}</h2>
+                            <p className="text-sm text-gray-500">{p?.position || 'Pegawai'}</p>
+                            <p className="text-sm text-gray-400">{fieldName}</p>
+                            {p?.rank && (
+                                <span className="mt-2 inline-block bg-indigo-100 text-indigo-500 text-[11px] font-semibold px-3 py-1 rounded-full">
+                                    {p.rank}
+                                </span>
+                            )}
                         </div>
-                    </form>
+
+                        <div className="border-t border-gray-100 pt-5 space-y-4">
+                            <InfoRow icon={Hash} label="NIP" value={`NIP. ${p?.nip || '-'}`} />
+                            <InfoRow icon={Building2} label="Bidang" value={fieldName} />
+                            <InfoRow icon={Briefcase} label="Jabatan" value={p?.position || '-'} />
+                            <InfoRow icon={MapPin} label="Peran" value={roleTxt} />
+                        </div>
+                    </div>
                 </div>
 
-                {/* ---- Keamanan Akun ---- */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                    <div className="pb-5 border-b border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-900">Keamanan Akun</h2>
-                        <p className="text-xs text-gray-400 mt-0.5">Pengaturan Password dan Keamanan</p>
-                    </div>
-                    <form onSubmit={handleChangePassword}>
-                        <div className="pt-6 space-y-5">
-                            <Field label="Password Lama" value={pwd.current} onChange={setPwdF('current')} type="password" />
-                            <Field label="Password Baru" value={pwd.next} onChange={setPwdF('next')} type="password" />
-                            <Field label="Konfirmasi Password" value={pwd.confirm} onChange={setPwdF('confirm')} type="password" />
-                            <button
-                                type="submit"
-                                className="w-full flex items-center justify-center gap-2 bg-brand-500 hover:bg-brand-600 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
-                            >
-                                <Save size={16} />
-                                Ubah Password
-                            </button>
+                {/* Right: Edit Informasi Profil */}
+                <div className="lg:col-span-7">
+                    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 h-full">
+                        <div className="mb-5">
+                            <h2 className="text-lg font-bold text-gray-900">Edit Informasi Profil</h2>
+                            <p className="text-xs text-gray-400">Perbarui Data Profil Anda</p>
                         </div>
-                    </form>
-                </div>
 
-                {/* ---- Tanda Tangan Digital ---- */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-8">
-                    <div className="pb-5 border-b border-gray-100">
-                        <h2 className="text-lg font-bold text-gray-900">Tanda Tangan Digital</h2>
-                        <p className="text-xs text-gray-400 mt-0.5">Digunakan Otomatis dalam PDF</p>
-                    </div>
-                    <div className="pt-6">
-                        {profile?.signature_path ? (
-                            <img src={profile.signature_path} alt="Tanda Tangan" className="max-h-32 border border-gray-100 rounded-lg mb-4" />
-                        ) : (
-                            <div className="border-2 border-dashed border-gray-200 rounded-xl bg-gray-50/60 h-40 flex flex-col items-center justify-center gap-2">
-                                <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center">
-                                    <Upload size={18} className="text-gray-400" />
+                        <form onSubmit={submitProfile}>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+                                <Field label="Nama Lengkap" value={form.name} readOnly />
+                                <Field label="Email Dinas" value={form.email} readOnly />
+                                <Field
+                                    label="No Telpon"
+                                    value={form.phone}
+                                    onChange={(v) => setForm((f) => ({ ...f, phone: v }))}
+                                    placeholder="Masukkan no telpon"
+                                />
+                                <Field label="NIP" value={form.nip} readOnly />
+                                <Field
+                                    label="Pangkat/Golongan"
+                                    value={form.rank}
+                                    onChange={(v) => setForm((f) => ({ ...f, rank: v }))}
+                                    placeholder="Masukkan pangkat/golongan"
+                                />
+                                <Field
+                                    label="Jabatan"
+                                    value={form.position}
+                                    onChange={(v) => setForm((f) => ({ ...f, position: v }))}
+                                    placeholder="Masukkan jabatan"
+                                />
+                                <Field label="Bidang/Unit Kerja" value={form.field} readOnly />
+                                <div className="flex items-end justify-end">
+                                    <button
+                                        type="submit"
+                                        disabled={savingProfile}
+                                        className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+                                    >
+                                        {savingProfile && <Loader2 size={15} className="animate-spin" />}
+                                        Simpan Perubahan
+                                    </button>
                                 </div>
-                                <p className="text-sm text-gray-400">Belum ada tanda tangan</p>
                             </div>
-                        )}
-                        <button
-                            onClick={() => document.getElementById('signature-input')?.click()}
-                            className="mt-4 flex items-center gap-2 border border-gray-200 text-sm font-semibold text-gray-700 px-4 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
-                        >
-                            <Upload size={16} />
-                            {profile?.signature_path ? 'Ganti Tanda Tangan' : 'Upload Tanda Tangan'}
-                        </button>
-                        <input id="signature-input" type="file" accept="image/*" className="hidden"
-                            onChange={async (e) => {
-                                const file = e.target.files?.[0];
-                                if (!file) return;
-                                try {
-                                    const fd = new FormData();
-                                    fd.append('photo', file);
-                                    await uploadPhoto(fd);
-                                    const p = await getProfile();
-                                    setProfile(p);
-                                    setToast({ type: 'success', message: 'Tanda tangan berhasil diunggah.' });
-                                } catch (err) {
-                                    setToast({ type: 'error', message: 'Gagal mengunggah tanda tangan.' });
-                                }
-                                setTimeout(() => setToast(null), 3500);
-                            }}
-                        />
-                        <p className="text-xs text-gray-400 mt-3 leading-relaxed">
-                            Format: JPG/PNG dengan latar belakang putih. Tanda tangan ini akan otomatis muncul pada laporan PDF
-                        </p>
+                        </form>
                     </div>
                 </div>
             </div>
+
+            {/* Tanda Tangan Digital */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="mb-5">
+                    <h2 className="text-lg font-bold text-gray-900">Tanda Tangan Digital (TTD)</h2>
+                    <p className="text-xs text-gray-400">Upload TTD untuk validasi laporan dan rekap</p>
+                </div>
+                <div className="flex flex-col sm:flex-row items-center gap-6">
+                    <div className="relative shrink-0">
+                        {p?.signature_url ? (
+                            <img
+                                src={p.signature_url}
+                                alt="Tanda Tangan"
+                                className="w-48 h-24 object-contain border border-gray-200 rounded-xl bg-white"
+                            />
+                        ) : (
+                            <div className="w-48 h-24 rounded-xl bg-gray-50 flex items-center justify-center border border-dashed border-gray-300">
+                                <p className="text-xs text-gray-400 text-center px-2">Belum upload TTD</p>
+                            </div>
+                        )}
+                        {sigLoading && (
+                            <div className="absolute inset-0 bg-black/30 rounded-xl flex items-center justify-center">
+                                <Loader2 size={20} className="animate-spin text-white" />
+                            </div>
+                        )}
+                    </div>
+                    <div className="text-center sm:text-left">
+                        <p className="text-sm text-gray-700 mb-1">Upload gambar tanda tangan Anda</p>
+                        <p className="text-xs text-gray-400 mb-3">Format: PNG/JPG, maks 2MB, latar belakang transparan</p>
+                        <button
+                            onClick={() => sigInputRef.current?.click()}
+                            disabled={sigLoading}
+                            className="inline-flex items-center gap-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 transition-colors cursor-pointer"
+                        >
+                            {sigLoading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
+                            {p?.signature_url ? 'Ganti TTD' : 'Upload TTD'}
+                        </button>
+                        <input
+                            ref={sigInputRef}
+                            type="file"
+                            accept="image/png,image/jpeg"
+                            className="hidden"
+                            onChange={submitSignature}
+                            disabled={sigLoading}
+                        />
+                    </div>
+                </div>
+            </div>
+
+            {/* Keamanan Akun */}
+            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
+                <div className="mb-5">
+                    <h2 className="text-lg font-bold text-gray-900">Keamanan Akun</h2>
+                    <p className="text-xs text-gray-400">Pengaturan Password dan Keamanan</p>
+                </div>
+
+                <form onSubmit={submitPassword}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
+                        <Field
+                            label="Password Lama"
+                            type="password"
+                            value={pwd.current_password}
+                            onChange={(v) => setPwd((s) => ({ ...s, current_password: v }))}
+                            placeholder="••••••••"
+                            error={pwdErrors.current_password?.[0]}
+                        />
+                        <Field
+                            label="Konfirmasi Password"
+                            type="password"
+                            value={pwd.password_confirmation}
+                            onChange={(v) => setPwd((s) => ({ ...s, password_confirmation: v }))}
+                            placeholder="••••••••"
+                        />
+                        <Field
+                            label="Password Baru"
+                            type="password"
+                            value={pwd.password}
+                            onChange={(v) => setPwd((s) => ({ ...s, password: v }))}
+                            placeholder="••••••••"
+                            error={pwdErrors.password?.[0]}
+                        />
+                        <div className="flex items-end justify-end">
+                            <button
+                                type="submit"
+                                disabled={savingPwd}
+                                className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
+                            >
+                                {savingPwd && <Loader2 size={15} className="animate-spin" />}
+                                Perbarui Password
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            {/* Toast */}
+            {toast && (
+                <div
+                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
+                        toast.type === 'success'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-red-600 text-white'
+                    }`}
+                >
+                    {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                    {toast.message}
+                </div>
+            )}
+        </div>
+    );
+}
+
+function InfoRow({ icon: Icon, label, value }) {
+    return (
+        <div className="flex items-start gap-3">
+            <Icon size={16} className="text-gray-400 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+                <p className="text-xs text-gray-400">{label}</p>
+                <p className="text-sm font-semibold text-gray-800 break-words">{value}</p>
+            </div>
+        </div>
+    );
+}
+
+function Field({ label, value, onChange, readOnly = false, type = 'text', placeholder = '', error }) {
+    return (
+        <div>
+            <label className="block text-sm text-gray-600 mb-1.5">{label}</label>
+            <input
+                type={type}
+                value={value}
+                readOnly={readOnly}
+                onChange={onChange ? (e) => onChange(e.target.value) : undefined}
+                placeholder={placeholder}
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors ${
+                    error ? 'border-red-300' : 'border-gray-200'
+                } ${
+                    readOnly
+                        ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
+                        : 'bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
+                }`}
+            />
+            {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         </div>
     );
 }

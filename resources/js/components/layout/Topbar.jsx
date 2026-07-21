@@ -5,16 +5,24 @@ import { useAuth } from '../../context/AuthContext';
 
 const PAGE_LABELS = {
     '/dashboard': 'Dashboard',
-    '/status-laporan': 'Status Laporan',
-    '/monitor-wfh': 'Monitor WFH',
-    '/spreadsheet': 'Google Spreadsheet',
-    '/profil': 'Profil Saya',
     '/absensi-wfh': 'Absensi WFH',
     '/laporan-kegiatan': 'Laporan Kegiatan',
+    '/status-laporan': 'Status Laporan',
+    '/monitor-wfh': 'Monitor WFH',
+    '/profil': 'Profil Saya',
+    '/manajemen-pengguna': 'Manajemen Pengguna',
+    '/manajemen-role': 'Manajemen Role',
+    '/spreadsheet': 'Google Spreadsheet',
     '/inisiasi-perubahan': 'Inisiasi Perubahan',
+    '/change-dashboard': 'Dashboard Perubahan',
+    '/arsip': 'Arsip',
+    '/manajemen-inisiasi': 'Monitoring Inisiasi',
     '/team-lead/dashboard': 'Dashboard',
     '/team-lead/permintaan-persetujuan': 'Permintaan Persetujuan',
     '/team-lead/profil': 'Profil Saya',
+    '/kepala-bidang/dashboard': 'Dashboard',
+    '/kepala-bidang/persetujuan-laporan': 'Persetujuan Laporan',
+    '/kepala-bidang/profil': 'Profil Saya',
 };
 
 const PEGAWAI_ROLES = ['pegawai', 'staf'];
@@ -26,7 +34,9 @@ export default function Topbar({ collapsed, onToggle, onMobileMenu }) {
     const roleKey = user?.roles?.[0];
     const section = roleKey === 'kepala_tim'
         ? 'Kepala Tim'
-        : (PEGAWAI_ROLES.includes(roleKey) ? 'Pegawai' : 'Admin WFH');
+        : roleKey === 'kepala_bidang'
+            ? 'Kepala Bidang'
+            : (PEGAWAI_ROLES.includes(roleKey) ? 'Pegawai' : 'Admin WFH');
     const page = PAGE_LABELS[location.pathname] ?? 'Dashboard';
     const crumbs = ['Beranda', section, page];
 

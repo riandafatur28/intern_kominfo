@@ -1,4 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
+
+function upcomingFriday() {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day <= 5 ? (5 - day) : (5 - day + 7);
+    d.setDate(d.getDate() + diff);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+}
 import { Calendar, ImageIcon, Plus, Trash2, Check, X, Loader2 } from 'lucide-react';
 import { SkeletonCard } from '../../components/ui/Skeleton';
 import { wfhApi } from '../../api/wfh';
@@ -118,10 +129,11 @@ export default function AbsensiWfh() {
     const doneCount = Object.values(sessions).filter((s) => s.status === 'hadir').length;
     const percent = SESSION_KEYS.length > 0 ? Math.round((doneCount / SESSION_KEYS.length) * 100) : 0;
 
-    const today = new Date().toLocaleDateString('id-ID', {
+    const todayStr = upcomingFriday();
+    const fridayDate = new Date(todayStr + 'T00:00:00');
+    const today = fridayDate.toLocaleDateString('id-ID', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
-    const todayStr = new Date().toISOString().slice(0, 10);
 
     // Load existing attendance on mount
     useEffect(() => {

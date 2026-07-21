@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, ClipboardCheck, FileClock, CheckCircle2, UserPlus, Calendar } from 'lucide-react';
+import { Users, ClipboardCheck, FileClock, CheckCircle2, Calendar } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard';
-import TambahPenggunaModal from '../../components/admin/TambahPenggunaModal';
 import { SkeletonCard, SkeletonBlock } from '../../components/ui/Skeleton';
 import { useAuth } from '../../context/AuthContext';
 
@@ -160,7 +159,6 @@ export default function DashboardAdmin() {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [showTambah, setShowTambah] = useState(false);
     const [toast, setToast] = useState('');
     const navigate = useNavigate();
 
@@ -173,13 +171,6 @@ export default function DashboardAdmin() {
     useEffect(() => {
         loadStats();
     }, []);
-
-    const handleUserCreated = () => {
-        setToast('Pengguna berhasil ditambahkan.');
-        setLoading(true);
-        loadStats();
-        setTimeout(() => setToast(''), 3500);
-    };
 
     if (loading) {
         return (
@@ -212,15 +203,7 @@ export default function DashboardAdmin() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Dashboard Admin</h1>
-                {hasPermission('user.create') && (
-                    <button
-                        onClick={() => setShowTambah(true)}
-                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-                    >
-                        <UserPlus size={16} />
-                        Tambah Pengguna
-                    </button>
-                )}
+
             </div>
 
             {/* Stat Cards */}
@@ -290,11 +273,7 @@ export default function DashboardAdmin() {
                 </button>
             </div>
 
-            <TambahPenggunaModal
-                open={showTambah}
-                onClose={() => setShowTambah(false)}
-                onSuccess={handleUserCreated}
-            />
+
 
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg">

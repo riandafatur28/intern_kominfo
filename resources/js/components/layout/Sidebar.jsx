@@ -1,52 +1,71 @@
-import React, { useState } from 'react';
+import React, { useState, Fragment } from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow, Users, History, CheckSquare, Shield } from 'lucide-react';
+
+const FITUR_INDIVIDU = 'Fitur Individu';
+const MANAJEMEN = 'Manajemen';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { assetUrl } from '../../utils/url';
 
+const withSection = (items, section) => items.map(i => ({ ...i, section }));
+
 const ADMIN_NAV = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: null },
-    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
-    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
-    { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
-    { to: '/manajemen-pengguna', icon: Users, label: 'Manajemen Pengguna', perm: 'user.manage' },
-    { to: '/manajemen-role', icon: Shield, label: 'Manajemen Role', perm: 'role.manage' },
-    { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet', perm: 'wfh.monitoring.view' },
-    { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
-    { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
-    { to: '/profil', icon: User, label: 'Profil Saya', perm: null },
+    ...withSection([
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: null },
+        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+        { to: '/profil', icon: User, label: 'Profil Saya', perm: null },
+    ], FITUR_INDIVIDU),
+    ...withSection([
+        { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
+        { to: '/manajemen-pengguna', icon: Users, label: 'Manajemen Pengguna', perm: 'user.manage' },
+        { to: '/manajemen-role', icon: Shield, label: 'Manajemen Role', perm: 'role.manage' },
+        { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet', perm: 'wfh.monitoring.view' },
+        { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
+        { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
+    ], MANAJEMEN),
 ];
 
 const PEGAWAI_NAV = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: null },
-    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
-    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
-    { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan', perm: 'change.initiation.create' },
-    { to: '/profil', icon: User, label: 'Profil Saya', perm: null },
+    ...withSection([
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: null },
+        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+        { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan', perm: 'change.initiation.create' },
+        { to: '/profil', icon: User, label: 'Profil Saya', perm: null },
+    ], FITUR_INDIVIDU),
 ];
 
 const TEAM_LEAD_NAV = [
-    { to: '/team-lead/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'change.initiation.view' },
-    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
-    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
-    { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan', perm: 'change.initiation.create' },
-    { to: '/team-lead/permintaan-persetujuan', icon: CheckSquare, label: 'Permintaan Persetujuan', perm: 'change.initiation.approve' },
-    { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
-    { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
-    { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
-    { to: '/team-lead/profil', icon: User, label: 'Profil Saya', perm: null },
+    ...withSection([
+        { to: '/team-lead/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'change.initiation.view' },
+        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+        { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan', perm: 'change.initiation.create' },
+        { to: '/team-lead/profil', icon: User, label: 'Profil Saya', perm: null },
+    ], FITUR_INDIVIDU),
+    ...withSection([
+        { to: '/team-lead/permintaan-persetujuan', icon: CheckSquare, label: 'Permintaan Persetujuan', perm: 'change.initiation.approve' },
+        { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
+        { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
+        { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
+    ], MANAJEMEN),
 ];
 
 const KEPALA_BIDANG_NAV = [
-    { to: '/kepala-bidang/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'wfh.monitoring.view' },
-    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
-    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
-    { to: '/kepala-bidang/persetujuan-laporan', icon: FileText, label: 'Persetujuan Laporan', perm: 'wfh.report.approve' },
-    { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
-    { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
-    { to: '/kepala-bidang/profil', icon: User, label: 'Profil Saya', perm: null },
+    ...withSection([
+        { to: '/kepala-bidang/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'wfh.monitoring.view' },
+        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+        { to: '/kepala-bidang/profil', icon: User, label: 'Profil Saya', perm: null },
+    ], FITUR_INDIVIDU),
+    ...withSection([
+        { to: '/kepala-bidang/persetujuan-laporan', icon: FileText, label: 'Persetujuan Laporan', perm: 'wfh.report.approve' },
+        { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
+        { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
+    ], MANAJEMEN),
 ];
 
 const PEGAWAI_ROLES = ['pegawai', 'staf'];
@@ -131,24 +150,34 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                     )}
                 </div>
 
-                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
-                    {navItems.map(({ to, icon: Icon, label }) => (
-                        <NavLink
-                            key={to}
-                            to={to}
-                            onClick={onClose}
-                            className={({ isActive }) =>
-                                `flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap ${isActive
-                                    ? 'bg-brand-100 text-brand-600 font-bold'
-                                    : 'text-text-secondary hover:bg-gray-50 font-medium'
-                                } ${showMini ? 'justify-center px-0' : ''}`
-                            }
-                            title={showMini ? label : undefined}
-                        >
-                            <Icon size={20} strokeWidth={2} className="shrink-0" />
-                            {!showMini && <span>{label}</span>}
-                        </NavLink>
-                    ))}
+                <nav className="flex-1 px-4 py-6 overflow-y-auto">
+                    {navItems.map(({ to, icon: Icon, label, section }, idx) => {
+                        // show section header before first item of each new section
+                        const showHeader = idx === 0 || navItems[idx - 1].section !== section;
+                        return (
+                            <Fragment key={to}>
+                                {showHeader && !showMini && (
+                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest px-4 pt-4 pb-1.5">
+                                        {section}
+                                    </p>
+                                )}
+                                <NavLink
+                                    to={to}
+                                    onClick={onClose}
+                                    className={({ isActive }) =>
+                                        `flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap ${isActive
+                                            ? 'bg-brand-100 text-brand-600 font-bold'
+                                            : 'text-text-secondary hover:bg-gray-50 font-medium'
+                                        } ${showMini ? 'justify-center px-0' : ''}`
+                                    }
+                                    title={showMini ? label : undefined}
+                                >
+                                    <Icon size={20} strokeWidth={2} className="shrink-0" />
+                                    {!showMini && <span>{label}</span>}
+                                </NavLink>
+                            </Fragment>
+                        );
+                    })}
                 </nav>
 
                 <div className="p-6 border-t border-sidebar-border mt-auto">

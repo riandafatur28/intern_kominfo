@@ -36,3 +36,14 @@ export async function uploadPhoto(formData) {
     });
     return res.data;
 }
+
+/**
+ * Upload/replace the current user's signature (TTD).
+ * @param {FormData} formData - must contain a 'signature' file field
+ */
+export async function uploadSignature(formData) {
+    const res = await axios.post('/api/profile/signature', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+}

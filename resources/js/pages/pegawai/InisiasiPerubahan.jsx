@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, ChevronDown, Pencil, Loader2, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { Calendar, ChevronDown, Pencil, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import { changesApi } from '../../api/changes';
+import client from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
 /* ---------------- Reusable field bits ---------------- */
@@ -68,7 +69,6 @@ export default function InisiasiPerubahan() {
     const [impl, setImpl] = useState({
         initiationId: '',
         tanggal: '',
-        halaman: '',
         tipe: [],
         prioritas: 'Normal',
         dampak: 'Minor',
@@ -82,8 +82,10 @@ export default function InisiasiPerubahan() {
         evalBidang: '',
         evalJabatan: '',
     });
-    const [approvedList, setApprovedList] = useState([]);
     const [submittingImpl, setSubmittingImpl] = useState(false);
+    const [showImplModal, setShowImplModal] = useState(false);
+    const [selectedImplInitiation, setSelectedImplInitiation] = useState(null);
+    const [teamMembers, setTeamMembers] = useState([]);
     const [toast, setToast] = useState(null);
 
     const showToast = (type, message) => {
@@ -143,26 +145,34 @@ export default function InisiasiPerubahan() {
         tipe: f.tipe.includes(t) ? f.tipe.filter((x) => x !== t) : [...f.tipe, t],
     }));
 
-    const fetchApproved = useCallback(async () => {
+    const todayDate = () => new Date().toISOString().split('T')[0];
+
+    const resetImpl = () => setImpl({
+        initiationId: '', tanggal: todayDate(), tipe: [],
+        prioritas: 'Normal', dampak: 'Minor', dampakProduksi: '', upaya: '',
+        kebutuhanBiaya: 'Tidak', jumlahBiaya: '', sumberDaya: '',
+        rencanaPengujian: '', evalNama: '', evalBidang: '', evalJabatan: '',
+    });
+
+    const openImplModal = async (initiation) => {
+        setSelectedImplInitiation(initiation);
+        resetImpl();
+        setShowImplModal(true);
+        // fetch team members (filter by field di backend)
         try {
-            const res = await changesApi.getInitiations({ per_page: 100, status: 'approved' });
-            setApprovedList(res.data?.data ?? []);
-        } catch {
-            setApprovedList([]);
-        }
-    }, []);
+            const res = await client.get('/team-members');
+            setTeamMembers(res.data || []);
+        } catch { setTeamMembers([]); }
+    };
 
-    useEffect(() => {
-        if (tab === 'implementasi') fetchApproved();
-    }, [tab, fetchApproved]);
+    const closeImplModal = () => {
+        setShowImplModal(false);
+        setSelectedImplInitiation(null);
+    };
 
-    const matchedInitiation = approvedList.find(
-        (i) => String(i.field_id) === String(user?.team?.field?.id)
-    ) ?? null;
-
-    const submitImplementasi = async (e, isDraft) => {
+    const submitImplementasiModal = async (e, isDraft) => {
         e.preventDefault();
-        if (!matchedInitiation) return showToast('error', 'Belum ada inisiasi yang disetujui untuk bidang ini.');
+        if (!selectedImplInitiation) return showToast('error', 'Pilih inisiasi terlebih dahulu.');
         if (impl.kebutuhanBiaya === 'Ada' && !impl.jumlahBiaya) return showToast('error', 'Isi jumlah biaya.');
 
         setSubmittingImpl(true);
@@ -177,7 +187,7 @@ export default function InisiasiPerubahan() {
                 resources: impl.sumberDaya || null,
                 test_plan: impl.rencanaPengujian || null,
             };
-            const res = await changesApi.createImplementation(matchedInitiation.id, payload);
+            const res = await changesApi.createImplementation(selectedImplInitiation.id, payload);
             const createdId = res.data?.data?.id;
             if (!isDraft && createdId) {
                 await changesApi.submitImplementation(createdId);
@@ -185,12 +195,7 @@ export default function InisiasiPerubahan() {
             } else {
                 showToast('success', 'Implementasi berhasil disimpan sebagai draf.');
             }
-            setImpl({
-                initiationId: '', tanggal: '', halaman: '', tipe: [],
-                prioritas: 'Normal', dampak: 'Minor', dampakProduksi: '', upaya: '',
-                kebutuhanBiaya: 'Tidak', jumlahBiaya: '', sumberDaya: '',
-                rencanaPengujian: '', evalNama: '', evalBidang: '', evalJabatan: '',
-            });
+            closeImplModal();
         } catch (err) {
             showToast('error', err.response?.data?.message || Object.values(err.response?.data?.errors ?? {})[0]?.[0] || 'Gagal menyimpan implementasi.');
         } finally {
@@ -199,6 +204,17 @@ export default function InisiasiPerubahan() {
     };
 
     const setImplField = (k) => (e) => setImpl((f) => ({ ...f, [k]: e.target.value }));
+
+    const handleEvalNameChange = (e) => {
+        const userId = e.target.value;
+        const selected = teamMembers.find((m) => String(m.id) === userId);
+        setImpl((f) => ({
+            ...f,
+            evalNama: userId,
+            evalBidang: selected?.team?.field?.name || '',
+            evalJabatan: selected?.position || '',
+        }));
+    };
 
     if (pageLoading) {
         return (
@@ -258,16 +274,7 @@ export default function InisiasiPerubahan() {
                 >
                     Form Permohonan
                 </button>
-                <button
-                    onClick={() => setTab('implementasi')}
-                    className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
-                        tab === 'implementasi'
-                            ? 'bg-brand-100 text-brand-700 border-brand-200'
-                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                    Implementasi
-                </button>
+
                 <button
                     onClick={() => setTab('riwayat')}
                     className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
@@ -354,149 +361,6 @@ export default function InisiasiPerubahan() {
                         )}
                     </div>
                 </form>
-            ) : tab === 'implementasi' ? (
-                <div className="mt-5 space-y-5">
-                    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                        <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
-                            Berdasarkan Inisiasi
-                        </h2>
-                        <div className="p-6 space-y-5">
-                            <div>
-                                <Label>Bidang</Label>
-                                <input value={user?.team?.field?.name || '-'} readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
-                            </div>
-                            {matchedInitiation ? (
-                                <p className="text-xs text-green-600">✓ Inisiasi disetujui: {matchedInitiation.doc_number}</p>
-                            ) : (
-                                <p className="text-xs text-amber-600">Belum ada inisiasi yang disetujui untuk bidang ini.</p>
-                            )}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                                <div>
-                                    <Label>Nomor</Label>
-                                    <input value="Otomatis dibuat sistem" readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
-                                </div>
-                                <div>
-                                    <Label>Tanggal</Label>
-                                    <div className="relative">
-                                        <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
-                                        <input type="date" value={impl.tanggal} onChange={setImplField('tanggal')} className={`${inputCls} pl-10`} />
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label>Halaman</Label>
-                                    <input value={impl.halaman} onChange={setImplField('halaman')} placeholder="Halaman" className={inputCls} />
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                        <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
-                            Evaluasi Dampak Perubahan
-                        </h2>
-                        <div className="p-6 space-y-5">
-                            <div>
-                                <Label>Tipe Perubahan</Label>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                    {['Hardware','Network','Software','Utilities','Aplikasi','Prosedur','Operating System','Personil'].map((t) => {
-                                        const active = impl.tipe.includes(t);
-                                        return (
-                                            <button type="button" key={t} onClick={() => toggleTipe(t)}
-                                                className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors text-left ${active ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                {t}
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <Label>Prioritas Perubahan</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['Normal','Emergency'].map((o) => (
-                                            <button type="button" key={o} onClick={() => setImpl((f) => ({...f, prioritas: o}))}
-                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${impl.prioritas === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                {o}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label>Dampak Perubahan</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['Minor','Mayor'].map((o) => (
-                                            <button type="button" key={o} onClick={() => setImpl((f) => ({...f, dampak: o}))}
-                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${impl.dampak === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                {o}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-                            <div>
-                                <Label>Dampak Terhadap Lingkungan Produksi</Label>
-                                <textarea value={impl.dampakProduksi} onChange={setImplField('dampakProduksi')} rows={3} className={`${inputCls} resize-none`} />
-                            </div>
-                            <div>
-                                <Label>Upaya / Tindakan yang Diperlukan</Label>
-                                <textarea value={impl.upaya} onChange={setImplField('upaya')} rows={3} className={`${inputCls} resize-none`} />
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <Label>Kebutuhan Biaya</Label>
-                                    <div className="flex flex-wrap gap-2">
-                                        {['Ada','Tidak'].map((o) => (
-                                            <button type="button" key={o} onClick={() => setImpl((f) => ({...f, kebutuhanBiaya: o, jumlahBiaya: o === 'Tidak' ? '' : f.jumlahBiaya}))}
-                                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${impl.kebutuhanBiaya === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                {o}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                                <div>
-                                    <Label>Jumlah Biaya</Label>
-                                    <input value={impl.jumlahBiaya} onChange={setImplField('jumlahBiaya')} placeholder="Rp." disabled={impl.kebutuhanBiaya !== 'Ada'} className={`${inputCls} ${impl.kebutuhanBiaya !== 'Ada' ? 'bg-gray-50 text-gray-400' : ''}`} />
-                                </div>
-                            </div>
-                            <div>
-                                <Label>Kebutuhan Sumber Daya (Personil, H/W, S/W)</Label>
-                                <textarea value={impl.sumberDaya} onChange={setImplField('sumberDaya')} rows={2} className={`${inputCls} resize-none`} />
-                            </div>
-                            <div>
-                                <Label>Penjelasan Rencana Pengujian</Label>
-                                <textarea value={impl.rencanaPengujian} onChange={setImplField('rencanaPengujian')} rows={2} className={`${inputCls} resize-none`} />
-                            </div>
-                            <div>
-                                <Label>Dievaluasi Oleh</Label>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <input value={impl.evalNama} onChange={setImplField('evalNama')} placeholder="Nama" className={inputCls} />
-                                    <input value={impl.evalBidang} onChange={setImplField('evalBidang')} placeholder="Bidang" className={inputCls} />
-                                    <input value={impl.evalJabatan} onChange={setImplField('evalJabatan')} placeholder="Jabatan" className={inputCls} />
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <div className="flex items-center gap-2 text-xs text-gray-500 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3">
-                        <span>Setelah dikirim, implementasi menunggu <b>tinjauan Team Lead</b>. Hasil implementasi, hasil pengujian, tanggal pelaksanaan &amp; rilis akan diisi oleh Team Lead pada tahap peninjauan.</span>
-                    </div>
-
-                    <div className="flex items-center justify-end gap-4 pb-4">
-                        {hasPermission('change.implementation.create') && (
-                            <button type="button" onClick={(e) => submitImplementasi(e, true)} disabled={submittingImpl}
-                                className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50">
-                                {submittingImpl ? 'Menyimpan...' : 'Simpan Draf'}
-                            </button>
-                        )}
-                        {hasPermission('change.implementation.create') && hasPermission('change.implementation.submit') && (
-                            <button type="submit" onClick={(e) => submitImplementasi(e, false)} disabled={submittingImpl}
-                                className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50">
-                                {submittingImpl && <Loader2 size={16} className="animate-spin" />}
-                                {submittingImpl ? 'Mengirim...' : 'Kirim untuk Ditinjau'}
-                            </button>
-                        )}
-                    </div>
-                </div>
             ) : (
                 <div className="mt-5">
                     <div className="flex items-center gap-4 mb-4">
@@ -522,6 +386,7 @@ export default function InisiasiPerubahan() {
                                         <th className="text-left px-6 py-5">Deskripsi</th>
                                         <th className="text-left px-6 py-5">Status</th>
                                         <th className="text-left px-6 py-5">Dokumen</th>
+                                        <th className="text-left px-6 py-5">Aksi</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -553,12 +418,184 @@ export default function InisiasiPerubahan() {
                                                     <span className="text-gray-400">-</span>
                                                 )}
                                             </td>
+                                            <td className="px-6 py-4">
+                                                {r.status === 'approved' && hasPermission('change.implementation.create') ? (
+                                                    <button onClick={() => openImplModal(r)}
+                                                        className="text-brand-500 hover:underline cursor-pointer text-sm font-semibold">
+                                                        Buat Implementasi
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-gray-400">-</span>
+                                                )}
+                                            </td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* Modal Implementasi */}
+            {showImplModal && (
+                <div className="fixed inset-0 z-40 flex items-start justify-center pt-10 pb-10 bg-black/40" onClick={closeImplModal}>
+                    <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
+                        <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-2xl">
+                            <h2 className="text-base font-bold text-gray-800">Buat Implementasi</h2>
+                            <button onClick={closeImplModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                        </div>
+
+                        <div className="p-6 space-y-5">
+                            {/* Berdasarkan Inisiasi */}
+                            <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                                <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
+                                    Berdasarkan Inisiasi
+                                </h2>
+                                <div className="p-6 space-y-5">
+                                    <div>
+                                        <Label>Bidang</Label>
+                                        <input value={user?.team?.field?.name || '-'} readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
+                                    </div>
+                                    {selectedImplInitiation && (
+                                        <p className="text-xs text-green-600">
+                                            ✓ Inisiasi: {selectedImplInitiation.doc_number} — {selectedImplInitiation.description}
+                                        </p>
+                                    )}
+                                    <div>
+                                        <Label>Tanggal</Label>
+                                        <div className="relative">
+                                            <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
+                                            <input type="date" value={impl.tanggal} onChange={setImplField('tanggal')} className={`${inputCls} pl-10`} />
+                                        </div>
+                                    </div>
+                                </div>
+                            </section>
+
+                            {/* Evaluasi Dampak Perubahan */}
+                            <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                                <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
+                                    Evaluasi Dampak Perubahan
+                                </h2>
+                                <div className="p-6 space-y-5">
+                                    <div>
+                                        <Label>Tipe Perubahan</Label>
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                            {['Hardware','Network','Software','Utilities','Aplikasi','Prosedur','Operating System','Personil'].map((t) => {
+                                                const active = impl.tipe.includes(t);
+                                                return (
+                                                    <label key={t}
+                                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${active ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                        <input type="checkbox" checked={active} onChange={() => toggleTipe(t)} className="w-4 h-4 accent-white" />
+                                                        {t}
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div>
+                                            <Label>Prioritas Perubahan</Label>
+                                            <div className="flex flex-wrap gap-3">
+                                                {['Normal','Emergency'].map((o) => (
+                                                    <label key={o}
+                                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${impl.prioritas === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                        <input type="radio" name="prioritas" checked={impl.prioritas === o} onChange={() => setImpl((f) => ({...f, prioritas: o}))} className="w-4 h-4 accent-white" />
+                                                        {o}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Label>Dampak Perubahan</Label>
+                                            <div className="flex flex-wrap gap-3">
+                                                {['Minor','Mayor'].map((o) => (
+                                                    <label key={o}
+                                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${impl.dampak === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                        <input type="radio" name="dampak" checked={impl.dampak === o} onChange={() => setImpl((f) => ({...f, dampak: o}))} className="w-4 h-4 accent-white" />
+                                                        {o}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label>Dampak Terhadap Lingkungan Produksi</Label>
+                                        <textarea value={impl.dampakProduksi} onChange={setImplField('dampakProduksi')} rows={3} className={`${inputCls} resize-none`} />
+                                    </div>
+                                    <div>
+                                        <Label>Upaya / Tindakan yang Diperlukan</Label>
+                                        <textarea value={impl.upaya} onChange={setImplField('upaya')} rows={3} className={`${inputCls} resize-none`} />
+                                    </div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                                        <div>
+                                            <Label>Kebutuhan Biaya</Label>
+                                            <div className="flex flex-wrap gap-3">
+                                                {['Ada','Tidak'].map((o) => (
+                                                    <label key={o}
+                                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${impl.kebutuhanBiaya === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
+                                                        <input type="radio" name="kebutuhanBiaya" checked={impl.kebutuhanBiaya === o} onChange={() => setImpl((f) => ({...f, kebutuhanBiaya: o, jumlahBiaya: o === 'Tidak' ? '' : f.jumlahBiaya}))} className="w-4 h-4 accent-white" />
+                                                        {o}
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <Label>Jumlah Biaya</Label>
+                                            <input value={impl.jumlahBiaya} onChange={setImplField('jumlahBiaya')} placeholder="Rp." disabled={impl.kebutuhanBiaya !== 'Ada'} className={`${inputCls} ${impl.kebutuhanBiaya !== 'Ada' ? 'bg-gray-50 text-gray-400' : ''}`} />
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <Label>Kebutuhan Sumber Daya (Personil, H/W, S/W)</Label>
+                                        <textarea value={impl.sumberDaya} onChange={setImplField('sumberDaya')} rows={2} className={`${inputCls} resize-none`} />
+                                    </div>
+                                    <div>
+                                        <Label>Penjelasan Rencana Pengujian</Label>
+                                        <textarea value={impl.rencanaPengujian} onChange={setImplField('rencanaPengujian')} rows={2} className={`${inputCls} resize-none`} />
+                                    </div>
+                                    <div>
+                                        <Label>Dievaluasi Oleh</Label>
+                                        <select value={impl.evalNama} onChange={handleEvalNameChange} className={inputCls}>
+                                            <option value="">-- Pilih Nama --</option>
+                                            {teamMembers.map((m) => (
+                                                <option key={m.id} value={m.id}>{m.name}</option>
+                                            ))}
+                                        </select>
+                                        {impl.evalNama && (
+                                            <div className="mt-2 flex gap-4 text-xs text-gray-500">
+                                                <span>Bidang: <b>{impl.evalBidang || '-'}</b></span>
+                                                <span>Jabatan: <b>{impl.evalJabatan || '-'}</b></span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            </section>
+
+                            <div className="flex items-center gap-2 text-xs text-gray-500 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3">
+                                <span>Setelah dikirim, implementasi menunggu <b>tinjauan Team Lead</b>. Hasil implementasi, hasil pengujian, tanggal pelaksanaan &amp; rilis akan diisi oleh Team Lead pada tahap peninjauan.</span>
+                            </div>
+
+                            <div className="flex items-center justify-end gap-4">
+                                <button type="button" onClick={closeImplModal}
+                                    className="px-8 py-3 rounded-xl text-sm font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
+                                    Batal
+                                </button>
+                                {hasPermission('change.implementation.create') && (
+                                    <button type="button" onClick={(e) => submitImplementasiModal(e, true)} disabled={submittingImpl}
+                                        className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50">
+                                        {submittingImpl ? 'Menyimpan...' : 'Simpan Draf'}
+                                    </button>
+                                )}
+                                {hasPermission('change.implementation.create') && hasPermission('change.implementation.submit') && (
+                                    <button type="button" onClick={(e) => submitImplementasiModal(e, false)} disabled={submittingImpl}
+                                        className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50">
+                                        {submittingImpl && <Loader2 size={16} className="animate-spin" />}
+                                        {submittingImpl ? 'Mengirim...' : 'Kirim untuk Ditinjau'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 </div>
             )}

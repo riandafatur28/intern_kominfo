@@ -39,4 +39,26 @@ export const wfhApi = {
     // === PDF ===
     getReportPdf: (id) =>
         client.get(`/wfh/reports/${id}/pdf`, { responseType: 'blob' }),
+
+    // === Recap (admin → kepala bidang) ===
+    getRecaps: (params = {}) =>
+        client.get('/admin/wfh/recaps', { params }),
+
+    getRecap: (id) =>
+        client.get(`/admin/wfh/recaps/${id}`),
+
+    createRecap: (data) =>
+        client.post('/admin/wfh/recaps', data),
+
+    submitRecap: (id) =>
+        client.post(`/admin/wfh/recaps/${id}/submit`),
+
+    approveRecap: (id) =>
+        client.post(`/admin/wfh/recaps/${id}/approve`),
+
+    rejectRecap: (id, reason) =>
+        client.post(`/admin/wfh/recaps/${id}/reject`, { reason }),
+
+    deleteRecap: (id) =>
+        client.delete(`/admin/wfh/recaps/${id}`),
 };

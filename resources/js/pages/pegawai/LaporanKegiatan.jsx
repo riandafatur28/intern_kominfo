@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
@@ -145,6 +145,20 @@ export default function LaporanKegiatan() {
         }
     };
 
+    const handleDownloadPdf = async (id) => {
+        try {
+            const res = await wfhApi.getReportPdf(id);
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Laporan-WFH-${id}.pdf`;
+            document.body.appendChild(a); a.click(); a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            showToast('error', e.response?.data?.message || 'Gagal mengunduh PDF.');
+        }
+    };
+
     const handleSubmit = async (id) => {
         try {
             await wfhApi.submitReport(id);
@@ -245,6 +259,11 @@ export default function LaporanKegiatan() {
                                                         <Send size={17} />
                                                     </button>
                                                 )}
+                                                {hasPermission('wfh.report.export_pdf') && (
+                                                    <button onClick={() => handleDownloadPdf(r.id)} className="text-indigo-500 hover:text-indigo-600 transition-colors" title="Cetak Laporan">
+                                                        <FileDown size={17} />
+                                                    </button>
+                                                )}
                                                 {hasPermission('wfh.report.delete') && (
                                                     <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-600 transition-colors" title="Hapus">
                                                         <Trash2 size={17} />
@@ -292,6 +311,11 @@ export default function LaporanKegiatan() {
                                             <Send size={15} /> Kirim
                                         </button>
                                     </div>
+                                )}
+                                {hasPermission('wfh.report.export_pdf') && (
+                                    <button onClick={() => handleDownloadPdf(r.id)} className="flex items-center gap-1 text-indigo-500 hover:text-indigo-600 text-sm">
+                                        <FileDown size={15} /> Cetak
+                                    </button>
                                 )}
                                 {hasPermission('wfh.report.delete') && (
                                     <button onClick={() => handleDelete(r.id)} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
