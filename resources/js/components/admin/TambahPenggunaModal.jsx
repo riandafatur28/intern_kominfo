@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
-import { createUser, updateUser, getRoles, getTeams, getFields } from '../../api/admin';
+import { createUser, updateUser, getRoles, getTeams } from '../../api/admin';
 
 const roleLabels = {
     admin: 'Admin',
@@ -13,7 +13,6 @@ const emptyForm = {
     name: '',
     nip: '',
     email: '',
-    field_id: '',
     team_id: '',
     rank: '',
     position: '',
@@ -26,7 +25,6 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
     const [form, setForm] = useState(emptyForm);
     const [teams, setTeams] = useState([]);
     const [roles, setRoles] = useState([]);
-    const [fields, setFields] = useState([]);
     const [errors, setErrors] = useState({});
     const [generalError, setGeneralError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -37,23 +35,15 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
         setErrors({});
         setGeneralError('');
         setLoadingOptions(true);
-        Promise.all([getFields().catch(() => []), getRoles().catch(() => [])])
-            .then(([fieldsData, rolesData]) => {
-                // dedup by name — DB mungkin ada duplikat
-                const seen = new Set();
-                setFields((fieldsData || []).filter((f) => {
-                    if (seen.has(f.name)) return false;
-                    seen.add(f.name);
-                    return true;
-                }));
+        Promise.all([getTeams().catch(() => []), getRoles().catch(() => [])])
+            .then(([teamsData, rolesData]) => {
+                setTeams(teamsData || []);
                 setRoles(rolesData || []);
                 if (user) {
-                    // edit mode — isi form dari data user
                     setForm({
                         name: user.name || '',
                         nip: user.nip || '',
                         email: user.email || '',
-                        field_id: user.team?.field?.id || '',
                         team_id: user.team_id || '',
                         rank: user.rank || '',
                         position: user.position || '',
@@ -61,12 +51,7 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                         password: '',
                         roles: (user.roles || []).map((r) => r.name || r),
                     });
-                    // load teams kalo field_id udah ada
-                    if (user.team?.field?.id) {
-                        getTeams(user.team.field.id).then(setTeams).catch(() => setTeams([]));
-                    }
                 } else {
-                    // tambah mode — reset
                     setForm(emptyForm);
                     const staf = (rolesData || []).find((r) => r.name === 'staf');
                     if (staf) setForm((f) => ({ ...f, roles: ['staf'] }));
@@ -78,12 +63,6 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
     const setField = (key, value) => {
         setForm((f) => ({ ...f, [key]: value }));
         setErrors((e) => ({ ...e, [key]: undefined }));
-        // Reset tim ketika bidang berubah
-        if (key === 'field_id') {
-            setForm((f) => ({ ...f, team_id: '' }));
-            setTeams([]);
-            if (value) getTeams(value).then(setTeams).catch(() => setTeams([]));
-        }
     };
 
     const toggleRole = (roleName) => {
@@ -106,7 +85,7 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
             name: form.name,
             nip: form.nip,
             email: form.email,
-            team_id: form.team_id || (form.field_id && teams.length > 0 ? teams[0].id : null),
+            team_id: form.team_id || null,
             rank: form.rank || null,
             position: form.position || null,
             phone: form.phone || null,
@@ -222,25 +201,11 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                     />
                 </Field>
 
-                <Field label="Bidang" error={fieldError('field_id')}>
-                    <select
-                        value={form.field_id}
-                        onChange={(e) => setField('field_id', e.target.value)}
-                        className={inputCls(fieldError('field_id'))}
-                    >
-                        <option value="">— Pilih Bidang —</option>
-                        {fields.map((f) => (
-                            <option key={f.id} value={f.id}>{f.name}</option>
-                        ))}
-                    </select>
-                </Field>
-
                 <Field label="Tim" error={fieldError('team_id')}>
                     <select
                         value={form.team_id}
                         onChange={(e) => setField('team_id', e.target.value)}
                         className={inputCls(fieldError('team_id'))}
-                        disabled={!form.field_id}
                     >
                         <option value="">— Pilih Tim —</option>
                         {teams.map((t) => (
