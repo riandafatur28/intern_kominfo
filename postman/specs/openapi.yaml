@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 2.1.0
+  version: 2.2.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -691,7 +691,7 @@ components:
               example: "2025-07-11"
             session:
               type: string
-              enum: [pagi, sore]
+              enum: [pagi, siang, sore]
               example: pagi
             photo_url:
               type: string
@@ -1712,6 +1712,534 @@ components:
             name: permission.manage
           - id: 4
             name: wfh.report.approve
+    # ── Password Reset (OTP) ──────────────────────────────────────
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: budi@kominfo.go.id
+      example:
+        email: budi@kominfo.go.id
+    ResetPasswordRequest:
+      type: object
+      required: [email, code, password, password_confirmation]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          example: budi@kominfo.go.id
+        code:
+          type: string
+          description: Numeric OTP code delivered to the user's email (length controlled by otp.length, default 6).
+          minLength: 6
+          maxLength: 6
+          example: "123456"
+        password:
+          type: string
+          format: password
+          minLength: 8
+          description: New password (min 8 chars, must include mixed case + numbers).
+          example: NewRahasia!23
+        password_confirmation:
+          type: string
+          format: password
+          description: Must match `password`.
+          example: NewRahasia!23
+      example:
+        email: budi@kominfo.go.id
+        code: "123456"
+        password: NewRahasia!23
+        password_confirmation: NewRahasia!23
+    PasswordResetAcceptedResponse:
+      type: object
+      required: [success, message]
+      description: |
+        Anti-enumeration response — identical payload whether or not the email is
+        registered. The OTP is only actually delivered for registered users;
+        for unknown emails the log mailer swallows the message.
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Jika email terdaftar, kode OTP telah dikirim.
+      example:
+        success: true
+        message: Jika email terdaftar, kode OTP telah dikirim.
+    PasswordResetCooldownResponse:
+      type: object
+      required: [success, message]
+      description: Returned (HTTP 429) by POST /api/password/resend when an OTP was already issued and the cooldown has not elapsed.
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Kode OTP sudah dikirim. Silakan coba lagi nanti.
+      example:
+        success: false
+        message: Kode OTP sudah dikirim. Silakan coba lagi nanti.
+    PasswordResetSuccessResponse:
+      type: object
+      required: [success, message]
+      description: |
+        Returned after a successful reset. Password is rotated, must_change_password
+        is cleared, and all existing tokens are revoked — the client must log in again.
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Password berhasil direset. Silakan login dengan password baru.
+      example:
+        success: true
+        message: Password berhasil direset. Silakan login dengan password baru.
+    # ── Profile Photo ─────────────────────────────────────────────
+    PhotoUploadResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Foto profil berhasil diunggah.
+        data:
+          type: object
+          required: [photo_path, photo_url]
+          properties:
+            photo_path:
+              type: string
+              example: photos/1-photo.jpg
+            photo_url:
+              type: string
+              format: uri
+              example: http://localhost/storage/photos/1-photo.jpg
+      example:
+        success: true
+        message: Foto profil berhasil diunggah.
+        data:
+          photo_path: photos/1-photo.jpg
+          photo_url: http://localhost/storage/photos/1-photo.jpg
+    # ── WFH Monitoring Board / Spreadsheet / Dashboard ───────────
+    WfhMonitoringBoardResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required: [field, date, date_label, stats, employees, meta]
+          properties:
+            field:
+              type: object
+              nullable: true
+              required: [id, name]
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                name:
+                  type: string
+                  example: Bidang Teknologi Informasi
+            date:
+              type: string
+              format: date
+              example: "2026-07-17"
+            date_label:
+              type: string
+              description: Human-readable Indonesian date label.
+              example: "Jumat, 17 Juli 2026"
+            stats:
+              type: object
+              required: [jumat_terlaksana, jumat_total, month_label, laporan_masuk, laporan_diharapkan, tingkat_kepatuhan]
+              properties:
+                jumat_terlaksana:
+                  type: integer
+                  description: Number of allowed WFH days in the month up to and including `date`.
+                  example: 2
+                jumat_total:
+                  type: integer
+                  description: Total allowed WFH days in the month.
+                  example: 4
+                month_label:
+                  type: string
+                  example: "Juli 2026"
+                laporan_masuk:
+                  type: integer
+                  description: Submitted (pending/approved) reports for the date.
+                  example: 9
+                laporan_diharapkan:
+                  type: integer
+                  description: Total active employees in scope.
+                  example: 12
+                tingkat_kepatuhan:
+                  type: integer
+                  description: Rounded compliance percentage over the last up-to-2 allowed WFH days.
+                  example: 75
+            employees:
+              type: array
+              description: Paginated employee rows for the date.
+              items:
+                $ref: "#/components/schemas/WfhBoardEmployee"
+            meta:
+              $ref: "#/components/schemas/PaginationMeta"
+      example:
+        success: true
+        data:
+          field:
+            id: 1
+            name: Bidang Teknologi Informasi
+          date: "2026-07-17"
+          date_label: "Jumat, 17 Juli 2026"
+          stats:
+            jumat_terlaksana: 2
+            jumat_total: 4
+            month_label: "Juli 2026"
+            laporan_masuk: 9
+            laporan_diharapkan: 12
+            tingkat_kepatuhan: 75
+          employees: []
+          meta:
+            current_page: 1
+            last_page: 2
+            total: 12
+    WfhBoardEmployee:
+      type: object
+      required: [id, name, nip, initials, avatar_color, sessions, report_status, report_id, report_raw_status, catatan]
+      properties:
+        id:
+          type: integer
+          example: 5
+        name:
+          type: string
+          example: Siti Nurhaliza
+        nip:
+          type: string
+          example: "199001012023011001"
+        initials:
+          type: string
+          example: SN
+        avatar_color:
+          type: string
+          description: Stable color token derived from user id.
+          example: bg-blue-100 text-blue-700
+        sessions:
+          type: object
+          description: Map of session code → attended? (true/false).
+          additionalProperties:
+            type: boolean
+          example:
+            pagi: true
+            siang: true
+            sore: false
+        report_status:
+          type: string
+          enum: [terkirim, tidak_lengkap, belum_absensi]
+          description: Derived display status (completeness + report submission).
+          example: tidak_lengkap
+        report_id:
+          type: integer
+          nullable: true
+          example: 17
+        report_raw_status:
+          type: string
+          nullable: true
+          enum: [draft, pending, approved, rejected]
+          example: pending
+        catatan:
+          type: string
+          example: "Tidak Absen Sore"
+    WfhSpreadsheetStatusResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required: [field, connection, stats, synced_data, history, structure]
+          properties:
+            field:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                name:
+                  type: string
+                  example: Bidang Teknologi Informasi
+            connection:
+              type: object
+              required: [status, title, description, spreadsheet_id, spreadsheet_url, sheet_label]
+              properties:
+                status:
+                  type: string
+                  enum: [connected]
+                  example: connected
+                title:
+                  type: string
+                  example: Terhubung
+                description:
+                  type: string
+                  example: Google Sheets API v4 - Service Account terhubung
+                spreadsheet_id:
+                  type: string
+                  example: 1aBcD3fGhIjKlMnOpQrStUvWxYz_KominfoWFH2026
+                spreadsheet_url:
+                  type: string
+                  format: uri
+                  example: https://docs.google.com/spreadsheets/d/1aBcD3fGhIjKlMnOpQrStUvWxYz_KominfoWFH2026/edit
+                sheet_label:
+                  type: string
+                  example: Spreadsheet WFH 2026
+            stats:
+              type: object
+              required: [last_synced, last_synced_label, total_rows, active_sheet]
+              properties:
+                last_synced:
+                  type: string
+                  format: date-time
+                  example: "2026-07-17T08:15:00+00:00"
+                last_synced_label:
+                  type: string
+                  example: "17 Juli 2026, 15.15 WIB"
+                total_rows:
+                  type: integer
+                  example: 248
+                active_sheet:
+                  type: string
+                  example: "Juli 2026"
+            synced_data:
+              type: array
+              items:
+                type: object
+                required: [key, label, rows, status]
+                properties:
+                  key:
+                    type: string
+                    enum: [absensi, kegiatan, laporan]
+                    example: absensi
+                  label:
+                    type: string
+                    example: Data Absensi WFH
+                  rows:
+                    type: integer
+                    example: 96
+                  status:
+                    type: string
+                    enum: [terkirim]
+                    example: terkirim
+            history:
+              type: array
+              items:
+                type: object
+                required: [timestamp, label, title, rows, status]
+                properties:
+                  timestamp:
+                    type: string
+                    format: date-time
+                  label:
+                    type: string
+                  title:
+                    type: string
+                  rows:
+                    type: integer
+                  status:
+                    type: string
+                    enum: [berhasil, gagal]
+                  error:
+                    type: string
+                    description: Present only when status=gagal.
+            structure:
+              type: array
+              items:
+                type: string
+              example: [NIP, Nama, Bidang, Tanggal, Pagi, Siang, Sore, "Kegiatan 1", "Kegiatan 2", "Kegiatan 3", "Link Bukti", Status, "Tanggal Submit"]
+      example:
+        success: true
+        data:
+          field:
+            id: 1
+            name: Bidang Teknologi Informasi
+          connection:
+            status: connected
+            title: Terhubung
+            spreadsheet_id: 1aBcD3fGhIjKlMnOpQrStUvWxYz_KominfoWFH2026
+            spreadsheet_url: https://docs.google.com/spreadsheets/d/1aBcD3fGhIjKlMnOpQrStUvWxYz_KominfoWFH2026/edit
+            sheet_label: Spreadsheet WFH 2026
+          stats:
+            total_rows: 248
+            active_sheet: "Juli 2026"
+          synced_data: []
+          history: []
+          structure: [NIP, Nama, Bidang]
+    WfhDashboardResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required: [field, month, year, month_label, focus_date, focus_date_label, stats, chart, calendar]
+          properties:
+            field:
+              type: object
+              nullable: true
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                name:
+                  type: string
+                  example: Bidang Teknologi Informasi
+            month:
+              type: integer
+              example: 7
+            year:
+              type: integer
+              example: 2026
+            month_label:
+              type: string
+              example: "Juli 2026"
+            focus_date:
+              type: string
+              format: date
+              description: The Friday the stat cards reflect (latest past allowed WFH day, or first upcoming).
+              example: "2026-07-17"
+            focus_date_label:
+              type: string
+              example: "Jumat, 17 Juli 2026"
+            stats:
+              type: object
+              required: [total_pegawai, laporan_terkirim, laporan_pending, wfh_selesai]
+              properties:
+                total_pegawai:
+                  type: integer
+                  example: 12
+                laporan_terkirim:
+                  type: integer
+                  description: Submitted (pending/approved) reports for the focus date.
+                  example: 9
+                laporan_pending:
+                  type: integer
+                  description: Reports in `pending` status for the focus date.
+                  example: 2
+                wfh_selesai:
+                  type: boolean
+                  description: True when everyone in scope has completed all sessions + submitted.
+                  example: false
+            chart:
+              type: array
+              description: One entry per allowed WFH day in the month.
+              items:
+                type: object
+                required: [date, label, laporan_terkirim, tidak_lengkap, belum_absensi]
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  label:
+                    type: string
+                    example: "17 Jul"
+                  laporan_terkirim:
+                    type: integer
+                  tidak_lengkap:
+                    type: integer
+                  belum_absensi:
+                    type: integer
+            calendar:
+              type: array
+              items:
+                type: object
+                required: [date, label, is_current, is_focus]
+                properties:
+                  date:
+                    type: string
+                    format: date
+                  label:
+                    type: string
+                    example: "Jumat 17/07"
+                  is_current:
+                    type: boolean
+                  is_focus:
+                    type: boolean
+      example:
+        success: true
+        data:
+          field:
+            id: 1
+            name: Bidang Teknologi Informasi
+          month: 7
+          year: 2026
+          month_label: "Juli 2026"
+          focus_date: "2026-07-17"
+          stats:
+            total_pegawai: 12
+            laporan_terkirim: 9
+            laporan_pending: 2
+            wfh_selesai: false
+          chart: []
+          calendar: []
+    # ── Change Dashboard ─────────────────────────────────────────
+    ChangeDashboardResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: object
+          required: [field, pending, approved, rejected]
+          properties:
+            field:
+              type: object
+              nullable: true
+              description: |
+                null when a kepala_bidang has no headed field, in which case all
+                counts are 0. Admins always get the requested field.
+              properties:
+                id:
+                  type: integer
+                  example: 1
+                name:
+                  type: string
+                  example: Bidang Teknologi Informasi
+            pending:
+              type: integer
+              description: Initiations in `pending` status (awaiting decision) within the field.
+              example: 3
+            approved:
+              type: integer
+              example: 7
+            rejected:
+              type: integer
+              example: 1
+      example:
+        success: true
+        data:
+          field:
+            id: 1
+            name: Bidang Teknologi Informasi
+          pending: 3
+          approved: 7
+          rejected: 1
   parameters:
     UserIdPath:
       name: user
@@ -1750,6 +2278,10 @@ security:
 tags:
   - name: Auth
     description: Authentication and session management
+  - name: Password Reset
+    description: OTP-based self-service password reset (forgot, resend, reset)
+  - name: Change Dashboard
+    description: Change-management lead dashboard aggregates (kepala_bidang, admin)
   - name: Profile
     description: Self-service profile and signature management
   - name: User Management
@@ -1916,6 +2448,149 @@ paths:
               example:
                 success: false
                 message: Unauthenticated.
+  # ── Password Reset (OTP via email) ──────────────────────────────
+  /api/password/forgot:
+    post:
+      tags: [Password Reset]
+      summary: Request a password-reset OTP
+      operationId: forgotPassword
+      security: []
+      description: |
+        Issues an OTP for the given email and queues the mailable. Returns the
+        SAME 200 payload whether or not the email is registered (anti-enumeration).
+        Real delivery happens only for known users; for unknown emails the log
+        mailer swallows the OTP. Requires a queue worker for true constant-time
+        behavior in production.
+
+        Rate-limited by `throttle:5,1` (5 requests per minute per IP).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+            example:
+              email: budi@kominfo.go.id
+      responses:
+        "200":
+          description: OTP issuance accepted (anti-enumeration)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetAcceptedResponse"
+              example:
+                success: true
+                message: Jika email terdaftar, kode OTP telah dikirim.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The email must be a valid email address."
+        "429":
+          description: Too many requests (throttle:5,1)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Too many attempts.
+  /api/password/resend:
+    post:
+      tags: [Password Reset]
+      summary: Resend the password-reset OTP
+      operationId: resendPasswordOtp
+      security: []
+      description: |
+        Re-issues an OTP unless one is still within its cooldown window, in which
+        case it returns 429. Like `forgot`, the success payload is identical for
+        known and unknown emails.
+
+        Rate-limited by `throttle:5,1`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+            example:
+              email: budi@kominfo.go.id
+      responses:
+        "200":
+          description: OTP re-issued (anti-enumeration)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetAcceptedResponse"
+              example:
+                success: true
+                message: Jika email terdaftar, kode OTP telah dikirim.
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: OTP cooldown still active (or throttle hit)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetCooldownResponse"
+              example:
+                success: false
+                message: Kode OTP sudah dikirim. Silakan coba lagi nanti.
+  /api/password/reset:
+    post:
+      tags: [Password Reset]
+      summary: Reset password with a verified OTP
+      operationId: resetPassword
+      security: []
+      description: |
+        Verifies the OTP against the email, rotates the password, clears
+        `must_change_password`, and revokes ALL existing tokens — the client
+        must log in again with the new password. The success payload is returned
+        even if the OTP matched a dummy record (created by `forgot` for an
+        unknown email) so existence is not leaked; in that case no actual user
+        row is updated.
+
+        Rate-limited by `throttle:5,1`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+            example:
+              email: budi@kominfo.go.id
+              code: "123456"
+              password: NewRahasia!23
+              password_confirmation: NewRahasia!23
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PasswordResetSuccessResponse"
+              example:
+                success: true
+                message: Password berhasil direset. Silakan login dengan password baru.
+        "422":
+          description: Invalid/expired OTP, or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Kode OTP tidak valid atau sudah kadaluarsa.
+        "429":
+          description: Too many requests (throttle:5,1)
   # ── Profile ──────────────────────────────────────────────────────
   /api/profile:
     get:
@@ -2071,6 +2746,58 @@ paths:
               example:
                 success: false
                 message: "Format file harus PNG, JPG, atau JPEG."
+  /api/profile/photo:
+    post:
+      tags: [Profile]
+      summary: Upload profile photo
+      operationId: uploadProfilePhoto
+      description: |
+        Stores a new profile photo on the public disk and updates `photo_path`.
+        Returns the stored path and a fully-qualified URL.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [photo]
+              properties:
+                photo:
+                  type: string
+                  format: binary
+                  description: JPG/JPEG/PNG, max 2MB.
+      responses:
+        "200":
+          description: Photo uploaded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PhotoUploadResponse"
+              example:
+                success: true
+                message: Foto profil berhasil diunggah.
+                data:
+                  photo_path: photos/1-photo.jpg
+                  photo_url: http://localhost/storage/photos/1-photo.jpg
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "422":
+          description: Validation error (missing file, wrong mime, too large)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The photo must be a file of type: jpg, jpeg, png."
+
   /api/profile/password:
     post:
       tags: [Profile]
@@ -2726,7 +3453,7 @@ paths:
                   description: JPG/JPEG/PNG, max 2MB
                 session:
                   type: string
-                  enum: [pagi, sore]
+                  enum: [pagi, siang, sore]
                   nullable: true
                   default: pagi
                   example: pagi
@@ -3458,6 +4185,193 @@ paths:
               example:
                 success: false
                 message: This action is unauthorized.
+  /api/admin/wfh/monitoring/board:
+    get:
+      tags: [WFH Monitoring]
+      summary: Per-employee WFH monitoring board (paginated)
+      operationId: getWfhMonitoringBoard
+      description: |
+        Returns a paginated per-employee board for a given date with derived
+        per-session attendance, report submission, completeness status, and
+        calendar stats. Scope is the admin's own field unless `field_id` is
+        provided (admin only).
+
+        Requires `wfh.monitoring.view` permission.
+      parameters:
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Target WFH day (Y-m-d). Defaults to the latest allowed WFH day ≤ today in the current month.
+          example: "2026-07-17"
+        - name: field_id
+          in: query
+          schema:
+            type: integer
+          description: Admin-only explicit field scope; non-admins are auto-scoped to their own field.
+          example: 1
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Filter employees by name or NIP (case-insensitive, partial match).
+          example: Siti
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [terkirim, tidak_lengkap, belum_absensi]
+          description: Filter rows by derived display status. Omit for all.
+          example: tidak_lengkap
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 6
+            maximum: 100
+          example: 6
+      responses:
+        "200":
+          description: Monitoring board
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WfhMonitoringBoardResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing wfh.monitoring.view permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+  /api/admin/wfh/spreadsheet:
+    get:
+      tags: [WFH Monitoring]
+      summary: Google Spreadsheet sync status (read-only view model)
+      operationId: getWfhSpreadsheetStatus
+      description: |
+        Returns a view model describing the Google Spreadsheet sync surface for
+        the admin's field: connection metadata, total row counts (derived from
+        real DB tables), sync history timeline, and the expected sheet column
+        structure. The sync itself is not actually triggered from this endpoint
+        — the counts reflect current DB state.
+
+        Requires `wfh.monitoring.view` permission.
+      parameters:
+        - name: field_id
+          in: query
+          schema:
+            type: integer
+          description: Admin-only explicit field scope; otherwise the admin's own field is used.
+          example: 1
+      responses:
+        "200":
+          description: Spreadsheet sync status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WfhSpreadsheetStatusResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing wfh.monitoring.view permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+  /api/admin/wfh/dashboard:
+    get:
+      tags: [WFH Monitoring]
+      summary: Aggregate WFH dashboard stats (calendar + chart + focus date)
+      operationId: getWfhDashboard
+      description: |
+        Returns aggregate WFH dashboard data scoped to a field and month: stat
+        cards for a focus date (default = latest past allowed WFH day), per-day
+        chart breakdown, and a list of allowed WFH days with `is_current`/`is_focus`
+        flags for calendar rendering.
+
+        Requires `wfh.monitoring.view` permission.
+      parameters:
+        - name: month
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 12
+          description: Target month (1-12). Defaults to current month.
+          example: 7
+        - name: year
+          in: query
+          schema:
+            type: integer
+          description: Target year. Defaults to current year.
+          example: 2026
+        - name: date
+          in: query
+          schema:
+            type: string
+            format: date
+          description: Override the focus date for the stat cards.
+          example: "2026-07-17"
+        - name: field_id
+          in: query
+          schema:
+            type: integer
+          description: Admin-only explicit field scope.
+          example: 1
+      responses:
+        "200":
+          description: WFH dashboard data
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WfhDashboardResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing wfh.monitoring.view permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
   # ── QR Verification ──────────────────────────────────────────────
   /api/admin/wfh/reports:
     get:
@@ -3598,6 +4512,86 @@ paths:
               example:
                 success: false
                 message: Token verifikasi tidak ditemukan.
+  # ── Change Dashboard ────────────────────────────────────────────
+  /api/changes/dashboard:
+    get:
+      tags: [Change Dashboard]
+      summary: Lead dashboard initiation counts (kepala_bidang / admin)
+      operationId: getChangeDashboard
+      description: |
+        Returns initiation status counts (pending/approved/rejected) scoped to
+        a single field.
+
+        Scope resolution:
+          - **kepala_bidang**: their first headed field; `?field_id` is ignored.
+            If they head no field, returns 200 with `field: null` and zero counts.
+          - **admin**: `?field_id` is REQUIRED and must reference an existing
+            field. The plan invariant is "admin tetap scoped ke 1 field per
+            request" — no org-wide totals.
+
+        Authorization is enforced by route middleware (`role:kepala_bidang|admin`).
+      parameters:
+        - name: field_id
+          in: query
+          schema:
+            type: integer
+          description: |
+            Required for admin. Ignored for kepala_bidang (they are always scoped
+            to their headed field).
+          example: 1
+      responses:
+        "200":
+          description: Dashboard counts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeDashboardResponse"
+              example:
+                success: true
+                data:
+                  field:
+                    id: 1
+                    name: Bidang Teknologi Informasi
+                  pending: 3
+                  approved: 7
+                  rejected: 1
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing role (kepala_bidang|admin)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: (Admin only) field_id not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Bidang tidak ditemukan.
+        "422":
+          description: (Admin only) field_id missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Parameter field_id wajib diisi.
+
   # ── Change Initiation ────────────────────────────────────────────
   /api/changes/initiations:
     get:
