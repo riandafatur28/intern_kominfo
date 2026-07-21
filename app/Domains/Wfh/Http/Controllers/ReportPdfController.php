@@ -3,6 +3,7 @@
 namespace App\Domains\Wfh\Http\Controllers;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Team;
+use App\Support\Http\ResolvesFieldScope;
 use App\Support\Pdf\PdfImageResolver;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
@@ -15,7 +16,7 @@ use Illuminate\Support\Carbon;
 
 class ReportPdfController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, ResolvesFieldScope;
 
     public function __construct(
         private WfhRepositoryInterface $wfhRepository,
@@ -116,16 +117,7 @@ class ReportPdfController extends Controller
         $this->authorize('wfh.report.export_pdf');
 
         $admin = $request->user();
-        $fieldId = $admin->team?->field?->id;
-
-        // Verify team belongs to admin's field
-        if (! $fieldId || $team->field_id !== $fieldId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tim tidak ditemukan dalam bidang Anda.',
-            ], 403);
-        }
-
+        $this->ensureTeamInAdminField($request, $team);
         $date = $request->input('date', now()->format('Y-m-d'));
         $reports = $this->wfhRepository->getTeamReportsForDate($team->id, $date);
 

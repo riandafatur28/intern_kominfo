@@ -98,4 +98,69 @@ class TeamUsersTest extends TestCase
         $this->getJson('/api/admin/teams/'.$team->id.'/users')
             ->assertUnauthorized();
     }
+
+    public function test_non_admin_without_user_manage_permission_is_forbidden(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $staf = User::factory()->create(['team_id' => $team->id]);
+        $staf->assignRole('staf'); // staf lacks permission:user.manage
+
+        Sanctum::actingAs($staf);
+
+        $this->getJson('/api/admin/teams/'.$team->id.'/users')
+            ->assertForbidden();
+    }
+
+    public function test_nonexistent_team_returns_404(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $admin = User::factory()->create(['team_id' => $team->id]);
+        $admin->assignRole('admin');
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/teams/999999/users')
+            ->assertNotFound();
+    }
+
+    public function test_response_includes_pagination_meta(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $admin = User::factory()->create(['team_id' => $team->id]);
+        $admin->assignRole('admin');
+        User::factory()->count(3)->create(['team_id' => $team->id]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/teams/'.$team->id.'/users?per_page=2')
+            ->assertOk()
+            ->assertJsonStructure([
+                'data',
+                'meta' => ['current_page', 'last_page', 'total'],
+            ])
+            ->assertJsonPath('meta.total', 4)
+            ->assertJsonCount(2, 'data'); // paginated to 2 items
+    }
+
+    public function test_per_page_capped_at_100(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $admin = User::factory()->create(['team_id' => $team->id]);
+        $admin->assignRole('admin');
+
+        Sanctum::actingAs($admin);
+
+        // Even with per_page=1000, response should cap to 100
+        $this->getJson('/api/admin/teams/'.$team->id.'/users?per_page=1000')
+            ->assertOk()
+            ->assertJsonPath('meta.last_page', 1);
+    }
 }
