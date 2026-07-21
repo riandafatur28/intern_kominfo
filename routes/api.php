@@ -1,7 +1,9 @@
 <?php
 
 use App\Domains\Auth\Http\Controllers\AuthController;
+use App\Domains\Auth\Http\Controllers\PasswordResetController;
 use App\Domains\ChangeManagement\Http\Controllers\ChangeManagementPdfController;
+use App\Domains\ChangeManagement\Http\Controllers\DashboardController as ChangeDashboardController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationController;
 use App\Domains\ChangeManagement\Http\Controllers\ImplementationReviewController;
 use App\Domains\ChangeManagement\Http\Controllers\InitiationController;
@@ -25,6 +27,16 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
+
+// Password Reset (public)
+Route::prefix('password')->group(function () {
+    Route::post('forgot', [PasswordResetController::class, 'forgot'])
+        ->middleware('throttle:5,1');
+    Route::post('resend', [PasswordResetController::class, 'resend'])
+        ->middleware('throttle:5,1');
+    Route::post('reset', [PasswordResetController::class, 'reset'])
+        ->middleware('throttle:5,1');
+});
 
 Route::middleware('auth:sanctum')->group(function () {
     // Auth — always available (password change flag emitted in response)
@@ -59,7 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/admin/users/{user}', [UserController::class, 'update']);
             Route::delete('/admin/users/{user}', [UserController::class, 'destroy']);
             Route::get('/admin/teams', [TeamController::class, 'index']);
-            Route::get('/admin/fields', [TeamController::class, 'fields']);
+            Route::get('/admin/teams/{team}/users', [TeamController::class, 'users']);
         });
 
         Route::middleware('permission:user.import')->group(function () {
@@ -148,6 +160,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('/changes/initiations/{id}/revise', [InitiationController::class, 'revise'])
             ->middleware('permission:change.initiation.submit');
 
+        Route::get('/changes/dashboard', [ChangeDashboardController::class, 'index'])
+            ->middleware('role:kepala_bidang|admin');
         Route::post('/changes/initiations/{id}/implementations', [ImplementationController::class, 'store'])
             ->middleware('permission:change.implementation.create');
         Route::get('/changes/implementations/{id}', [ImplementationController::class, 'show'])

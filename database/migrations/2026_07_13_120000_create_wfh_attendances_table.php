@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained('users')->cascadeOnDelete();
             $table->date('date');
-            $table->string('session', 10)->default('pagi'); // pagi, sore
+            $table->string('session', 10)->default('pagi'); // pagi, siang, sore
             $table->string('photo_path');
             $table->timestamp('check_in_at')->useCurrent();
             $table->timestamps();

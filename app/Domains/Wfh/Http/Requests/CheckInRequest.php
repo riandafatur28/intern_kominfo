@@ -2,7 +2,9 @@
 
 namespace App\Domains\Wfh\Http\Requests;
 
+use App\Support\Constants\WfhSession;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CheckInRequest extends FormRequest
 {
@@ -15,7 +17,7 @@ class CheckInRequest extends FormRequest
     {
         return [
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
-            'session' => ['nullable', 'string', 'in:pagi,siang,sore'],
+            'session' => ['nullable', 'string', Rule::in(WfhSession::ALL)],
             'date' => ['nullable', 'date', 'after_or_equal:today', 'before_or_equal:today'],
         ];
     }
