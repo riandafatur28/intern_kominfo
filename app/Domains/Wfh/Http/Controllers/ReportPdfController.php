@@ -1,9 +1,9 @@
 <?php
 
 namespace App\Domains\Wfh\Http\Controllers;
-
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Team;
+use App\Support\Pdf\PdfImageResolver;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -144,6 +144,26 @@ class ReportPdfController extends Controller
             ];
         })->values()->toArray();
 
+        // Build attendance photo table — ALL team users (with/without attendance)
+        $attendances = $this->wfhRepository->getTeamAttendancesForDate($team->id, $date);
+        $attendanceMap = [];
+        foreach ($attendances as $a) {
+            $attendanceMap[$a->user_id][$a->session] = PdfImageResolver::resolve($a->photo_path);
+        }
+
+        // All team members (active)
+        $teamUsers = $team->users()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'nip']);
+        $staffPhotos = $teamUsers->map(function ($user) use ($attendanceMap) {
+            return [
+                'name' => strtoupper($user->name),
+                'nip' => $user->nip ?? '-',
+                'photos' => [
+                    'pagi' => $attendanceMap[$user->id]['pagi'] ?? null,
+                    'siang' => $attendanceMap[$user->id]['siang'] ?? null,
+                    'sore' => $attendanceMap[$user->id]['sore'] ?? null,
+                ],
+            ];
+        })->values()->toArray();
         // Admin (maker) signature
         $makerSig = $admin->signature_path
             ? public_path('storage/'.$admin->signature_path)
@@ -168,6 +188,7 @@ class ReportPdfController extends Controller
             'unitKerja' => $field?->name ?? '-',
             'tanggalPelaksanaan' => $tanggal,
             'staff' => $staff,
+            'staffPhotos' => $staffPhotos,
             'signatureMakerPath' => $makerSig,
             'signatureSupervisorPath' => $supervisorSig,
             'makerName' => strtoupper($admin->name),

@@ -184,5 +184,47 @@
         </table>
     </div>
 
+    {{-- PAGE 2: DOKUMENTASI ABSENSI (FOTO TIAP SESI) --}}
+    <div style="page-break-before: always;">
+        <div class="judul" style="margin-bottom:15px;">
+            DOKUMENTASI ABSENSI<br>
+            <span style="font-size:11px;font-weight:normal;text-decoration:none;">
+                {{ $namaTim }} — {{ $tanggalPelaksanaan }}
+            </span>
+        </div>
+
+        <table class="staff">
+            <thead>
+                <tr>
+                    <th style="width:30px;">No</th>
+                    <th style="width:150px;">Nama Pegawai</th>
+                    <th style="width:110px;">Pagi</th>
+                    <th style="width:110px;">Siang</th>
+                    <th style="width:110px;">Sore</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach($staffPhotos as $i => $s)
+                <tr>
+                    <td class="no">{{ $i + 1 }}</td>
+                    <td>
+                        {{ $s['name'] }}<br>
+                        <span style="font-size:9px;">NIP. {{ $s['nip'] }}</span>
+                    </td>
+                    @foreach(['pagi', 'siang', 'sore'] as $sesi)
+                    <td style="text-align:center;vertical-align:middle;">
+                        @if($s['photos'][$sesi])
+                            <img src="{{ $s['photos'][$sesi] }}" style="width:100px;height:auto;max-height:130px;object-fit:cover;">
+                        @else
+                            <span style="color:#999;">—</span>
+                        @endif
+                    </td>
+                    @endforeach
+                </tr>
+                @endforeach
+            </tbody>
+        </table>
+    </div>
+
 </body>
 </html>
