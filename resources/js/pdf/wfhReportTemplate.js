@@ -1,5 +1,13 @@
 import { escapeHtml } from './printDocument';
-import { DISCLAIMER, kopHtml, wrapDocument } from './shared';
+import { kopHtml, wrapDocument } from './shared';
+
+/* ubah YYYY-MM-DD jadi DD-MM-YYYY */
+function formatDate(d) {
+    if (!d || d === '-') return '-';
+    const parts = d.split('-');
+    if (parts.length === 3) return `${parts[2]}-${parts[1]}-${parts[0]}`;
+    return d;
+}
 
 /**
  * Bagian isi (satu halaman) Laporan Pelaksanaan Tugas WFH — tanpa <html>/<style>.
@@ -51,7 +59,7 @@ export function wfhReportBody(data) {
             <tr><td class="k">Pangkat/Gol</td><td class="s">:</td><td>${escapeHtml(pangkat)}</td></tr>
             <tr><td class="k">Jabatan</td><td class="s">:</td><td>${escapeHtml(jabatan)}</td></tr>
             <tr><td class="k">Unit Kerja</td><td class="s">:</td><td>${escapeHtml(unitKerja)}</td></tr>
-            <tr><td class="k">Tanggal Pelaksanaan</td><td class="s">:</td><td>${escapeHtml(tanggalPelaksanaan)}</td></tr>
+            <tr><td class="k">Tanggal Pelaksanaan</td><td class="s">:</td><td>${escapeHtml(formatDate(tanggalPelaksanaan))}</td></tr>
         </table>
 
         <table class="grid">
@@ -79,7 +87,7 @@ export function wfhReportBody(data) {
                 <div>${escapeHtml(makerNip || nip)}</div>
             </div>
             <div class="col">
-                <div class="place">${escapeHtml(city)}, ${escapeHtml(tanggalPelaksanaan)}</div>
+                <div class="place">${escapeHtml(city)}, ${escapeHtml(formatDate(tanggalPelaksanaan))}</div>
                 <div>Atasan Langsung</div>
                 ${supSig}
                 <div class="name">${escapeHtml(supervisorName)}</div>
@@ -87,11 +95,6 @@ export function wfhReportBody(data) {
             </div>
         </div>
 
-        <div class="footer">
-            ${bsreLogoUrl ? `<img class="bsre" src="${escapeHtml(bsreLogoUrl)}" alt="BSrE" />` : ''}
-            <div class="note">${escapeHtml(DISCLAIMER)}</div>
-            ${qrBlock}
-        </div>
     </div>`;
 }
 
