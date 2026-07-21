@@ -86,6 +86,14 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             ->get();
     }
 
+    public function getTeamAttendancesForDate(int $teamId, string $date): Collection
+    {
+        return WfhAttendance::with('user')
+            ->where('date', $date)
+            ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
+            ->get();
+    }
+
     public function createReportWithRelations(array $reportData, array $activities): WfhReport
     {
         return DB::transaction(function () use ($reportData, $activities) {
