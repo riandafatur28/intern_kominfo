@@ -59,6 +59,7 @@ Route::middleware('auth:sanctum')->group(function () {
             Route::put('/admin/users/{user}', [UserController::class, 'update']);
             Route::delete('/admin/users/{user}', [UserController::class, 'destroy']);
             Route::get('/admin/teams', [TeamController::class, 'index']);
+            Route::get('/admin/teams/{team}/users', [TeamController::class, 'users']);
         });
 
         Route::middleware('permission:user.import')->group(function () {

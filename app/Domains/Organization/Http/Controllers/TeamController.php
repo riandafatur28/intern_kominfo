@@ -34,4 +34,29 @@ class TeamController extends Controller
             'data' => $teams,
         ]);
     }
+
+    public function users(Request $request, Team $team): JsonResponse
+    {
+        $this->authorize('user.manage');
+
+        $admin = $request->user();
+        $fieldId = $admin->team?->field?->id;
+
+        if (! $fieldId || $team->field_id !== $fieldId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Tim tidak ditemukan dalam bidang Anda.',
+            ], 403);
+        }
+
+        $users = $team->users()
+            ->when($request->boolean('active'), fn ($q) => $q->where('is_active', true))
+            ->orderBy('name')
+            ->get(['id', 'name', 'nip', 'rank', 'position', 'email', 'phone', 'is_active']);
+
+        return response()->json([
+            'success' => true,
+            'data' => $users,
+        ]);
+    }
 }
