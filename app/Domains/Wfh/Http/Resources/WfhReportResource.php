@@ -53,8 +53,8 @@ class WfhReportResource extends JsonResource
             $data['activities'] = $this->activities->map(function ($activity) {
                 $act = [
                     'id' => $activity->id,
-                    'start_time' => $activity->start_time,
-                    'end_time' => $activity->end_time,
+                    'start_time' => $activity->start_time?->format('H:i'),
+                    'end_time' => $activity->end_time?->format('H:i'),
                     'activity' => $activity->activity,
                     'sort_order' => $activity->sort_order,
                 ];
