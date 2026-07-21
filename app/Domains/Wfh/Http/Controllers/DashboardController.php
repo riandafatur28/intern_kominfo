@@ -110,7 +110,7 @@ class DashboardController extends Controller
                 'year' => $year,
                 'month_label' => Carbon::create($year, $month, 1)->translatedFormat('F Y'),
                 'focus_date' => $focusDate,
-                'focus_date_label' => Carbon::parse($focusDate)->translatedFormat('l, j F Y'),
+                'focus_date_label' => Carbon::parse($nextFriday ?? $focusDate)->translatedFormat('l, j F Y'),
                 'stats' => [
                     'total_pegawai' => $totalPegawai,
                     'laporan_terkirim' => $focusBreakdown['laporan_terkirim'],
