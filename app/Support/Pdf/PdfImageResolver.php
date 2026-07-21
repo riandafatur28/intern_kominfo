@@ -24,21 +24,18 @@ class PdfImageResolver
      */
     public static function resolve(?string $relativePath): ?string
     {
-        if ($relativePath === null)
-        {
+        if ($relativePath === null) {
             return null;
         }
 
         $fullPath = Storage::disk('public')->path($relativePath);
 
-        if (! file_exists($fullPath))
-        {
+        if (! file_exists($fullPath)) {
             return null;
         }
 
         // WebP → PNG conversion for dompdf compatibility
-        if (str_ends_with(strtolower($fullPath), '.webp'))
-        {
+        if (str_ends_with(strtolower($fullPath), '.webp')) {
             return self::webpToPng($fullPath);
         }
 
@@ -48,29 +45,25 @@ class PdfImageResolver
     private static function webpToPng(string $webpPath): string
     {
         $tempDir = storage_path('app/temp/pdf-images');
-        if (! is_dir($tempDir))
-        {
+        if (! is_dir($tempDir)) {
             mkdir($tempDir, 0755, true);
         }
 
-        $hash = md5($webpPath);
+        // Include mtime in cache key so content changes invalidate stale PNGs.
+        $mtime = filemtime($webpPath);
+        $hash = md5($webpPath.$mtime);
         $pngPath = "{$tempDir}/{$hash}.png";
 
-        // Avoid re-converting in a single request
-        if (file_exists($pngPath))
-        {
+        if (file_exists($pngPath)) {
             return $pngPath;
         }
 
-        try
-        {
+        try {
             $image = Image::decode($webpPath);
             $image->save($pngPath);
 
             return $pngPath;
-        }
-        catch (\Exception)
-        {
+        } catch (\Exception) {
             return $webpPath; // fallback — might fail in dompdf, better than blank
         }
     }

@@ -136,26 +136,7 @@ class ReportPdfController extends Controller
             ];
         })->values()->toArray();
 
-        // Build attendance photo table — ALL team users (with/without attendance)
-        $attendances = $this->wfhRepository->getTeamAttendancesForDate($team->id, $date);
-        $attendanceMap = [];
-        foreach ($attendances as $a) {
-            $attendanceMap[$a->user_id][$a->session] = PdfImageResolver::resolve($a->photo_path);
-        }
-
-        // All team members (active)
-        $teamUsers = $team->users()->where('is_active', true)->orderBy('name')->get(['id', 'name', 'nip']);
-        $staffPhotos = $teamUsers->map(function ($user) use ($attendanceMap) {
-            return [
-                'name' => strtoupper($user->name),
-                'nip' => $user->nip ?? '-',
-                'photos' => [
-                    'pagi' => $attendanceMap[$user->id]['pagi'] ?? null,
-                    'siang' => $attendanceMap[$user->id]['siang'] ?? null,
-                    'sore' => $attendanceMap[$user->id]['sore'] ?? null,
-                ],
-            ];
-        })->values()->toArray();
+        $staffPhotos = $this->buildStaffPhotos($team, $date);
         // Admin (maker) signature
         $makerSig = $admin->signature_path
             ? public_path('storage/'.$admin->signature_path)
@@ -197,5 +178,37 @@ class ReportPdfController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
+    }
+
+    /**
+     * Build the per-employee attendance photo matrix for PDF page 2.
+     *
+     * @return array<int, array{name: string, nip: string, photos: array{pagi: ?string, siang: ?string, sore: ?string}}>
+     */
+    private function buildStaffPhotos(Team $team, string $date): array
+    {
+        $attendances = $this->wfhRepository->getTeamAttendancesForDate($team->id, $date);
+        $attendanceMap = [];
+        foreach ($attendances as $a) {
+            $attendanceMap[$a->user_id][$a->session] = PdfImageResolver::resolve($a->photo_path);
+        }
+
+        return $team->users()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'nip'])
+            ->map(function ($user) use ($attendanceMap) {
+                return [
+                    'name' => strtoupper($user->name),
+                    'nip' => $user->nip ?? '-',
+                    'photos' => [
+                        'pagi' => $attendanceMap[$user->id]['pagi'] ?? null,
+                        'siang' => $attendanceMap[$user->id]['siang'] ?? null,
+                        'sore' => $attendanceMap[$user->id]['sore'] ?? null,
+                    ],
+                ];
+            })
+            ->values()
+            ->toArray();
     }
 }
