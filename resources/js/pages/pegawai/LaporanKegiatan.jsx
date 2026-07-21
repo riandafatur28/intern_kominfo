@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Send, CheckCircle2, XCircle, ClipboardList } from 'lucide-react';
+import { Plus, Pencil, Trash2, Loader2, Send, CheckCircle2, XCircle, ClipboardList, FileDown } from 'lucide-react';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import ErrorAlert from '../../components/ui/ErrorAlert';
 import { getReports, createReport, updateReport, deleteReport, submitReport } from '../../api/reports';
+import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
+import { printWfhReport } from '../../pdf';
 
 /* ---------------- Status Badge ---------------- */
 const STATUS_LABEL = { draft: 'Draf', submitted: 'Terkirim', approved: 'Disetujui', rejected: 'Ditolak' };
@@ -42,20 +45,23 @@ function todayISO() {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-/** Normalize "08.00" | "8:0" | "0800" → "08:00" for the backend (H:i). */
+/** Normalisasi ke "HH:mm" (format H:i backend). Menerima "08.00"/"8:0"/"0800". */
 function toApiTime(t) {
     if (!t) return '';
-    const cleaned = String(t).replace(/[.:]/, ':');
+    const cleaned = String(t).trim().replace(/[.]/g, ':');
     const [h = '0', m = '0'] = cleaned.split(':');
-    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    return `${String(parseInt(h, 10) || 0).padStart(2, '0')}:${String(parseInt(m, 10) || 0).padStart(2, '0')}`;
 }
 
-/** "08:00" → "08.00" for display. */
-function toDisplayTime(t) {
-    return t ? String(t).slice(0, 5).replace(':', '.') : '';
+/** Ambil "HH:mm" dari berbagai format backend ("08:00:00" atau "2026-07-03T08:00:00"). */
+function toTimeInput(t) {
+    if (!t) return '';
+    const m = String(t).match(/(\d{1,2}):(\d{2})/);
+    return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '';
 }
 
 export default function LaporanKegiatan() {
+    const { user } = useAuth();
     const [report, setReport] = useState(null); // full report object from backend (or null)
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -78,8 +84,8 @@ export default function LaporanKegiatan() {
     const mapActivities = (activities = []) =>
         activities.map((a) => ({
             id: a.id ?? Date.now() + Math.random(),
-            start: toDisplayTime(a.start_time),
-            end: toDisplayTime(a.end_time),
+            start: toTimeInput(a.start_time),
+            end: toTimeInput(a.end_time),
             activity: a.activity,
             link: a.links?.[0]?.url ?? '',
         }));
@@ -106,7 +112,7 @@ export default function LaporanKegiatan() {
     const totalKegiatan = rows.length;
     const totalMinutes = rows.reduce((sum, r) => {
         const toMin = (t) => {
-            const [h, m] = (t || '0.0').split('.').map(Number);
+            const [h, m] = String(t || '0:0').replace('.', ':').split(':').map(Number);
             return (h || 0) * 60 + (m || 0);
         };
         const diff = toMin(r.end) - toMin(r.start);
@@ -183,6 +189,36 @@ export default function LaporanKegiatan() {
         }
     };
 
+    const formatTanggal = (d) => {
+        const src = d ?? todayISO();
+        return new Date(src).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+    };
+
+    const handleDownloadPdf = () => {
+        const sigPath = user?.signature_path;
+        const sup = report?.supervisor;
+        printWfhReport({
+            nama: user?.name ?? '-',
+            nip: user?.nip ?? '-',
+            pangkat: user?.rank || '-',
+            jabatan: user?.position || '-',
+            unitKerja: user?.team?.field?.name || '-',
+            tanggalPelaksanaan: formatTanggal(report?.report_date),
+            kegiatan: rows.map((r) => ({
+                waktu: `${r.start} – ${r.end}`,
+                kegiatan: r.activity,
+                links: r.link ? [r.link] : [],
+            })),
+            isApproved: status === 'approved',
+            makerName: (user?.name || '').toUpperCase(),
+            makerNip: user?.nip ?? '-',
+            makerSignatureUrl: sigPath ? assetUrl(`/storage/${sigPath}`) : null,
+            supervisorName: sup?.name ? sup.name.toUpperCase() : '-',
+            supervisorNip: sup?.nip ?? '-',
+            supervisorSignatureUrl: sup?.signature_path ? assetUrl(`/storage/${sup.signature_path}`) : null,
+        });
+    };
+
     const handleSubmitReport = async () => {
         if (!report?.id) {
             showToast('error', 'Tambahkan kegiatan terlebih dahulu.');
@@ -233,11 +269,15 @@ export default function LaporanKegiatan() {
                         Kirim Laporan
                     </button>
                 )}
-                {!editable && <StatusBadge status={status} />}
             </div>
 
             {/* Table */}
             <div className="bg-white rounded-2xl border border-gray-200 mt-6 overflow-hidden">
+                {/* Table header bar */}
+                <div className="px-6 py-4 border-b border-gray-100">
+                    <h2 className="text-base font-bold text-gray-800">Rincian Kegiatan</h2>
+                </div>
+
                 {/* Desktop table */}
                 <div className="overflow-x-auto hidden md:block">
                     <table className="w-full min-w-[720px]">
@@ -279,6 +319,9 @@ export default function LaporanKegiatan() {
                                                     </button>
                                                 </>
                                             )}
+                                            <button onClick={handleDownloadPdf} className="text-gray-500 hover:text-indigo-600 transition-colors" title="Unduh PDF laporan">
+                                                <FileDown size={17} />
+                                            </button>
                                         </div>
                                     </td>
                                 </tr>
@@ -305,16 +348,21 @@ export default function LaporanKegiatan() {
                                     {r.link}
                                 </a>
                             )}
-                            {editable && (
-                                <div className="flex items-center gap-4 pt-1">
-                                    <button onClick={() => openEdit(r)} className="flex items-center gap-1 text-gray-500 hover:text-brand-500 text-sm">
-                                        <Pencil size={15} /> Edit
-                                    </button>
-                                    <button onClick={() => handleDelete(r.id)} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
-                                        <Trash2 size={15} /> Hapus
-                                    </button>
-                                </div>
-                            )}
+                            <div className="flex items-center gap-4 pt-1">
+                                {editable && (
+                                    <>
+                                        <button onClick={() => openEdit(r)} className="flex items-center gap-1 text-gray-500 hover:text-brand-500 text-sm">
+                                            <Pencil size={15} /> Edit
+                                        </button>
+                                        <button onClick={() => handleDelete(r.id)} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
+                                            <Trash2 size={15} /> Hapus
+                                        </button>
+                                    </>
+                                )}
+                                <button onClick={handleDownloadPdf} className="flex items-center gap-1 text-gray-500 hover:text-indigo-600 text-sm">
+                                    <FileDown size={15} /> Unduh
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>
@@ -337,18 +385,18 @@ export default function LaporanKegiatan() {
                         <div>
                             <label className="block text-xs font-semibold text-text-secondary mb-1.5">Jam Mulai</label>
                             <input
-                                type="text" value={form.start}
+                                type="time" value={form.start}
                                 onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))}
-                                placeholder="08.00" required
+                                required
                                 className="w-full px-4 py-2.5 border border-border-light rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500"
                             />
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-text-secondary mb-1.5">Jam Selesai</label>
                             <input
-                                type="text" value={form.end}
+                                type="time" value={form.end}
                                 onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))}
-                                placeholder="10.00" required
+                                required
                                 className="w-full px-4 py-2.5 border border-border-light rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500"
                             />
                         </div>

@@ -4,8 +4,10 @@ import {
     Filter, RefreshCw, FileDown, Search, ChevronDown, Check, X,
     Eye, MessageSquare, Download, Loader2,
 } from 'lucide-react';
-import { getMonitoringBoard, getReportDetail, approveReport, rejectReport } from '../../api/admin';
+import { getMonitoringBoard, getReportDetail, getAdminReports, approveReport, rejectReport } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
+import { printWfhFull, printWfhFullBatch } from '../../pdf';
 import Modal from '../../components/ui/Modal';
 
 const STATUS_OPTIONS = [
@@ -80,6 +82,32 @@ function fmtTime(t) {
     return isNaN(d) ? t : d.toISOString().slice(11, 16);
 }
 
+/** Petakan objek report backend ke bentuk data template PDF laporan kegiatan. */
+function reportToPdfData(report, unitKerja, fallbackDate) {
+    const u = report.user ?? {};
+    const sup = report.supervisor;
+    return {
+        nama: u.name ?? '-',
+        nip: u.nip ?? '-',
+        pangkat: u.rank ?? '-',
+        jabatan: u.position ?? '-',
+        unitKerja: report.user?.team?.field?.name ?? unitKerja ?? '-',
+        tanggalPelaksanaan: fmtFriday(report.report_date ?? fallbackDate),
+        kegiatan: (report.activities ?? []).map((a) => ({
+            waktu: `${fmtTime(a.start_time)} – ${fmtTime(a.end_time)}`,
+            kegiatan: a.activity,
+            links: (a.links ?? []).map((l) => (typeof l === 'string' ? l : l.url)),
+        })),
+        isApproved: report.status === 'approved',
+        makerName: (u.name ?? '').toUpperCase(),
+        makerNip: u.nip ?? '-',
+        makerSignatureUrl: u.signature_path ? assetUrl(`/storage/${u.signature_path}`) : null,
+        supervisorName: sup?.name ? sup.name.toUpperCase() : '-',
+        supervisorNip: sup?.nip ?? '-',
+        supervisorSignatureUrl: sup?.signature_path ? assetUrl(`/storage/${sup.signature_path}`) : null,
+    };
+}
+
 export default function MonitorWfh() {
     const { user, hasPermission } = useAuth();
     const canApprove = hasPermission('wfh.report.approve');
@@ -140,12 +168,56 @@ export default function MonitorWfh() {
     const employees = data?.employees ?? [];
     const meta = data?.meta;
 
-    const teamId = user?.team?.id;
-    const token = localStorage.getItem('token');
-    const handleGeneratePdf = () => {
-        if (!teamId) return;
-        const url = `/api/admin/wfh/teams/${teamId}/pdf?date=${date}${token ? `&token=${token}` : ''}`;
-        window.open(url, '_blank');
+    const unitKerja = user?.team?.field?.name ?? '-';
+
+    // Unduh PDF perorangan (kegiatan + foto absensi) — digenerate di frontend.
+    const handleDownloadOne = async (emp) => {
+        if (!emp.report_id) {
+            setToast('Pegawai ini belum mengirim laporan kegiatan.');
+            setTimeout(() => setToast(''), 4000);
+            return;
+        }
+        try {
+            const report = await getReportDetail(emp.report_id);
+            printWfhFull({
+                report: reportToPdfData(report, unitKerja, date),
+                attendance: {
+                    tanggal: fmtFriday(date),
+                    unitKerja,
+                    rows: [{ no: 1, nama: report.user?.name ?? emp.name, pagi: null, siang: null, sore: null }],
+                },
+            });
+        } catch {
+            setToast('Gagal memuat laporan untuk PDF.');
+            setTimeout(() => setToast(''), 4000);
+        }
+    };
+
+    // Generate semua laporan pegawai (tanggal terpilih) jadi satu file PDF.
+    const handleGeneratePdf = async () => {
+        setToast('Menyiapkan PDF...');
+        try {
+            const res = await getAdminReports({ date_from: date, date_to: date, per_page: 100 });
+            const reports = res.data ?? [];
+            if (reports.length === 0) {
+                setToast('Belum ada laporan pada tanggal ini.');
+                setTimeout(() => setToast(''), 4000);
+                return;
+            }
+            const list = reports.map((r, i) => ({
+                report: reportToPdfData(r, unitKerja, date),
+                attendance: {
+                    tanggal: fmtFriday(date),
+                    unitKerja,
+                    rows: [{ no: i + 1, nama: r.user?.name ?? '-', pagi: null, siang: null, sore: null }],
+                },
+            }));
+            setToast('');
+            printWfhFullBatch(list, { tanggal: fmtFriday(date) });
+        } catch {
+            setToast('Gagal menyiapkan PDF.');
+            setTimeout(() => setToast(''), 4000);
+        }
     };
 
     return (
@@ -300,7 +372,7 @@ export default function MonitorWfh() {
                                                 <td className="px-6 py-4 text-sm text-gray-500">{emp.catatan}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex justify-center">
-                                                        <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} canApprove={canApprove} onChanged={fetchBoard} />
+                                                        <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -327,7 +399,7 @@ export default function MonitorWfh() {
                                                     <p className="text-xs text-gray-400">{emp.nip}</p>
                                                 </div>
                                             </div>
-                                            <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} canApprove={canApprove} onChanged={fetchBoard} />
+                                            <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
                                         </div>
                                         <div className="flex items-center gap-4 text-xs text-gray-500">
                                             <SessionPill label="Pagi" ok={emp.sessions.pagi} />
@@ -434,13 +506,12 @@ function StatusBadge({ status }) {
     );
 }
 
-function PreviewDropdown({ emp, date, onSendReminder, canApprove, onChanged }) {
+function PreviewDropdown({ emp, date, onSendReminder, onDownload, canApprove, onChanged }) {
     const [open, setOpen] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
     const [menuPos, setMenuPos] = useState(null);
     const triggerRef = useRef(null);
     const menuRef = useRef(null);
-    const token = localStorage.getItem('token');
 
     const MENU_WIDTH = 208; // w-52
 
@@ -479,7 +550,7 @@ function PreviewDropdown({ emp, date, onSendReminder, canApprove, onChanged }) {
     }, [open]);
 
     const handleDownload = () => {
-        window.open(`/api/wfh/reports/${emp.report_id}/pdf${token ? `?token=${token}` : ''}`, '_blank');
+        onDownload?.(emp);
         setOpen(false);
     };
 
@@ -724,3 +795,4 @@ function ReportDetailModal({ reportId, empName, date, canApprove, onChanged, onC
         </Modal>
     );
 }
+

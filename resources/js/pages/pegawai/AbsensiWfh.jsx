@@ -1,6 +1,9 @@
 import React, { useRef, useState } from 'react';
-import { ImageIcon, Plus, Trash2, Check, X, Loader2, CheckCircle2, XCircle } from 'lucide-react';
+import { ImageIcon, Plus, Trash2, Check, X, Loader2, CheckCircle2, XCircle, FileDown } from 'lucide-react';
 import { checkIn } from '../../api/attendance';
+import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
+import { printWfhAttendance } from '../../pdf';
 
 /* ---------------- Session status badge ---------------- */
 function SessionBadge({ status }) {
@@ -99,6 +102,7 @@ export default function AbsensiWfh() {
         sore: { status: 'belum', photo: null, loading: false },
     });
 
+    const { user } = useAuth();
     const [toast, setToast] = useState(null);
     const showToast = (type, message) => {
         setToast({ type, message });
@@ -128,6 +132,23 @@ export default function AbsensiWfh() {
 
     const handleRemove = (key) => setSession(key, { status: 'belum', photo: null });
 
+    const hasAnyPhoto = !!(sessions.pagi.photo || sessions.siang.photo || sessions.sore.photo);
+
+    const handleDownloadPdf = () => {
+        printWfhAttendance({
+            judul: 'Laporan Bukti Absensi WFH',
+            tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+            unitKerja: user?.team?.field?.name,
+            rows: [{
+                no: 1,
+                nama: user?.name ?? '-',
+                pagi: sessions.pagi.photo ? assetUrl(sessions.pagi.photo) : null,
+                siang: sessions.siang.photo ? assetUrl(sessions.siang.photo) : null,
+                sore: sessions.sore.photo ? assetUrl(sessions.sore.photo) : null,
+            }],
+        });
+    };
+
     const doneCount = Object.values(sessions).filter((s) => s.status === 'terkirim').length;
     const percent = Math.round((doneCount / 3) * 100);
 
@@ -137,7 +158,18 @@ export default function AbsensiWfh() {
 
     return (
         <div className="max-w-[1200px] mx-auto">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Absensi WFH</h1>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Absensi WFH</h1>
+                {hasAnyPhoto && (
+                    <button
+                        onClick={handleDownloadPdf}
+                        className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                        <FileDown size={16} />
+                        Unduh PDF
+                    </button>
+                )}
+            </div>
 
             {/* Status kehadiran */}
             <div className="mt-6">
