@@ -2,8 +2,8 @@
 
 namespace App\Domains\Organization\Http\Controllers;
 
-use App\Models\Team;
 use App\Domains\Organization\Http\Resources\UserResource;
+use App\Models\Team;
 use App\Support\Http\ResolvesFieldScope;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;

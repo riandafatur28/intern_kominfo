@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Domains\Wfh\Http\Controllers;
+
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Team;
 use App\Support\Http\ResolvesFieldScope;
