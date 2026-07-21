@@ -5,6 +5,7 @@ import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import { wfhApi } from '../../api/wfh';
 import { useAuth } from '../../context/AuthContext';
+import { printWfhReport } from '../../pdf';
 
 /* ---------------- Status Badge ---------------- */
 function StatusBadge({ status }) {
@@ -147,15 +148,34 @@ export default function LaporanKegiatan() {
 
     const handleDownloadPdf = async (id) => {
         try {
-            const res = await wfhApi.getReportPdf(id);
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Laporan-WFH-${id}.pdf`;
-            document.body.appendChild(a); a.click(); a.remove();
-            window.URL.revokeObjectURL(url);
+            const res = await wfhApi.getReport(id);
+            const r = res.data?.data ?? res.data ?? {};
+            const u = r.user ?? {};
+            const s = r.supervisor ?? {};
+            const kegiatan = (r.activities ?? []).map((a) => ({
+                waktu: a.start_time && a.end_time ? `${a.start_time.slice(0,5)} - ${a.end_time.slice(0,5)}` : (a.start_time || '').slice(0,5),
+                kegiatan: a.activity,
+                links: (a.links ?? []).map((l) => l.url).filter(Boolean),
+            }));
+            printWfhReport({
+                nama: u.name || user?.name || '-',
+                nip: u.nip || user?.nip || '-',
+                pangkat: u.rank || user?.rank || '-',
+                jabatan: u.position || user?.position || '-',
+                unitKerja: user?.team?.name || '-',
+                tanggalPelaksanaan: r.report_date || '-',
+                kegiatan,
+                isApproved: r.status === 'approved',
+                makerName: u.name || user?.name,
+                makerNip: u.nip || user?.nip,
+                makerSignatureUrl: u.signature_url || null,
+                supervisorName: s.name || '-',
+                supervisorNip: s.nip || '-',
+                supervisorSignatureUrl: s.signature_url || null,
+                city: 'Surabaya',
+            });
         } catch (e) {
-            showToast('error', e.response?.data?.message || 'Gagal mengunduh PDF.');
+            showToast('error', e.response?.data?.message || 'Gagal mencetak laporan.');
         }
     };
 

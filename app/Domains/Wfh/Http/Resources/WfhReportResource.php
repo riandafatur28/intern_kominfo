@@ -29,6 +29,9 @@ class WfhReportResource extends JsonResource
                 'position' => $this->user->position,
                 'rank' => $this->user->rank,
                 'signature_path' => $this->user->signature_path,
+                'signature_url' => $this->user->signature_path
+                    ? asset("storage/{$this->user->signature_path}")
+                    : null,
             ];
         }
 
@@ -40,6 +43,9 @@ class WfhReportResource extends JsonResource
                 'position' => $this->supervisor->position,
                 'rank' => $this->supervisor->rank,
                 'signature_path' => $this->supervisor->signature_path,
+                'signature_url' => $this->supervisor->signature_path
+                    ? asset("storage/{$this->supervisor->signature_path}")
+                    : null,
             ];
         }
 
