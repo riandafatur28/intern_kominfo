@@ -17,9 +17,12 @@ use App\Domains\Wfh\Http\Controllers\DashboardController;
 use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportController;
 use App\Domains\Wfh\Http\Controllers\ReportPdfController;
+use App\Domains\Wfh\Http\Controllers\ReportRecapController;
 use App\Domains\Wfh\Http\Controllers\SpreadsheetSyncController;
 use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
 use App\Http\Controllers\QrVerificationController;
+use App\Models\User;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
@@ -42,6 +45,15 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // Change own password — must remain reachable while must_change_password=true
     Route::post('/profile/password', [ProfileController::class, 'changePassword']);
+
+    // Team members for dropdown (same team as authenticated user)
+    // Anggota berdasarkan field (bidang) untuk dropdown evaluator
+    Route::get('/team-members', fn(Request $req) => User::with('team.field')
+        ->whereHas('team', fn($q) => $q->where('field_id', $req->user()->team->field_id))
+        ->select('id', 'name', 'position', 'rank', 'team_id')
+        ->orderBy('name')
+        ->get()
+    );
 
     // All other authenticated routes require the user to have cleared first-login password change
     Route::middleware('password.changed')->group(function () {
@@ -77,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
         });
 
         // WFH Module
+        Route::get('/wfh/attendance/today', [AttendanceController::class, 'today']);
         Route::post('/wfh/attendance', [AttendanceController::class, 'checkIn'])
             ->middleware('permission:wfh.attendance.create');
 
@@ -116,6 +129,20 @@ Route::middleware('auth:sanctum')->group(function () {
 
         Route::get('/admin/wfh/teams/{team}/pdf', [ReportPdfController::class, 'exportTeam'])
             ->middleware('permission:wfh.report.export_pdf');
+
+        // WFH Report Recap (admin overview → kabid sign)
+        Route::get('/admin/wfh/recaps', [ReportRecapController::class, 'index'])
+            ->middleware('permission:wfh.monitoring.view');
+        Route::post('/admin/wfh/recaps', [ReportRecapController::class, 'store'])
+            ->middleware('permission:wfh.report.create');
+        Route::get('/admin/wfh/recaps/{recap}', [ReportRecapController::class, 'show'])
+            ->middleware('permission:wfh.monitoring.view');
+        Route::post('/admin/wfh/recaps/{recap}/submit', [ReportRecapController::class, 'submit']);
+        Route::post('/admin/wfh/recaps/{recap}/approve', [ReportRecapController::class, 'approve'])
+            ->middleware('permission:wfh.report.approve');
+        Route::post('/admin/wfh/recaps/{recap}/reject', [ReportRecapController::class, 'reject'])
+            ->middleware('permission:wfh.report.reject');
+        Route::delete('/admin/wfh/recaps/{recap}', [ReportRecapController::class, 'destroy']);
 
         // Change Management Module
         Route::get('/changes/initiations', [InitiationController::class, 'index'])

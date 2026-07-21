@@ -25,4 +25,10 @@ tasks/
 .pi
 .claude
 .agents
+<<<<<<< HEAD
+.omo/
+.playwright-mcp/
+*.png
+=======
 graphify-out
+>>>>>>> 7e51cecc6f2080d2bc9fbe0004dc4f294bf08bf2

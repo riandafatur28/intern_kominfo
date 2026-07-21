@@ -23,7 +23,7 @@ class InitiationController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = min($request->integer('per_page', 15), 100);
-        $filters = $request->only(['status', 'field_id', 'search']);
+        $filters = $request->only(['status', 'field_id', 'search', 'date_from', 'date_to', 'month']);
 
         $initiations = $this->repo->paginateInitiations($perPage, $filters);
 
@@ -53,6 +53,7 @@ class InitiationController extends Controller
             'description' => $request->input('description'),
             'reason' => $request->input('reason'),
             'status' => 'draft',
+            'verification_token' => bin2hex(random_bytes(32)),
         ]);
 
         return response()->json([

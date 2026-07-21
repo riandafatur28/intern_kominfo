@@ -40,18 +40,27 @@ class ReportController extends Controller
     {
         $this->authorize('wfh.monitoring.view');
 
-        $fieldId = $request->user()->team?->field?->id;
+        $user = $request->user();
 
-        if (! $fieldId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User tidak terhubung dengan bidang manapun.',
-            ], 422);
+        // Kepala bidang: cari semua field yang dipimpinnya
+        $fieldIds = \App\Models\Field::where('head_id', $user->id)->pluck('id')->toArray();
+
+        if (empty($fieldIds)) {
+            // Admin biasa: pakai field dari team-nya sendiri
+            $ownFieldId = $user->team?->field?->id;
+            if ($ownFieldId) {
+                $fieldIds = [$ownFieldId];
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terhubung dengan bidang manapun.',
+                ], 422);
+            }
         }
 
         $perPage = min($request->integer('per_page', 15), 100);
         $filters = array_filter([
-            'field_id' => $fieldId,
+            'field_ids' => $fieldIds,
             'status' => $request->input('status'),
             'team_id' => $request->input('team_id'),
             'date_from' => $request->input('date_from'),

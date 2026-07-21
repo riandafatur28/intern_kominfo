@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, ClipboardCheck, FileClock, CheckCircle2, UserPlus, Calendar } from 'lucide-react';
+import { Users, ClipboardCheck, FileClock, CheckCircle2, Calendar } from 'lucide-react';
 import { getDashboardStats } from '../../api/dashboard';
-import TambahPenggunaModal from '../../components/admin/TambahPenggunaModal';
+import { SkeletonCard, SkeletonBlock } from '../../components/ui/Skeleton';
+import { useAuth } from '../../context/AuthContext';
 
 /* ---------------- Stat Card ---------------- */
 function StatCard({ icon: Icon, iconBg, iconColor, value, label, sub, valueSmall }) {
@@ -154,10 +155,10 @@ function WfhCalendar({ monthLabel, calendar }) {
 
 /* ---------------- Page ---------------- */
 export default function DashboardAdmin() {
+    const { hasPermission } = useAuth();
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-    const [showTambah, setShowTambah] = useState(false);
     const [toast, setToast] = useState('');
     const navigate = useNavigate();
 
@@ -171,17 +172,18 @@ export default function DashboardAdmin() {
         loadStats();
     }, []);
 
-    const handleUserCreated = () => {
-        setToast('Pengguna berhasil ditambahkan.');
-        setLoading(true);
-        loadStats();
-        setTimeout(() => setToast(''), 3500);
-    };
-
     if (loading) {
         return (
-            <div className="flex items-center justify-center h-96">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+            <div className="max-w-[1200px] mx-auto space-y-6">
+                <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+                <SkeletonBlock className="h-72" />
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <SkeletonBlock className="h-64" />
+                    <SkeletonBlock className="h-64" />
+                </div>
             </div>
         );
     }
@@ -201,13 +203,7 @@ export default function DashboardAdmin() {
             {/* Header */}
             <div className="flex items-center justify-between flex-wrap gap-3">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Dashboard Admin</h1>
-                <button
-                    onClick={() => setShowTambah(true)}
-                    className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-                >
-                    <UserPlus size={16} />
-                    Tambah Pengguna
-                </button>
+
             </div>
 
             {/* Stat Cards */}
@@ -277,11 +273,7 @@ export default function DashboardAdmin() {
                 </button>
             </div>
 
-            <TambahPenggunaModal
-                open={showTambah}
-                onClose={() => setShowTambah(false)}
-                onSuccess={handleUserCreated}
-            />
+
 
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 bg-green-600 text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg">

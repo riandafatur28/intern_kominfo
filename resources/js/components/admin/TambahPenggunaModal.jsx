@@ -1,11 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
-import { createUser, getRoles, getTeams } from '../../api/admin';
+import { createUser, updateUser, getRoles, getTeams, getFields } from '../../api/admin';
+
+const roleLabels = {
+    admin: 'Admin',
+    kepala_bidang: 'Kepala Bidang',
+    kepala_tim: 'Kepala Tim',
+    staf: 'Staf',
+};
 
 const emptyForm = {
     name: '',
     nip: '',
     email: '',
+    field_id: '',
     team_id: '',
     rank: '',
     position: '',
@@ -14,10 +22,11 @@ const emptyForm = {
     roles: [],
 };
 
-export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
+export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) {
     const [form, setForm] = useState(emptyForm);
     const [teams, setTeams] = useState([]);
     const [roles, setRoles] = useState([]);
+    const [fields, setFields] = useState([]);
     const [errors, setErrors] = useState({});
     const [generalError, setGeneralError] = useState('');
     const [submitting, setSubmitting] = useState(false);
@@ -25,25 +34,56 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
 
     useEffect(() => {
         if (!open) return;
-        // reset when opened
-        setForm(emptyForm);
         setErrors({});
         setGeneralError('');
         setLoadingOptions(true);
-        Promise.all([getTeams().catch(() => []), getRoles().catch(() => [])])
-            .then(([teamsData, rolesData]) => {
-                setTeams(teamsData || []);
+        Promise.all([getFields().catch(() => []), getRoles().catch(() => [])])
+            .then(([fieldsData, rolesData]) => {
+                // dedup by name — DB mungkin ada duplikat
+                const seen = new Set();
+                setFields((fieldsData || []).filter((f) => {
+                    if (seen.has(f.name)) return false;
+                    seen.add(f.name);
+                    return true;
+                }));
                 setRoles(rolesData || []);
-                // default role = staf if available
-                const staf = (rolesData || []).find((r) => r.name === 'staf');
-                if (staf) setForm((f) => ({ ...f, roles: ['staf'] }));
+                if (user) {
+                    // edit mode — isi form dari data user
+                    setForm({
+                        name: user.name || '',
+                        nip: user.nip || '',
+                        email: user.email || '',
+                        field_id: user.team?.field?.id || '',
+                        team_id: user.team_id || '',
+                        rank: user.rank || '',
+                        position: user.position || '',
+                        phone: user.phone || '',
+                        password: '',
+                        roles: (user.roles || []).map((r) => r.name || r),
+                    });
+                    // load teams kalo field_id udah ada
+                    if (user.team?.field?.id) {
+                        getTeams(user.team.field.id).then(setTeams).catch(() => setTeams([]));
+                    }
+                } else {
+                    // tambah mode — reset
+                    setForm(emptyForm);
+                    const staf = (rolesData || []).find((r) => r.name === 'staf');
+                    if (staf) setForm((f) => ({ ...f, roles: ['staf'] }));
+                }
             })
             .finally(() => setLoadingOptions(false));
-    }, [open]);
+    }, [open, user]);
 
     const setField = (key, value) => {
         setForm((f) => ({ ...f, [key]: value }));
         setErrors((e) => ({ ...e, [key]: undefined }));
+        // Reset tim ketika bidang berubah
+        if (key === 'field_id') {
+            setForm((f) => ({ ...f, team_id: '' }));
+            setTeams([]);
+            if (value) getTeams(value).then(setTeams).catch(() => setTeams([]));
+        }
     };
 
     const toggleRole = (roleName) => {
@@ -66,23 +106,27 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
             name: form.name,
             nip: form.nip,
             email: form.email,
-            team_id: form.team_id || null,
+            team_id: form.team_id || (form.field_id && teams.length > 0 ? teams[0].id : null),
             rank: form.rank || null,
             position: form.position || null,
             phone: form.phone || null,
-            password: form.password,
             roles: form.roles,
         };
+        if (!user || form.password) payload.password = form.password;
 
         try {
-            await createUser(payload);
+            if (user) {
+                await updateUser(user.id, payload);
+            } else {
+                await createUser(payload);
+            }
             onSuccess?.();
             onClose();
         } catch (err) {
             if (err.response?.status === 422 && err.response.data?.errors) {
                 setErrors(err.response.data.errors);
             } else {
-                setGeneralError(err.response?.data?.message || 'Gagal menambah pengguna.');
+                setGeneralError(err.response?.data?.message || 'Gagal ' + (user ? 'memperbarui' : 'menambah') + ' pengguna.');
             }
         } finally {
             setSubmitting(false);
@@ -95,7 +139,7 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
         <Modal
             open={open}
             onClose={onClose}
-            title="Tambah Pengguna"
+            title={user ? 'Edit Pengguna' : 'Tambah Pengguna'}
             width="max-w-2xl"
             footer={
                 <>
@@ -123,6 +167,16 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                 </div>
             )}
 
+            {loadingOptions ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
+                    {Array.from({ length: 8 }).map((_, i) => (
+                        <div key={i} className="space-y-2">
+                            <div className="h-3 bg-gray-200 rounded w-1/4" />
+                            <div className="h-9 bg-gray-200 rounded w-full" />
+                        </div>
+                    ))}
+                </div>
+            ) : (
             <form id="tambah-pengguna-form" onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Nama Lengkap" required error={fieldError('name')}>
                     <input
@@ -157,15 +211,28 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                     />
                 </Field>
 
-                <Field label="Password" required error={fieldError('password')}>
+                <Field label="Password" required={!user} error={fieldError('password')}>
                     <input
                         type="password"
                         value={form.password}
                         onChange={(e) => setField('password', e.target.value)}
                         className={inputCls(fieldError('password'))}
-                        placeholder="Minimal 8 karakter"
-                        required
+                        placeholder={user ? 'Kosongkan jika tidak diubah' : 'Minimal 8 karakter'}
+                        required={!user}
                     />
+                </Field>
+
+                <Field label="Bidang" error={fieldError('field_id')}>
+                    <select
+                        value={form.field_id}
+                        onChange={(e) => setField('field_id', e.target.value)}
+                        className={inputCls(fieldError('field_id'))}
+                    >
+                        <option value="">— Pilih Bidang —</option>
+                        {fields.map((f) => (
+                            <option key={f.id} value={f.id}>{f.name}</option>
+                        ))}
+                    </select>
                 </Field>
 
                 <Field label="Tim" error={fieldError('team_id')}>
@@ -173,12 +240,11 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                         value={form.team_id}
                         onChange={(e) => setField('team_id', e.target.value)}
                         className={inputCls(fieldError('team_id'))}
+                        disabled={!form.field_id}
                     >
                         <option value="">— Pilih Tim —</option>
                         {teams.map((t) => (
-                            <option key={t.id} value={t.id}>
-                                {t.name}{t.field ? ` (${t.field.name})` : ''}
-                            </option>
+                            <option key={t.id} value={t.id}>{t.name}</option>
                         ))}
                     </select>
                 </Field>
@@ -231,7 +297,7 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                                             : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
                                     }`}
                                 >
-                                    {r.name}
+                                    {roleLabels[r.name] || r.name}
                                 </button>
                             );
                         })}
@@ -240,6 +306,7 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess }) {
                     {fieldError('roles') && <p className="text-red-500 text-xs mt-1">{fieldError('roles')}</p>}
                 </div>
             </form>
+            )}
         </Modal>
     );
 }

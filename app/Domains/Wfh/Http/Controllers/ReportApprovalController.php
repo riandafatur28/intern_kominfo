@@ -14,6 +14,7 @@ class ReportApprovalController extends Controller
 {
     use AuthorizesRequests;
 
+
     public function __construct(
         private WfhReportStateMachine $stateMachine,
     ) {}

@@ -167,7 +167,7 @@ export default function Profil() {
                         <div className="mt-4">
                             {user?.signature_path ? (
                                 <div className="p-4 bg-gray-50 rounded-lg flex items-center justify-center border border-dashed border-border-light">
-                                    <img src={user.signature_url || `/storage/${user.signature_path}`} alt="Tanda tangan" className="max-h-24 object-contain" />
+                                    <img src={user.signature_url} alt="Tanda tangan" className="max-h-24 object-contain" />
                                 </div>
                             ) : (
                                 <div className="border-2 border-dashed border-border-light rounded-lg h-32 flex items-center justify-center bg-gray-50">

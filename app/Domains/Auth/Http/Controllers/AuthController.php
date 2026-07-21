@@ -34,6 +34,7 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
+        $user->load(['team.field', 'roles.permissions']);
 
         return response()->json([
             'success' => true,
@@ -77,6 +78,9 @@ class AuthController extends Controller
             'position' => $user->position,
             'phone' => $user->phone,
             'signature_path' => $user->signature_path,
+            'signature_url' => $user->signature_path
+                ? asset("storage/{$user->signature_path}")
+                : null,
             'photo_path' => $user->photo_path,
             'photo_url' => $user->photo_path
                 ? asset("storage/{$user->photo_path}")

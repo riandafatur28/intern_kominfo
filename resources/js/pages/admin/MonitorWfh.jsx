@@ -1,9 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Calendar, RefreshCw, FileDown, Search, ChevronDown, Check, X,
-    Eye, Bell, Download, Loader2,
+    Eye, MessageSquare, Download, Loader2, Send,
 } from 'lucide-react';
-import { getMonitoringBoard, getReportDetail } from '../../api/admin';
+import axios from 'axios';
+import { getMonitoringBoard, getReportDetail, getRecaps } from '../../api/admin';
+import { SkeletonTable } from '../../components/ui/Skeleton';
+import { wfhApi } from '../../api/wfh';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../../components/ui/Modal';
 
@@ -20,7 +24,52 @@ const STATUS_BADGE = {
     belum_absensi: { label: 'Belum Absensi', cls: 'bg-slate-300 text-slate-600' },
 };
 
-const DEFAULT_DATE = '2026-07-17';
+const now = new Date();
+const day = now.getDay();
+const fri = new Date(now);
+fri.setDate(now.getDate() + ((5 - day + 7) % 7));
+function upcomingFriday() {
+    const d = new Date();
+    const day = d.getDay();
+    // 5 = Friday. If today ≤ Friday → this week's Friday. If Saturday → next week's Friday.
+    const diff = day <= 5 ? (5 - day) : (5 - day + 7);
+    d.setDate(d.getDate() + diff);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+}
+
+const DEFAULT_DATE = upcomingFriday();
+
+function fridaysInMonth(ym) {
+    if (!ym) return [];
+    const [y, m] = ym.split('-').map(Number);
+    const res = [];
+    const d = new Date(y, m - 1, 1);
+    while (d.getMonth() === m - 1) {
+        if (d.getDay() === 5) {
+            const yy = d.getFullYear();
+            const mm = String(d.getMonth() + 1).padStart(2, '0');
+            const dd = String(d.getDate()).padStart(2, '0');
+            res.push(`${yy}-${mm}-${dd}`);
+        }
+        d.setDate(d.getDate() + 1);
+    }
+    return res;
+}
+
+function pickFridayForMonth(fridays) {
+    if (!fridays.length) return '';
+    const today = new Date();
+    const t = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    const past = fridays.filter((f) => f <= t);
+    return past.length ? past[past.length - 1] : fridays[0];
+}
+
+function fmtFriday(d) {
+    return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+}
 
 function fmtTime(t) {
     if (!t) return '-';
@@ -30,8 +79,16 @@ function fmtTime(t) {
 }
 
 export default function MonitorWfh() {
-    const { user } = useAuth();
+    const { user, hasPermission } = useAuth();
+    const [month, setMonth] = useState(DEFAULT_DATE.slice(0, 7));
     const [date, setDate] = useState(DEFAULT_DATE);
+    const fridays = useMemo(() => fridaysInMonth(month), [month]);
+
+    const handleMonthChange = (val) => {
+        setMonth(val);
+        setDate(pickFridayForMonth(fridaysInMonth(val)));
+        setPage(1);
+    };
     const [search, setSearch] = useState('');
     const [debouncedSearch, setDebouncedSearch] = useState('');
     const [status, setStatus] = useState('');
@@ -81,11 +138,110 @@ export default function MonitorWfh() {
     const meta = data?.meta;
 
     const teamId = user?.team?.id;
-    const token = localStorage.getItem('token');
-    const handleGeneratePdf = () => {
+    const [pdfLoading, setPdfLoading] = useState(false);
+    const [recapLoading, setRecapLoading] = useState(false);
+    const [recaps, setRecaps] = useState([]);
+    const [recapsLoading, setRecapsLoading] = useState(false);
+    const [downloadRecapId, setDownloadRecapId] = useState(null);
+
+    const handleSubmitRecap = async () => {
         if (!teamId) return;
-        const url = `/api/admin/wfh/teams/${teamId}/pdf?date=${date}${token ? `&token=${token}` : ''}`;
-        window.open(url, '_blank');
+        setRecapLoading(true);
+        try {
+            // Hitung period: 1 minggu dari Jumat yang dipilih
+            const startDate = new Date(date);
+            const endDate = new Date(date);
+            endDate.setDate(endDate.getDate() + 6); // Sabtu minggu itu
+
+            const fmt = (d) => d.toISOString().split('T')[0];
+
+            // Buat rekap baru
+            const createRes = await wfhApi.createRecap({
+                team_id: teamId,
+                period_start: fmt(startDate),
+                period_end: fmt(endDate),
+            });
+            const recapId = createRes.data?.data?.id;
+
+            if (!recapId) {
+                throw new Error('Gagal membuat rekap.');
+            }
+
+            // Submit rekap ke kepala bidang
+            const submitRes = await wfhApi.submitRecap(recapId);
+            if (submitRes.data?.success) {
+                setToast('Rekap laporan berhasil diajukan ke Kepala Bidang untuk TTD.');
+                fetchRecaps();
+            } else {
+                throw new Error(submitRes.data?.message || 'Gagal mengajukan rekap.');
+            }
+            setTimeout(() => setToast(''), 4000);
+        } catch (e) {
+            const msg = e.response?.data?.message || e.message || 'Gagal mengajukan rekap.';
+            setToast(msg);
+            setTimeout(() => setToast(''), 5000);
+        } finally {
+            setRecapLoading(false);
+        }
+    };
+
+    const handleGeneratePdf = async () => {
+        if (!teamId) return;
+        setPdfLoading(true);
+        try {
+            const res = await axios.get(`/api/admin/wfh/teams/${teamId}/pdf`, { params: { date }, responseType: 'blob' });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `WFH-Team-${teamId}-${date}.pdf`;
+            document.body.appendChild(a); a.click(); a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
+            alert(msg);
+        } finally {
+            setPdfLoading(false);
+        }
+    };
+
+    const fetchRecaps = useCallback(async () => {
+        if (!hasPermission('wfh.monitoring.view')) return;
+        try {
+            setRecapsLoading(true);
+            const res = await getRecaps({ per_page: 50 });
+            setRecaps(res.data || []);
+        } catch (e) {
+            // silent
+        } finally {
+            setRecapsLoading(false);
+        }
+    }, [hasPermission]);
+
+    useEffect(() => { fetchRecaps() }, [fetchRecaps]);
+
+    const handleDownloadRecapPdf = async (recap) => {
+        setDownloadRecapId(recap.id);
+        try {
+            const date = recap.period_start;
+            const teamId = recap.team_id;
+            const res = await axios.get(`/api/admin/wfh/teams/${teamId}/pdf`, {
+                params: { date },
+                responseType: 'blob',
+            });
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            const teamName = recap.team?.name?.replace(/\s+/g, '-') || teamId;
+            a.download = `Rekap-WFH-${teamName}-${date}.pdf`;
+            document.body.appendChild(a); a.click(); a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
+            setToast(msg);
+            setTimeout(() => setToast(''), 5000);
+        } finally {
+            setDownloadRecapId(null);
+        }
     };
 
     return (
@@ -94,14 +250,34 @@ export default function MonitorWfh() {
             <div className="flex items-start justify-between flex-wrap gap-3">
                 <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Monitoring WFH</h1>
                 <div className="flex items-center gap-2 flex-wrap">
-                    <div className="relative">
+                    {/* Filter bulan */}
+                    <div className="relative flex items-center">
+                        <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
                         <input
-                            type="date"
+                            type="month"
+                            value={month}
+                            onChange={(e) => handleMonthChange(e.target.value)}
+                            title="Filter bulan WFH"
+                            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        />
+                    </div>
+                    {/* Pilih Jumat di bulan tsb */}
+                    <div className="relative">
+                        <select
                             value={date}
                             onChange={(e) => { setDate(e.target.value); setPage(1); }}
-                            className="pl-3 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                        <Calendar size={15} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+                            title="Pilih hari WFH (Jumat)"
+                            className="appearance-none pl-4 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                        >
+                            {fridays.length === 0 ? (
+                                <option value="">Tidak ada Jumat</option>
+                            ) : (
+                                fridays.map((f) => (
+                                    <option key={f} value={f}>{fmtFriday(f)}</option>
+                                ))
+                            )}
+                        </select>
+                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                     <button
                         onClick={fetchBoard}
@@ -110,13 +286,25 @@ export default function MonitorWfh() {
                         <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                         Perbarui
                     </button>
-                    <button
-                        onClick={handleGeneratePdf}
-                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                    >
-                        <FileDown size={15} />
-                        Generate Semua PDF
-                    </button>
+                    {hasPermission('wfh.report.export_pdf') && (
+                        <button
+                            onClick={handleGeneratePdf}
+                            className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        >
+                            {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
+                            {pdfLoading ? 'Memproses...' : 'Generate Semua PDF'}
+                        </button>
+                    )}
+                    {hasPermission('wfh.monitoring.view') && (
+                        <button
+                            onClick={handleSubmitRecap}
+                            disabled={recapLoading}
+                            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                        >
+                            {recapLoading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
+                            {recapLoading ? 'Mengajukan...' : 'Ajukan Rekap ke Kabid'}
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -159,9 +347,8 @@ export default function MonitorWfh() {
                         {Array.from({ length: stats?.jumat_total ?? 0 }).map((_, i) => (
                             <div
                                 key={i}
-                                className={`h-1.5 flex-1 rounded-full ${
-                                    i < (stats?.jumat_terlaksana ?? 0) ? 'bg-indigo-500' : 'bg-gray-200'
-                                }`}
+                                className={`h-1.5 flex-1 rounded-full ${i < (stats?.jumat_terlaksana ?? 0) ? 'bg-indigo-500' : 'bg-gray-200'
+                                    }`}
                             />
                         ))}
                     </div>
@@ -202,7 +389,7 @@ export default function MonitorWfh() {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={7} className="py-16 text-center"><Loader2 className="animate-spin inline text-blue-600" /></td></tr>
+                                        <tr><td colSpan={7} className="px-0 py-0"><SkeletonTable rows={5} cols={7} /></td></tr>
                                     ) : employees.length === 0 ? (
                                         <tr><td colSpan={7} className="py-16 text-center text-gray-400 text-sm">Tidak ada pegawai ditemukan.</td></tr>
                                     ) : (
@@ -234,7 +421,17 @@ export default function MonitorWfh() {
                         {/* Mobile cards */}
                         <div className="md:hidden divide-y divide-gray-50">
                             {loading ? (
-                                <div className="py-16 text-center"><Loader2 className="animate-spin inline text-blue-600" /></div>
+                                <div className="p-6 space-y-4 animate-pulse">
+                                    {Array.from({ length: 4 }).map((_, i) => (
+                                        <div key={i} className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gray-200" />
+                                            <div className="flex-1 space-y-2">
+                                                <div className="h-4 bg-gray-200 rounded w-1/2" />
+                                                <div className="h-3 bg-gray-100 rounded w-1/3" />
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : employees.length === 0 ? (
                                 <div className="py-16 text-center text-gray-400 text-sm">Tidak ada pegawai ditemukan.</div>
                             ) : (
@@ -286,11 +483,10 @@ export default function MonitorWfh() {
                             <button
                                 key={p}
                                 onClick={() => setPage(p)}
-                                className={`w-10 h-10 text-sm font-semibold rounded-lg transition-colors ${
-                                    p === (meta?.current_page ?? 1)
-                                        ? 'bg-indigo-500 text-white'
-                                        : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
-                                }`}
+                                className={`w-10 h-10 text-sm font-semibold rounded-lg transition-colors ${p === (meta?.current_page ?? 1)
+                                    ? 'bg-indigo-500 text-white'
+                                    : 'border border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    }`}
                             >
                                 {p}
                             </button>
@@ -305,6 +501,57 @@ export default function MonitorWfh() {
                     </button>
                 </div>
             </div>
+
+            {/* Recap List */}
+            {hasPermission('wfh.monitoring.view') && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+                        <h2 className="text-sm font-bold text-gray-900">Rekap yang Diajukan</h2>
+                        {recapsLoading && <Loader2 size={14} className="animate-spin text-gray-400" />}
+                    </div>
+                    {recaps.length === 0 ? (
+                        <div className="p-8 text-center text-sm text-gray-400">Belum ada rekap diajukan.</div>
+                    ) : (
+                        <div className="divide-y divide-gray-50">
+                            {recaps.map((r) => {
+                                const statusMeta = {
+                                    draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
+                                    pending: { label: 'Menunggu', cls: 'bg-amber-100 text-amber-700' },
+                                    approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
+                                    rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-600' },
+                                }[r.status] || { label: r.status, cls: 'bg-gray-100 text-gray-600' };
+                                const fmt = (d) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
+                                return (
+                                    <div key={r.id} className="px-5 py-4 flex items-center justify-between gap-4">
+                                        <div className="min-w-0 flex-1">
+                                            <div className="flex items-center gap-2 mb-0.5">
+                                                <p className="text-sm font-semibold text-gray-900 truncate">{r.team?.name || '—'}</p>
+                                                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${statusMeta.cls}`}>{statusMeta.label}</span>
+                                            </div>
+                                            <p className="text-xs text-gray-400">{fmt(r.period_start)} — {fmt(r.period_end)}</p>
+                                            {r.admin && <p className="text-xs text-gray-400">Dibuat oleh: {r.admin.name}</p>}
+                                        </div>
+                                        <div className="shrink-0">
+                                            {r.status === 'approved' ? (
+                                                <button
+                                                    onClick={() => handleDownloadRecapPdf(r)}
+                                                    disabled={downloadRecapId === r.id}
+                                                    className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+                                                >
+                                                    {downloadRecapId === r.id ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
+                                                    Unduh
+                                                </button>
+                                            ) : (
+                                                <span className="text-xs text-gray-400 italic">Menunggu TTD</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 bg-amber-500 text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg max-w-sm">
@@ -359,24 +606,61 @@ function StatusBadge({ status }) {
 function PreviewDropdown({ emp, date, onSendReminder }) {
     const [open, setOpen] = useState(false);
     const [showDetail, setShowDetail] = useState(false);
-    const ref = useRef(null);
+    const [menuPos, setMenuPos] = useState(null);
+    const triggerRef = useRef(null);
+    const menuRef = useRef(null);
     const token = localStorage.getItem('token');
 
+    const MENU_WIDTH = 208; // w-52
+
+    const openMenu = () => {
+        const rect = triggerRef.current?.getBoundingClientRect();
+        if (rect) {
+            setMenuPos({
+                top: rect.bottom + 4,
+                left: Math.max(8, rect.right - MENU_WIDTH),
+            });
+        }
+        setOpen(true);
+    };
+
+    const toggleMenu = () => (open ? setOpen(false) : openMenu());
+
+    // Tutup dropdown saat klik di luar, scroll, atau resize
     useEffect(() => {
-        const handler = (e) => {
-            if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+        if (!open) return;
+        const handleClick = (e) => {
+            if (
+                triggerRef.current?.contains(e.target) ||
+                menuRef.current?.contains(e.target)
+            ) return;
+            setOpen(false);
         };
-        document.addEventListener('mousedown', handler);
-        return () => document.removeEventListener('mousedown', handler);
-    }, []);
+        const handleClose = () => setOpen(false);
+        document.addEventListener('mousedown', handleClick);
+        window.addEventListener('scroll', handleClose, true);
+        window.addEventListener('resize', handleClose);
+        return () => {
+            document.removeEventListener('mousedown', handleClick);
+            window.removeEventListener('scroll', handleClose, true);
+            window.removeEventListener('resize', handleClose);
+        };
+    }, [open]);
 
-    const canPreview = !!emp.report_id;
-    const belumAbsen = emp.report_status === 'belum_absensi';
-
-    const handleDownload = () => {
-        if (!emp.report_id) return;
-        window.open(`/api/wfh/reports/${emp.report_id}/pdf${token ? `?token=${token}` : ''}`, '_blank');
+    const handleDownload = async () => {
         setOpen(false);
+        try {
+            const res = await wfhApi.getReportPdf(emp.report_id);
+            const url = window.URL.createObjectURL(new Blob([res.data]));
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `WFH-${emp.name || emp.report_id}.pdf`;
+            document.body.appendChild(a); a.click(); a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
+            alert(msg);
+        }
     };
 
     const handleReminder = () => {
@@ -385,44 +669,50 @@ function PreviewDropdown({ emp, date, onSendReminder }) {
     };
 
     return (
-        <div className="relative" ref={ref}>
-            <button
-                onClick={() => setOpen((o) => !o)}
-                className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-500 transition-colors"
-            >
-                <div className="flex items-center gap-0.5">
-                    <Eye size={18} />
-                    <ChevronDown size={13} />
-                </div>
-                <span className="text-[10px] font-medium">Preview</span>
-            </button>
+        <div className="inline-flex flex-col items-center" ref={triggerRef}>
+            {/* Trigger: Preview + tombol dropdown */}
+            <div className="flex items-center gap-1">
+                <button
+                    type="button"
+                    onClick={() => setShowDetail(true)}
+                    title="Preview laporan"
+                    className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                >
+                    <Eye size={19} />
+                    <span className="text-[11px] font-medium text-gray-500">Preview</span>
+                </button>
+                <button
+                    type="button"
+                    onClick={toggleMenu}
+                    aria-label="Aksi lainnya"
+                    aria-expanded={open}
+                    className="p-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+                >
+                    <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
+                </button>
+            </div>
 
-            {open && (
-                <div className="absolute right-0 top-full mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 text-left">
+            {/* Dropdown: Peringatan + Unduh (portal agar tidak terpotong tabel) */}
+            {open && menuPos && createPortal(
+                <div
+                    ref={menuRef}
+                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
+                    className="bg-white border border-gray-100 rounded-xl shadow-lg z-50 py-1 text-left"
+                >
                     <button
-                        onClick={() => { setShowDetail(true); setOpen(false); }}
-                        disabled={!canPreview}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={handleReminder}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
                     >
-                        <Eye size={15} /> Lihat Detail
+                        <MessageSquare size={16} /> Peringatan
                     </button>
                     <button
                         onClick={handleDownload}
-                        disabled={!canPreview}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
                     >
-                        <Download size={15} /> Unduh Laporan Perorangan
+                        <Download size={16} /> Unduh Perorangan
                     </button>
-                    <div className="my-1 border-t border-gray-50" />
-                    <button
-                        onClick={handleReminder}
-                        disabled={!belumAbsen}
-                        title={!belumAbsen ? 'Hanya untuk pegawai yang belum absen' : undefined}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50 disabled:text-gray-400 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                        <Bell size={15} /> Kirim Peringatan
-                    </button>
-                </div>
+                </div>,
+                document.body
             )}
 
             {showDetail && (
@@ -452,7 +742,14 @@ function ReportDetailModal({ reportId, empName, date, onClose }) {
     return (
         <Modal open onClose={onClose} title={`Laporan WFH — ${empName}`} width="max-w-2xl">
             {loading ? (
-                <div className="py-10 text-center"><Loader2 className="animate-spin inline text-blue-600" /></div>
+                <div className="p-6 space-y-3 animate-pulse">
+                    <div className="h-4 bg-gray-200 rounded w-1/3" />
+                    <div className="space-y-2">
+                        <div className="h-3 bg-gray-100 rounded w-full" />
+                        <div className="h-3 bg-gray-100 rounded w-5/6" />
+                        <div className="h-3 bg-gray-100 rounded w-4/6" />
+                    </div>
+                </div>
             ) : error ? (
                 <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
             ) : (

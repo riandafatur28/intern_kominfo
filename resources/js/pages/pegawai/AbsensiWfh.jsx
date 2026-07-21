@@ -1,24 +1,38 @@
-import React, { useRef, useState } from 'react';
-import { Calendar, ImageIcon, Plus, Trash2, Check, X } from 'lucide-react';
+import React, { useEffect, useRef, useState } from 'react';
+
+function upcomingFriday() {
+    const d = new Date();
+    const day = d.getDay();
+    const diff = day <= 5 ? (5 - day) : (5 - day + 7);
+    d.setDate(d.getDate() + diff);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${dd}`;
+}
+import { Calendar, ImageIcon, Plus, Trash2, Check, X, Loader2 } from 'lucide-react';
+import { SkeletonCard } from '../../components/ui/Skeleton';
+import { wfhApi } from '../../api/wfh';
+import { useAuth } from '../../context/AuthContext';
 
 /* ---------------- Session status badge ---------------- */
 function SessionBadge({ status }) {
     const map = {
-        terkirim: 'bg-[#C9F2D6] text-[#15803D]',
+        hadir: 'bg-[#C9F2D6] text-[#15803D]',
         belum: 'bg-[#FEE9C7] text-[#B45309]',
     };
-    const label = { terkirim: 'Terkirim', belum: 'Belum Diisi' };
+    const label = { hadir: 'Hadir', belum: 'Belum Absen' };
     return (
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${map[status]}`}>
-            {label[status]}
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${map[status] || map.belum}`}>
+            {label[status] || label.belum}
         </span>
     );
 }
 
 /* ---------------- Session card ---------------- */
-function SessionCard({ title, status, photo, onUpload, onRemove }) {
+function SessionCard({ title, status, photo, loading, onUpload, onRemove, canCheckIn }) {
     const inputRef = useRef(null);
-    const isEmpty = status === 'belum';
+    const isEmpty = status === 'belum' && !photo && !loading;
     const borderColor = isEmpty ? 'border-amber-200' : 'border-green-200';
 
     return (
@@ -30,14 +44,19 @@ function SessionCard({ title, status, photo, onUpload, onRemove }) {
 
             <button
                 type="button"
-                onClick={() => !photo && inputRef.current?.click()}
+                onClick={() => !photo && !loading && canCheckIn && inputRef.current?.click()}
+                disabled={loading || (!photo && !canCheckIn)}
                 className={`w-full aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors ${
-                    isEmpty
-                        ? 'border-amber-300 text-amber-500 hover:bg-amber-50/50'
-                        : 'border-green-300 text-green-500 bg-white'
+                    loading
+                        ? 'border-brand-200 text-brand-400 bg-brand-50'
+                        : isEmpty
+                            ? 'border-amber-300 text-amber-500 hover:bg-amber-50/50'
+                            : 'border-green-300 text-green-500 bg-white'
                 }`}
             >
-                {photo ? (
+                {loading ? (
+                    <Loader2 size={40} className="animate-spin" />
+                ) : photo ? (
                     <img src={photo} alt={title} className="w-full h-full object-cover rounded-lg" />
                 ) : isEmpty ? (
                     <>
@@ -56,11 +75,11 @@ function SessionCard({ title, status, photo, onUpload, onRemove }) {
                 className="hidden"
                 onChange={(e) => {
                     const file = e.target.files?.[0];
-                    if (file) onUpload?.(URL.createObjectURL(file));
+                    if (file) onUpload?.(file);
                 }}
             />
 
-            {photo && (
+            {photo && !loading && canCheckIn && (
                 <button
                     onClick={onRemove}
                     className="absolute bottom-3 right-3 text-gray-400 hover:text-red-500 transition-colors"
@@ -82,34 +101,112 @@ function Mark({ ok }) {
     );
 }
 
-const HISTORY = [
-    { tgl: 'Jum, 10 Juli 2026', pagi: true, siang: false, sore: true, catatan: 'Tidak absen siang' },
-    { tgl: 'Jum, 10 Juli 2026', pagi: true, siang: true, sore: false, catatan: 'Tidak absen sore' },
-    { tgl: 'Jum, 10 Juli 2026', pagi: true, siang: true, sore: true, catatan: 'Absen lengkap' },
-    { tgl: 'Jum, 10 Juli 2026', pagi: false, siang: false, sore: false, catatan: 'Tidak absen semua' },
-    { tgl: 'Jum, 10 Juli 2026', pagi: false, siang: true, sore: true, catatan: 'Tidak absen pagi' },
-];
+/** Derive session name from current time */
+function currentSession() {
+    const h = new Date().getHours();
+    if (h < 10) return 'pagi';
+    if (h < 14) return 'siang';
+    return 'sore';
+}
+
+const SESSION_LABEL = { pagi: 'Sesi Pagi', siang: 'Sesi Siang', sore: 'Sesi Sore' };
+const SESSION_KEYS = ['pagi', 'siang', 'sore'];
 
 export default function AbsensiWfh() {
-    const [sessions, setSessions] = useState({
-        pagi: { status: 'terkirim', photo: null },
-        siang: { status: 'terkirim', photo: null },
-        sore: { status: 'belum', photo: null },
+    const { hasPermission } = useAuth();
+    const canCheckIn = hasPermission('wfh.attendance.create');
+
+    const [sessions, setSessions] = useState(() => {
+        const obj = {};
+        SESSION_KEYS.forEach((k) => { obj[k] = { status: 'belum', photo: null, checkInAt: null }; });
+        return obj;
     });
+    const [uploading, setUploading] = useState(null);
+    const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
+    const [loaded, setLoaded] = useState(false);
 
-    const setPhoto = (key, photo) =>
-        setSessions((s) => ({ ...s, [key]: { status: photo ? 'terkirim' : 'belum', photo } }));
+    const doneCount = Object.values(sessions).filter((s) => s.status === 'hadir').length;
+    const percent = SESSION_KEYS.length > 0 ? Math.round((doneCount / SESSION_KEYS.length) * 100) : 0;
 
-    const doneCount = Object.values(sessions).filter((s) => s.status === 'terkirim').length;
-    const percent = Math.round((doneCount / 3) * 100);
-
-    const today = new Date().toLocaleDateString('id-ID', {
+    const todayStr = upcomingFriday();
+    const fridayDate = new Date(todayStr + 'T00:00:00');
+    const today = fridayDate.toLocaleDateString('id-ID', {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
     });
+
+    // Load existing attendance on mount
+    useEffect(() => {
+        wfhApi.getTodayAttendance(todayStr).then((res) => {
+            const data = res.data?.data;
+            if (!data) return;
+            const next = {};
+            SESSION_KEYS.forEach((k) => {
+                const s = data[k];
+                if (s?.status === 'hadir') {
+                    next[k] = { status: 'hadir', photo: s.photo_url, checkInAt: s.check_in_at };
+                } else {
+                    next[k] = { status: 'belum', photo: null, checkInAt: null };
+                }
+            });
+            setSessions(next);
+        }).catch(() => {}).finally(() => setLoaded(true));
+    }, []);
+
+    const handleUpload = async (session, file) => {
+        setUploading(session);
+        setError('');
+        setSuccess('');
+        try {
+            const formData = new FormData();
+            formData.append('photo', file);
+            formData.append('session', session);
+            formData.append('date', todayStr);
+
+            const res = await wfhApi.checkIn(formData);
+            const photoUrl = res.data?.data?.photo_url;
+            setSessions((s) => ({
+                ...s,
+                [session]: { status: 'hadir', photo: photoUrl, checkInAt: res.data?.data?.check_in_at },
+            }));
+            setSuccess(`Absen ${SESSION_LABEL[session]} berhasil`);
+        } catch (e) {
+            setError(e.response?.data?.message || `Gagal absen ${SESSION_LABEL[session]}`);
+        } finally {
+            setUploading(null);
+        }
+    };
+
+    const handleRemove = (session) => {
+        setSessions((s) => ({ ...s, [session]: { status: 'belum', photo: null, checkInAt: null } }));
+    };
+
+    if (!loaded) {
+        return (
+            <div className="max-w-[1200px] mx-auto">
+                <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+                <div className="mt-6 space-y-4">
+                    <div className="h-5 bg-gray-200 rounded w-1/3 animate-pulse" />
+                    <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse" />
+                    <div className="mt-5 h-2 bg-gray-200 rounded-full w-full animate-pulse" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
+                    {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-[1200px] mx-auto">
             <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Absensi WFH</h1>
+
+            {error && (
+                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
+            )}
+            {success && (
+                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">{success}</div>
+            )}
 
             {/* Status kehadiran */}
             <div className="mt-6">
@@ -124,11 +221,14 @@ export default function AbsensiWfh() {
                             className="h-1.5 bg-brand-600 rounded-full absolute top-0 left-0 transition-all"
                             style={{ width: `${percent}%` }}
                         />
-                        {/* dots */}
                         <div className="absolute inset-0 flex items-center justify-between">
-                            <span className="w-5 h-5 rounded-full bg-brand-600 border-4 border-white shadow" />
-                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 50 ? 'bg-brand-600' : 'bg-gray-300'}`} />
-                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 100 ? 'bg-brand-600' : 'bg-brand-600'}`} />
+                            {SESSION_KEYS.map((_, i) => (
+                                <span key={i}
+                                    className={`w-5 h-5 rounded-full border-4 border-white shadow ${
+                                        percent >= ((i + 1) / SESSION_KEYS.length) * 100 ? 'bg-brand-600' : 'bg-gray-300'
+                                    }`}
+                                />
+                            ))}
                         </div>
                         <span className="absolute -top-7 right-0 text-lg font-extrabold text-brand-600">{percent}%</span>
                     </div>
@@ -141,12 +241,18 @@ export default function AbsensiWfh() {
 
                 {/* Session cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-                    <SessionCard title="Sesi Pagi" status={sessions.pagi.status} photo={sessions.pagi.photo}
-                        onUpload={(p) => setPhoto('pagi', p)} onRemove={() => setPhoto('pagi', null)} />
-                    <SessionCard title="Sesi Siang" status={sessions.siang.status} photo={sessions.siang.photo}
-                        onUpload={(p) => setPhoto('siang', p)} onRemove={() => setPhoto('siang', null)} />
-                    <SessionCard title="Sesi Sore" status={sessions.sore.status} photo={sessions.sore.photo}
-                        onUpload={(p) => setPhoto('sore', p)} onRemove={() => setPhoto('sore', null)} />
+                    {SESSION_KEYS.map((k) => (
+                        <SessionCard
+                            key={k}
+                            title={SESSION_LABEL[k]}
+                            status={sessions[k].status}
+                            photo={sessions[k].photo}
+                            loading={uploading === k}
+                            onUpload={canCheckIn ? (file) => handleUpload(k, file) : undefined}
+                            onRemove={() => handleRemove(k)}
+                            canCheckIn={canCheckIn}
+                        />
+                    ))}
                 </div>
             </div>
 
@@ -156,7 +262,7 @@ export default function AbsensiWfh() {
                     <h2 className="text-base font-bold text-gray-800">Riwayat Absensi</h2>
                     <div className="relative">
                         <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        <input type="date" defaultValue="2026-07-10" className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 outline-none focus:ring-2 focus:ring-brand-100" />
+                        <input type="date" defaultValue={todayStr} className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 outline-none focus:ring-2 focus:ring-brand-100" />
                     </div>
                 </div>
 
@@ -173,15 +279,21 @@ export default function AbsensiWfh() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {HISTORY.map((r, i) => (
-                                    <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
-                                        <td className="px-6 py-4 whitespace-nowrap">{r.tgl}</td>
-                                        <td className="px-4 py-4 text-center"><Mark ok={r.pagi} /></td>
-                                        <td className="px-4 py-4 text-center"><Mark ok={r.siang} /></td>
-                                        <td className="px-4 py-4 text-center"><Mark ok={r.sore} /></td>
-                                        <td className="px-6 py-4 text-center">{r.catatan}</td>
-                                    </tr>
-                                ))}
+                                {[todayStr].map((d) => {
+                                    const sn = SESSION_KEYS.map((k) => sessions[k].status === 'hadir');
+                                    const allAbsent = sn.every((v) => !v);
+                                    return (
+                                        <tr key={d} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
+                                            <td className="px-6 py-4 whitespace-nowrap">{today}</td>
+                                            {sn.map((v, i) => (
+                                                <td key={i} className="px-4 py-4 text-center"><Mark ok={v} /></td>
+                                            ))}
+                                            <td className="px-6 py-4 text-center">
+                                                {allAbsent ? 'Belum absen' : doneCount === SESSION_KEYS.length ? 'Lengkap' : 'Sebagian'}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                             </tbody>
                         </table>
                     </div>
