@@ -228,15 +228,30 @@ export default function LaporanKegiatan() {
 
     const handleDownloadPdf = async (id) => {
         try {
+            // Cari semua report di tanggal yang sama
+            const report = rows.find(r => r.id === id);
+            const sameDateReports = report
+                ? rows.filter(r => r.report_date === report.report_date)
+                : [];
+
+            // Fetch report pertama buat data user & supervisor
             const res = await wfhApi.getReport(id);
             const r = res.data?.data ?? res.data ?? {};
             const u = r.user ?? {};
             const s = r.supervisor ?? {};
-            const kegiatan = (r.activities ?? []).map((a) => ({
-                waktu: a.start_time && a.end_time ? `${fmtTime(a.start_time)} - ${fmtTime(a.end_time)}` : fmtTime(a.start_time),
-                kegiatan: a.activity,
-                links: (a.links ?? []).map((l) => l.url).filter(Boolean),
-            }));
+
+            // Gabung kegiatan dari semua report di tanggal sama
+            const allKegiatan = [];
+            for (const sr of sameDateReports) {
+                for (const a of (sr.activities ?? [])) {
+                    allKegiatan.push({
+                        waktu: a.start_time && a.end_time ? `${fmtTime(a.start_time)} - ${fmtTime(a.end_time)}` : fmtTime(a.start_time),
+                        kegiatan: a.activity,
+                        links: (a.links ?? []).map((l) => l.url).filter(Boolean),
+                    });
+                }
+            }
+
             printWfhReport({
                 nama: u.name || user?.name || '-',
                 nip: u.nip || user?.nip || '-',
@@ -244,7 +259,7 @@ export default function LaporanKegiatan() {
                 jabatan: u.position || user?.position || '-',
                 unitKerja: user?.team?.name || '-',
                 tanggalPelaksanaan: r.report_date || '-',
-                kegiatan,
+                kegiatan: allKegiatan,
                 isApproved: r.status === 'approved',
                 makerName: u.name || user?.name,
                 makerNip: u.nip || user?.nip,
