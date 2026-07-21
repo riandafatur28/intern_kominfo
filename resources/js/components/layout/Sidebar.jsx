@@ -62,7 +62,8 @@ const KEPALA_BIDANG_NAV = [
         { to: '/kepala-bidang/profil', icon: User, label: 'Profil Saya', perm: null },
     ], FITUR_INDIVIDU),
     ...withSection([
-        { to: '/kepala-bidang/persetujuan-laporan', icon: FileText, label: 'Persetujuan Laporan', perm: 'wfh.report.approve' },
+        { to: '/kepala-bidang/persetujuan-laporan', icon: FileText, label: 'Persetujuan Rekap', perm: 'wfh.report.approve' },
+        { to: '/kepala-bidang/persetujuan-laporan-individu', icon: FileText, label: 'Persetujuan Individu', perm: 'wfh.report.approve' },
         { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
         { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
     ], MANAJEMEN),

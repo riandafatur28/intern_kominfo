@@ -18,6 +18,7 @@ import PermintaanPersetujuan from '../pages/change-management/PermintaanPersetuj
 import ProfilSayaTeamLead from '../pages/change-management/ProfilSaya.jsx';
 import DashboardKepalaBidang from '../pages/kepala-bidang/DashboardKepalaBidang.jsx';
 import PersetujuanLaporan from '../pages/kepala-bidang/PersetujuanLaporan.jsx';
+import PersetujuanLaporanIndividu from '../pages/kepala-bidang/PersetujuanLaporanIndividu.jsx';
 import Arsip from '../pages/change-management/Arsip.jsx';
 import ChangeDashboard from '../pages/change-management/Dashboard.jsx';
 import MonitoringInisiasi from '../pages/change-management/MonitoringInisiasi.jsx';
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
             { index: true, element: <Navigate to="dashboard" replace /> },
             { path: 'dashboard', element: <DashboardKepalaBidang /> },
             { path: 'persetujuan-laporan', element: <PersetujuanLaporan /> },
+            { path: 'persetujuan-laporan-individu', element: <PersetujuanLaporanIndividu /> },
             { path: 'profil', element: <ProfilSayaTeamLead /> },
         ],
     },
