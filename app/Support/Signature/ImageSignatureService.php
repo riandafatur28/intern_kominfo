@@ -15,6 +15,8 @@ class ImageSignatureService implements SignatureServiceInterface
     {
         $image = Image::decode($sourcePath);
 
+        $this->removeBackground($image);
+
         $this->trimWhitespace($image);
 
         $image->scale(width: self::MAX_WIDTH, height: self::MAX_HEIGHT);
@@ -26,6 +28,43 @@ class ImageSignatureService implements SignatureServiceInterface
         $image->save($fullPath);
 
         return $relativePath;
+    }
+
+    /**
+     * Remove white/light background — make pixels above brightness threshold transparent.
+     */
+    private function removeBackground($image): void
+    {
+        $gd = $image->core()->native();
+
+        imagealphablending($gd, false);
+        imagesavealpha($gd, true);
+
+        $width = imagesx($gd);
+        $height = imagesy($gd);
+        $threshold = 250;
+
+        for ($x = 0; $x < $width; $x++) {
+            for ($y = 0; $y < $height; $y++) {
+                $rgb = imagecolorat($gd, $x, $y);
+
+                $alpha = ($rgb >> 24) & 0x7F;
+                if ($alpha > 0) {
+                    continue;
+                }
+
+                $r = ($rgb >> 16) & 0xFF;
+                $g = ($rgb >> 8) & 0xFF;
+                $b = $rgb & 0xFF;
+
+                if (($r + $g + $b) / 3 > $threshold) {
+                    $transparent = imagecolorallocatealpha($gd, $r, $g, $b, 127);
+                    imagesetpixel($gd, $x, $y, $transparent);
+                }
+            }
+        }
+
+        imagealphablending($gd, true);
     }
 
     /**
