@@ -34,12 +34,16 @@ class AttendanceSessionTest extends TestCase
     {
         Sanctum::actingAs($this->staf());
 
-        $this->postJson('/api/wfh/attendance', [
+        $response = $this->postJson('/api/wfh/attendance', [
             'photo' => UploadedFile::fake()->image('bukti.jpg'),
             'session' => WfhSession::SIANG,
-        ])
-            ->assertStatus(201)
-            ->assertJsonPath('data.session', WfhSession::SIANG);
+        ]);
+
+        $response->assertStatus(201);
+        $response->assertJsonPath('data.session', WfhSession::SIANG);
+
+        $photoUrl = $response->json('data.photo_url');
+        $this->assertStringEndsWith('.webp', $photoUrl, "Expected photo_url to end with .webp, got: $photoUrl");
     }
 
     public function test_rejects_unknown_session(): void

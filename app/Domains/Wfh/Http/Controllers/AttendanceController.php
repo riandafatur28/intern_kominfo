@@ -5,6 +5,7 @@ namespace App\Domains\Wfh\Http\Controllers;
 use App\Domains\Wfh\Http\Requests\CheckInRequest;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Support\Constants\WfhSession;
+use App\Support\Wfh\AttendancePhotoServiceInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;
@@ -15,6 +16,7 @@ class AttendanceController extends Controller
 
     public function __construct(
         private WfhRepositoryInterface $wfhRepository,
+        private AttendancePhotoServiceInterface $photoService,
     ) {}
 
     public function checkIn(CheckInRequest $request): JsonResponse
@@ -50,9 +52,9 @@ class AttendanceController extends Controller
             ], 422);
         }
 
-        // Store photo
+        // Store photo as WebP
         $photo = $request->file('photo');
-        $path = $photo->store("attendances/{$user->id}/{$date}", 'public');
+        $path = $this->photoService->store($photo, $user->id, $date);
 
         $attendance = $this->wfhRepository->createAttendance([
             'user_id' => $user->id,
