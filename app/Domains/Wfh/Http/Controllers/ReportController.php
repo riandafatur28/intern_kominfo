@@ -23,7 +23,12 @@ class ReportController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = min($request->integer('per_page', 15), 100);
-        $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage);
+        $filters = array_filter([
+            'date_from' => $request->input('date_from'),
+            'date_to' => $request->input('date_to'),
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage, $filters);
 
         return response()->json([
             'success' => true,

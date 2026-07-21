@@ -45,12 +45,19 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     // === Reports ===
 
-    public function paginateReportsForUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    public function paginateReportsForUser(int $userId, int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        return WfhReport::where('user_id', $userId)
-            ->with(['activities.links', 'supervisor'])
-            ->orderByDesc('report_date')
-            ->paginate($perPage);
+        $query = WfhReport::where('user_id', $userId)
+            ->with(['activities.links', 'supervisor']);
+
+        if (isset($filters['date_from'])) {
+            $query->where('report_date', '>=', $filters['date_from']);
+        }
+        if (isset($filters['date_to'])) {
+            $query->where('report_date', '<=', $filters['date_to']);
+        }
+
+        return $query->orderByDesc('report_date')->paginate($perPage);
     }
 
     public function paginateAllReports(int $perPage = 15, array $filters = []): LengthAwarePaginator

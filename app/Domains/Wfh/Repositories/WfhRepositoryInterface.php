@@ -20,7 +20,7 @@ interface WfhRepositoryInterface extends RepositoryInterface
     public function getTeamAttendancesForDate(int $teamId, string $date): Collection;
 
     // Reports
-    public function paginateReportsForUser(int $userId, int $perPage = 15): LengthAwarePaginator;
+    public function paginateReportsForUser(int $userId, int $perPage = 15, array $filters = []): LengthAwarePaginator;
 
     public function paginateAllReports(int $perPage = 15, array $filters = []): LengthAwarePaginator;
 
