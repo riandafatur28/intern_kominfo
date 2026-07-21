@@ -64,7 +64,9 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         if (isset($filters['team_id'])) {
             $query->whereHas('user', fn ($q) => $q->where('team_id', $filters['team_id']));
         }
-        if (isset($filters['field_id'])) {
+        if (isset($filters['field_ids'])) {
+            $query->whereHas('user.team', fn ($q) => $q->whereIn('field_id', (array) $filters['field_ids']));
+        } elseif (isset($filters['field_id'])) {
             $query->whereHas('user.team', fn ($q) => $q->where('field_id', $filters['field_id']));
         }
 
