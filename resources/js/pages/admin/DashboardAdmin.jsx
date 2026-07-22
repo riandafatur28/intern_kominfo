@@ -23,10 +23,7 @@ function StatCard({ icon: Icon, iconBg, iconColor, value, label, sub, valueSmall
 function ComplianceChart({ chart }) {
     const [hover, setHover] = useState(null);
 
-    // Only show Fridays that have any data
-    const data = chart.filter(
-        (d) => d.laporan_terkirim + d.tidak_lengkap + d.belum_absensi > 0
-    );
+    const data = chart;
 
     const maxTotal = Math.max(
         ...data.map((d) => d.laporan_terkirim + d.tidak_lengkap + d.belum_absensi),

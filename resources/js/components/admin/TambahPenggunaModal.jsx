@@ -2,6 +2,13 @@ import React, { useEffect, useState } from 'react';
 import Modal from '../ui/Modal';
 import { createUser, updateUser, getRoles, getTeams } from '../../api/admin';
 
+const roleLabels = {
+    admin: 'Admin',
+    kepala_bidang: 'Kepala Bidang',
+    kepala_tim: 'Kepala Tim',
+    staf: 'Staf',
+};
+
 const emptyForm = {
     name: '',
     nip: '',
@@ -56,7 +63,20 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess, user = n
             .then(([teamsData, rolesData]) => {
                 setTeams(teamsData || []);
                 setRoles(rolesData || []);
-                if (!isEdit) {
+                if (user) {
+                    setForm({
+                        name: user.name || '',
+                        nip: user.nip || '',
+                        email: user.email || '',
+                        team_id: user.team_id || '',
+                        rank: user.rank || '',
+                        position: user.position || '',
+                        phone: user.phone || '',
+                        password: '',
+                        roles: (user.roles || []).map((r) => r.name || r),
+                    });
+                } else {
+                    setForm(emptyForm);
                     const staf = (rolesData || []).find((r) => r.name === 'staf');
                     if (staf) setForm((f) => ({ ...f, roles: ['staf'] }));
                 }
@@ -85,6 +105,17 @@ export default function TambahPenggunaModal({ open, onClose, onSuccess, user = n
         setGeneralError('');
         setErrors({});
 
+        const payload = {
+            name: form.name,
+            nip: form.nip,
+            email: form.email,
+            team_id: form.team_id || null,
+            rank: form.rank || null,
+            position: form.position || null,
+            phone: form.phone || null,
+            roles: form.roles,
+        };
+        if (!user || form.password) payload.password = form.password;
         try {
             if (isEdit) {
                 await updateUser(user.id, {

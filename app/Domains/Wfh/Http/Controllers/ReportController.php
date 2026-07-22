@@ -23,7 +23,12 @@ class ReportController extends Controller
     public function index(Request $request): JsonResponse
     {
         $perPage = min($request->integer('per_page', 15), 100);
-        $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage);
+        $filters = array_filter([
+            'date_from' => $request->input('date_from'),
+            'date_to' => $request->input('date_to'),
+        ], fn ($v) => $v !== null && $v !== '');
+
+        $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage, $filters);
 
         return response()->json([
             'success' => true,
@@ -40,18 +45,27 @@ class ReportController extends Controller
     {
         $this->authorize('wfh.monitoring.view');
 
-        $fieldId = $request->user()->team?->field?->id;
+        $user = $request->user();
 
-        if (! $fieldId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'User tidak terhubung dengan bidang manapun.',
-            ], 422);
+        // Kepala bidang: cari semua field yang dipimpinnya
+        $fieldIds = \App\Models\Field::where('head_id', $user->id)->pluck('id')->toArray();
+
+        if (empty($fieldIds)) {
+            // Admin biasa: pakai field dari team-nya sendiri
+            $ownFieldId = $user->team?->field?->id;
+            if ($ownFieldId) {
+                $fieldIds = [$ownFieldId];
+            } else {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'User tidak terhubung dengan bidang manapun.',
+                ], 422);
+            }
         }
 
         $perPage = min($request->integer('per_page', 15), 100);
         $filters = array_filter([
-            'field_id' => $fieldId,
+            'field_ids' => $fieldIds,
             'status' => $request->input('status'),
             'team_id' => $request->input('team_id'),
             'date_from' => $request->input('date_from'),

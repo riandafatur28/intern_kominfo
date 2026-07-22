@@ -7,6 +7,7 @@ use App\Domains\Wfh\Models\WfhReport;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Field;
 use App\Models\User;
+use App\Support\Constants\WfhSession;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -16,10 +17,6 @@ use Illuminate\Routing\Controller;
 class WfhMonitoringController extends Controller
 {
     use AuthorizesRequests;
-
-    private const SESSIONS = ['pagi', 'siang', 'sore'];
-
-    private const SESSION_LABEL = ['pagi' => 'Pagi', 'siang' => 'Siang', 'sore' => 'Sore'];
 
     private const AVATAR_COLORS = [
         'bg-indigo-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500',
@@ -138,20 +135,20 @@ class WfhMonitoringController extends Controller
         foreach ($users as $user) {
             $attended = $attendanceMap[$user->id] ?? [];
             $sessions = [];
-            foreach (self::SESSIONS as $s) {
+            foreach (WfhSession::ALL as $s) {
                 $sessions[$s] = isset($attended[$s]);
             }
-            $missing = array_values(array_filter(self::SESSIONS, fn ($s) => ! $sessions[$s]));
+            $missing = array_values(array_filter(WfhSession::ALL, fn ($s) => ! $sessions[$s]));
             $report = $reportMap[$user->id] ?? null;
             $hasReport = $report && in_array($report['status'], ['pending', 'approved'], true);
 
             // Derive status + catatan
-            if (count($missing) === count(self::SESSIONS)) {
+            if (count($missing) === count(WfhSession::ALL)) {
                 $status = 'belum_absensi';
                 $catatan = 'Tidak absen Semua';
             } elseif (! empty($missing)) {
                 $status = 'tidak_lengkap';
-                $labels = array_map(fn ($s) => self::SESSION_LABEL[$s], $missing);
+                $labels = array_map(fn ($s) => WfhSession::label($s), $missing);
                 $catatan = 'Tidak Absen '.implode(', ', $labels);
             } elseif ($hasReport) {
                 $status = 'terkirim';

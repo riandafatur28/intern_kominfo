@@ -21,7 +21,11 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
         $query = ChangeInitiation::with(['field', 'initiator', 'reviewer', 'implementations']);
 
         if (isset($filters['status'])) {
-            $query->where('status', $filters['status']);
+            if (str_contains($filters['status'], ',')) {
+                $query->whereIn('status', explode(',', $filters['status']));
+            } else {
+                $query->where('status', $filters['status']);
+            }
         }
 
         if (isset($filters['field_id'])) {
@@ -51,6 +55,26 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
     public function createInitiation(array $data): ChangeInitiation
     {
         return ChangeInitiation::create($data);
+    }
+
+    public function countInitiationsByStatus(?int $fieldId = null): array
+    {
+        $query = ChangeInitiation::query();
+
+        if ($fieldId) {
+            $query->where('field_id', $fieldId);
+        }
+
+        $counts = $query->selectRaw('status, count(*) as total')
+            ->whereIn('status', ['pending', 'approved', 'rejected'])
+            ->groupBy('status')
+            ->pluck('total', 'status');
+
+        return [
+            'pending' => (int) ($counts['pending'] ?? 0),
+            'approved' => (int) ($counts['approved'] ?? 0),
+            'rejected' => (int) ($counts['rejected'] ?? 0),
+        ];
     }
 
     public function findImplementationWithRelations(int $id): ?ChangeImplementation

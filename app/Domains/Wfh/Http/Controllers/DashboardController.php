@@ -77,21 +77,23 @@ class DashboardController extends Controller
         $focusBreakdown = $this->breakdownForDate($focusDate, $fieldId, $totalPegawai);
         $laporanPending = $this->countReportsByStatus($focusDate, $fieldId, 'pending');
 
-        // Calendar list of Fridays with "terkini" flag
+        // "Terkini" = today if Jumat, otherwise next upcoming Friday
         $todayStr = $now->toDateString();
-        $latestPastFriday = null;
+        $nextFriday = null;
         foreach ($fridays as $d) {
-            if ($d <= $todayStr) {
-                $latestPastFriday = $d;
+            if ($d >= $todayStr) {
+                $nextFriday = $d;
+                break;
             }
         }
-        $calendar = array_map(function ($date) use ($focusDate, $latestPastFriday) {
+        $nextFriday ??= $fridays[count($fridays) - 1] ?? null;
+        $calendar = array_map(function ($date) use ($focusDate, $nextFriday) {
             $c = Carbon::parse($date);
 
             return [
                 'date' => $date,
                 'label' => 'Jumat '.$c->format('d/m'),
-                'is_current' => $date === ($latestPastFriday ?? $focusDate),
+                'is_current' => $date === $nextFriday,
                 'is_focus' => $date === $focusDate,
             ];
         }, $fridays);
@@ -108,7 +110,7 @@ class DashboardController extends Controller
                 'year' => $year,
                 'month_label' => Carbon::create($year, $month, 1)->translatedFormat('F Y'),
                 'focus_date' => $focusDate,
-                'focus_date_label' => Carbon::parse($focusDate)->translatedFormat('l, j F Y'),
+                'focus_date_label' => Carbon::parse($nextFriday ?? $focusDate)->translatedFormat('l, j F Y'),
                 'stats' => [
                     'total_pegawai' => $totalPegawai,
                     'laporan_terkirim' => $focusBreakdown['laporan_terkirim'],

@@ -12,7 +12,14 @@ import ManajemenPengguna from '../pages/admin/ManajemenPengguna.jsx';
 import AbsensiWfh from '../pages/pegawai/AbsensiWfh.jsx';
 import LaporanKegiatan from '../pages/pegawai/LaporanKegiatan.jsx';
 import InisiasiPerubahan from '../pages/pegawai/InisiasiPerubahan.jsx';
-import CmDashboard from '../pages/change-management/Dashboard.jsx';
+import DashboardTeamLead from '../pages/change-management/DashboardTeamLead.jsx';
+import PermintaanPersetujuan from '../pages/change-management/PermintaanPersetujuan.jsx';
+import ProfilSayaTeamLead from '../pages/change-management/ProfilSaya.jsx';
+import DashboardKepalaBidang from '../pages/kepala-bidang/DashboardKepalaBidang.jsx';
+import PersetujuanLaporan from '../pages/kepala-bidang/PersetujuanLaporan.jsx';
+import PersetujuanLaporanIndividu from '../pages/kepala-bidang/PersetujuanLaporanIndividu.jsx';
+import Arsip from '../pages/change-management/Arsip.jsx';
+import ChangeDashboard from '../pages/change-management/Dashboard.jsx';
 import MonitoringInisiasi from '../pages/change-management/MonitoringInisiasi.jsx';
 import ArsipInisiasi from '../pages/change-management/Arsip.jsx';
 
@@ -43,9 +50,32 @@ export const router = createBrowserRouter([
             { path: 'absensi-wfh', element: <AbsensiWfh /> },
             { path: 'laporan-kegiatan', element: <LaporanKegiatan /> },
             { path: 'inisiasi-perubahan', element: <InisiasiPerubahan /> },
-            { path: 'inisiasi-dashboard', element: <CmDashboard /> },
-            { path: 'monitoring-inisiasi', element: <MonitoringInisiasi /> },
-            { path: 'arsip-inisiasi', element: <ArsipInisiasi /> },
+            { path: 'arsip', element: <Arsip /> },
+            { path: 'change-dashboard', element: <ChangeDashboard /> },
+            { path: 'manajemen-inisiasi', element: <MonitoringInisiasi /> },
+        ],
+    },
+
+    {
+        path: '/team-lead',
+        element: <AdminLayout />,
+        children: [
+            { index: true, element: <Navigate to="dashboard" replace /> },
+            { path: 'dashboard', element: <DashboardTeamLead /> },
+            { path: 'permintaan-persetujuan', element: <PermintaanPersetujuan /> },
+            { path: 'profil', element: <ProfilSayaTeamLead /> },
+        ],
+    },
+
+    {
+        path: '/kepala-bidang',
+        element: <AdminLayout />,
+        children: [
+            { index: true, element: <Navigate to="dashboard" replace /> },
+            { path: 'dashboard', element: <DashboardKepalaBidang /> },
+            { path: 'persetujuan-laporan', element: <PersetujuanLaporan /> },
+            { path: 'persetujuan-laporan-individu', element: <PersetujuanLaporanIndividu /> },
+            { path: 'profil', element: <ProfilSayaTeamLead /> },
         ],
     },
 ]);

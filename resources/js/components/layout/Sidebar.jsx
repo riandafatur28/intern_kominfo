@@ -15,11 +15,44 @@ const ADMIN_NAV = [
 ];
 
 const PEGAWAI_NAV = [
-    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH' },
-    { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan' },
-    { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan' },
-    { to: '/profil', icon: User, label: 'Profil Saya' },
+    ...withSection([
+        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: null },
+        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+        { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan', perm: 'change.initiation.create' },
+        { to: '/profil', icon: User, label: 'Profil Saya', perm: null },
+    ], FITUR_INDIVIDU),
+];
+
+const TEAM_LEAD_NAV = [
+    ...withSection([
+        { to: '/team-lead/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'change.initiation.view' },
+        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+        { to: '/inisiasi-perubahan', icon: GitPullRequestArrow, label: 'Inisiasi Perubahan', perm: 'change.initiation.create' },
+        { to: '/team-lead/profil', icon: User, label: 'Profil Saya', perm: null },
+    ], FITUR_INDIVIDU),
+    ...withSection([
+        { to: '/team-lead/permintaan-persetujuan', icon: CheckSquare, label: 'Permintaan Persetujuan', perm: 'change.initiation.approve' },
+        { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
+        { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
+        { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
+    ], MANAJEMEN),
+];
+
+const KEPALA_BIDANG_NAV = [
+    ...withSection([
+        { to: '/kepala-bidang/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: 'wfh.monitoring.view' },
+        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
+        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
+        { to: '/kepala-bidang/profil', icon: User, label: 'Profil Saya', perm: null },
+    ], FITUR_INDIVIDU),
+    ...withSection([
+        { to: '/kepala-bidang/persetujuan-laporan', icon: FileText, label: 'Persetujuan Rekap', perm: 'wfh.report.approve' },
+        { to: '/kepala-bidang/persetujuan-laporan-individu', icon: FileText, label: 'Persetujuan Individu', perm: 'wfh.report.approve' },
+        { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
+        { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
+    ], MANAJEMEN),
 ];
 
 const PEGAWAI_ROLES = ['pegawai', 'staf'];

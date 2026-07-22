@@ -37,12 +37,19 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     // === Reports ===
 
-    public function paginateReportsForUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    public function paginateReportsForUser(int $userId, int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        return WfhReport::where('user_id', $userId)
-            ->with(['activities.links', 'supervisor'])
-            ->orderByDesc('report_date')
-            ->paginate($perPage);
+        $query = WfhReport::where('user_id', $userId)
+            ->with(['activities.links', 'supervisor']);
+
+        if (isset($filters['date_from'])) {
+            $query->where('report_date', '>=', $filters['date_from']);
+        }
+        if (isset($filters['date_to'])) {
+            $query->where('report_date', '<=', $filters['date_to']);
+        }
+
+        return $query->orderByDesc('report_date')->paginate($perPage);
     }
 
     public function paginateAllReports(int $perPage = 15, array $filters = []): LengthAwarePaginator
@@ -56,7 +63,9 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         if (isset($filters['team_id'])) {
             $query->whereHas('user', fn ($q) => $q->where('team_id', $filters['team_id']));
         }
-        if (isset($filters['field_id'])) {
+        if (isset($filters['field_ids'])) {
+            $query->whereHas('user.team', fn ($q) => $q->whereIn('field_id', (array) $filters['field_ids']));
+        } elseif (isset($filters['field_id'])) {
             $query->whereHas('user.team', fn ($q) => $q->where('field_id', $filters['field_id']));
         }
 
@@ -83,6 +92,14 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             ->where('report_date', $date)
             ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
             ->orderBy('status')
+            ->get();
+    }
+
+    public function getTeamAttendancesForDate(int $teamId, string $date): Collection
+    {
+        return WfhAttendance::with('user')
+            ->where('date', $date)
+            ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
             ->get();
     }
 

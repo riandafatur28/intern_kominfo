@@ -4,6 +4,8 @@ namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Team;
+use App\Support\Http\ResolvesFieldScope;
+use App\Support\Pdf\PdfImageResolver;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
@@ -15,7 +17,7 @@ use Illuminate\Support\Carbon;
 
 class ReportPdfController extends Controller
 {
-    use AuthorizesRequests;
+    use AuthorizesRequests, ResolvesFieldScope;
 
     public function __construct(
         private WfhRepositoryInterface $wfhRepository,
@@ -116,16 +118,7 @@ class ReportPdfController extends Controller
         $this->authorize('wfh.report.export_pdf');
 
         $admin = $request->user();
-        $fieldId = $admin->team?->field?->id;
-
-        // Verify team belongs to admin's field
-        if (! $fieldId || $team->field_id !== $fieldId) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tim tidak ditemukan dalam bidang Anda.',
-            ], 403);
-        }
-
+        $this->ensureTeamInAdminField($request, $team);
         $date = $request->input('date', now()->format('Y-m-d'));
         $reports = $this->wfhRepository->getTeamReportsForDate($team->id, $date);
 
@@ -144,6 +137,7 @@ class ReportPdfController extends Controller
             ];
         })->values()->toArray();
 
+        $staffPhotos = $this->buildStaffPhotos($team, $date);
         // Admin (maker) signature
         $makerSig = $admin->signature_path
             ? public_path('storage/'.$admin->signature_path)
@@ -168,6 +162,7 @@ class ReportPdfController extends Controller
             'unitKerja' => $field?->name ?? '-',
             'tanggalPelaksanaan' => $tanggal,
             'staff' => $staff,
+            'staffPhotos' => $staffPhotos,
             'signatureMakerPath' => $makerSig,
             'signatureSupervisorPath' => $supervisorSig,
             'makerName' => strtoupper($admin->name),
@@ -184,5 +179,37 @@ class ReportPdfController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => "attachment; filename=\"{$filename}\"",
         ]);
+    }
+
+    /**
+     * Build the per-employee attendance photo matrix for PDF page 2.
+     *
+     * @return array<int, array{name: string, nip: string, photos: array{pagi: ?string, siang: ?string, sore: ?string}}>
+     */
+    private function buildStaffPhotos(Team $team, string $date): array
+    {
+        $attendances = $this->wfhRepository->getTeamAttendancesForDate($team->id, $date);
+        $attendanceMap = [];
+        foreach ($attendances as $a) {
+            $attendanceMap[$a->user_id][$a->session] = PdfImageResolver::resolve($a->photo_path);
+        }
+
+        return $team->users()
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'nip'])
+            ->map(function ($user) use ($attendanceMap) {
+                return [
+                    'name' => strtoupper($user->name),
+                    'nip' => $user->nip ?? '-',
+                    'photos' => [
+                        'pagi' => $attendanceMap[$user->id]['pagi'] ?? null,
+                        'siang' => $attendanceMap[$user->id]['siang'] ?? null,
+                        'sore' => $attendanceMap[$user->id]['sore'] ?? null,
+                    ],
+                ];
+            })
+            ->values()
+            ->toArray();
     }
 }

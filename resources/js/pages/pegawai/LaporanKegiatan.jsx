@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Plus, Pencil, Trash2, Loader2, Send, CheckCircle2, XCircle, ClipboardList, FileDown } from 'lucide-react';
+
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown, Calendar, ChevronDown } from 'lucide-react';
+import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
 import ErrorAlert from '../../components/ui/ErrorAlert';
@@ -106,7 +108,7 @@ export default function LaporanKegiatan() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [monthRange.date_from, monthRange.date_to]);
 
     useEffect(() => { load(); }, [load]);
 
@@ -267,12 +269,12 @@ export default function LaporanKegiatan() {
                         className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
                     >
                         {saving ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                        Kirim Laporan
+                        Kirim Semua Laporan
                     </button>
                 )}
             </div>
 
-            {/* Table */}
+            {/* Table — grouped by report, each shows all activities */}
             <div className="bg-white rounded-2xl border border-gray-200 mt-6 overflow-hidden">
                 {/* Table header bar */}
                 <div className="px-6 py-4 border-b border-gray-100">
@@ -373,7 +375,7 @@ export default function LaporanKegiatan() {
             <Modal
                 open={showModal}
                 onClose={() => setShowModal(false)}
-                title={editingId ? 'Edit Kegiatan' : 'Tambah Kegiatan'}
+                title={editingId && editingActivityIdx !== null ? 'Edit Kegiatan' : 'Tambah Kegiatan'}
                 footer={
                     <div className="flex gap-3">
                         <Button variant="secondary" onClick={() => setShowModal(false)}>Batal</Button>

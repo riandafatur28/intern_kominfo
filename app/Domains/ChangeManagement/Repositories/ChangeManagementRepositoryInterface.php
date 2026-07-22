@@ -16,6 +16,8 @@ interface ChangeManagementRepositoryInterface extends RepositoryInterface
 
     public function createInitiation(array $data): ChangeInitiation;
 
+    public function countInitiationsByStatus(?int $fieldId = null): array;
+
     // Implementation
     public function findImplementationWithRelations(int $id): ?ChangeImplementation;
 
