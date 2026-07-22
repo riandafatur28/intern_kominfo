@@ -6,6 +6,7 @@ use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Str;
 
 class AdminUserSeeder extends Seeder
 {
@@ -19,9 +20,8 @@ class AdminUserSeeder extends Seeder
             'name' => 'Administrator',
             'nip' => '0000000000',
             'email' => 'admin@kominfo.go.id',
-            'password' => config('app.admin_password'),
+            'password' => config('app.admin_password', Str::random(24)),
             'is_active' => true,
-            'must_change_password' => true,
         ]);
 
         $admin->assignRole('admin');

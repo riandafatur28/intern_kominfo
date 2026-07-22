@@ -2,21 +2,20 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, FileText } from 'lucide-react';
 import { getAdminReports } from '../../api/admin';
-import { SkeletonTable } from '../../components/ui/Skeleton';
 
 const STATUS_META = {
-    draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
-    pending: { label: 'Pending', cls: 'bg-amber-100 text-amber-700' },
+    draft: { label: 'Draf', cls: 'bg-gray-100 text-gray-600' },
+    pending: { label: 'Menunggu Persetujuan', cls: 'bg-amber-100 text-amber-700' },
     approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
     rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-700' },
 };
 
 const STATUS_FILTERS = [
     { value: '', label: 'Semua' },
-    { value: 'pending', label: 'Pending' },
+    { value: 'pending', label: 'Menunggu' },
     { value: 'approved', label: 'Disetujui' },
     { value: 'rejected', label: 'Ditolak' },
-    { value: 'draft', label: 'Draft' },
+    { value: 'draft', label: 'Draf' },
 ];
 
 export default function StatusLaporanWfh() {
@@ -68,11 +67,10 @@ export default function StatusLaporanWfh() {
                             setStatus(f.value);
                             setPage(1);
                         }}
-                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                            status === f.value
+                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${status === f.value
                                 ? 'bg-indigo-500 border-indigo-500 text-white'
                                 : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                        }`}
+                            }`}
                     >
                         {f.label}
                     </button>
@@ -82,7 +80,9 @@ export default function StatusLaporanWfh() {
             {/* Content */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {loading ? (
-                    <SkeletonTable rows={6} cols={5} />
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                    </div>
                 ) : error ? (
                     <div className="p-6 text-red-600 text-sm bg-red-50">{error}</div>
                 ) : reports.length === 0 ? (

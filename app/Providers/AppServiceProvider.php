@@ -19,10 +19,6 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Guard against empty APP_DEFAULT_USER_PASSWORD — otherwise User::create() would
-        // hash an empty string and every new account would be loggable with no password.
-        if (config('app.default_user_password') === '') {
-            throw new \RuntimeException('APP_DEFAULT_USER_PASSWORD must not be empty.');
-        }
+        //
     }
 }

@@ -9,6 +9,7 @@ use App\Models\Team;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\Hash;
 
 class DashboardDemoSeeder extends Seeder
 {
@@ -38,9 +39,8 @@ class DashboardDemoSeeder extends Seeder
                     'nip' => str_pad((string) (199000000000000000 + $n), 18, '0'),
                     'rank' => 'Penata Muda',
                     'position' => 'Staf',
-                    'password' => config('app.default_user_password'),
+                    'password' => Hash::make('password'),
                     'is_active' => true,
-                    'must_change_password' => false,
                 ]
             );
             if (! $user->hasRole('staf')) {

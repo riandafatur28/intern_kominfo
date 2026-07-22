@@ -1,27 +1,29 @@
+
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Plus, Pencil, Trash2, Send, Loader2, CheckCircle2, XCircle, ClipboardList, FileDown, Calendar, ChevronDown } from 'lucide-react';
 import { SkeletonTable } from '../../components/ui/Skeleton';
 import Modal from '../../components/ui/Modal';
 import Button from '../../components/ui/Button';
-import { wfhApi } from '../../api/wfh';
+import ErrorAlert from '../../components/ui/ErrorAlert';
+import { getReports, createReport, updateReport, deleteReport, submitReport } from '../../api/reports';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
 import { printWfhReport } from '../../pdf';
 
 /* ---------------- Status Badge ---------------- */
+// Status laporan dari backend: draft → pending → approved/rejected.
+const STATUS_LABEL = { draft: 'Draf', pending: 'Menunggu Persetujuan', approved: 'Disetujui', rejected: 'Ditolak' };
+
 function StatusBadge({ status }) {
     const map = {
-        draft: 'bg-[#FCD9CC] text-[#C2410C]',
-        pending: 'bg-[#FEE9C7] text-[#B45309]',
-        approved: 'bg-[#C9F2D6] text-[#15803D]',
+        draft: 'bg-gray-100 text-gray-600',
+        pending: 'bg-amber-100 text-amber-700',
+        approved: 'bg-green-100 text-green-700',
         rejected: 'bg-red-100 text-red-600',
-    };
-    const label = {
-        draft: 'Draf', pending: 'Menunggu',
-        approved: 'Disetujui', rejected: 'Ditolak',
     };
     return (
         <span className={`inline-block px-4 py-1 rounded-full text-xs font-semibold ${map[status] ?? 'bg-gray-100 text-gray-600'}`}>
-            {label[status] ?? status}
+            {STATUS_LABEL[status] ?? status}
         </span>
     );
 }
@@ -30,345 +32,218 @@ function StatusBadge({ status }) {
 function StatCard({ label, value }) {
     return (
         <div className="bg-white rounded-2xl border border-gray-200 px-6 pt-5 pb-6">
-            <p className="text-center text-base font-bold text-gray-800 pb-3 border-b border-gray-100">{label}</p>
+            <p className="text-center text-base font-bold text-gray-800 pb-3 border-b border-gray-100">
+                {label}
+            </p>
             <p className="text-center text-3xl font-extrabold text-gray-900 mt-4">{value}</p>
         </div>
     );
 }
 
-/* current time in HH:MM format */
-function nowHHMM() {
+const EMPTY_FORM = { start: '', end: '', activity: '', link: '' };
+
+/** Local YYYY-MM-DD (avoids UTC shift from toISOString). */
+function todayISO() {
     const d = new Date();
-    return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
-function fmtTime(t) {
-    if (!t) return '?';
-    // handle "12:22" or "2026-07-21T05:22:54.000000Z"
-    const p = t.includes('T') ? t.split('T')[1] : t.includes(' ') ? t.split(' ')[1] : t;
-    return p.slice(0, 5);
+/** Normalisasi ke "HH:mm" (format H:i backend). Menerima "08.00"/"8:0"/"0800". */
+function toApiTime(t) {
+    if (!t) return '';
+    const cleaned = String(t).trim().replace(/[.]/g, ':');
+    const [h = '0', m = '0'] = cleaned.split(':');
+    return `${String(parseInt(h, 10) || 0).padStart(2, '0')}:${String(parseInt(m, 10) || 0).padStart(2, '0')}`;
 }
 
-function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+/** Ambil "HH:mm" dari berbagai format backend ("08:00:00" atau "2026-07-03T08:00:00"). */
+function toTimeInput(t) {
+    if (!t) return '';
+    const m = String(t).match(/(\d{1,2}):(\d{2})/);
+    return m ? `${m[1].padStart(2, '0')}:${m[2]}` : '';
 }
-
-function formatDate(d) {
-    if (!d) return '-';
-    const p = d.split('-');
-    if (p.length === 3) return `${p[2]}-${p[1]}-${p[0]}`;
-    return d;
-}
-
-
-
-const EMPTY_FORM = { start: nowHHMM(), end: '', activity: '', link: '' };
 
 export default function LaporanKegiatan() {
-    const { user, hasPermission } = useAuth();
+    const { user } = useAuth();
+    const [report, setReport] = useState(null); // full report object from backend (or null)
     const [rows, setRows] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState('');
     const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
-    const [toast, setToast] = useState(null);
+
     const [showModal, setShowModal] = useState(false);
     const [form, setForm] = useState(EMPTY_FORM);
     const [editingId, setEditingId] = useState(null);
-    const [editingActivityIdx, setEditingActivityIdx] = useState(null);
 
-    /* ── Filter ── */
-    const currentMonth = todayStr().slice(0, 7);
-    const [month, setMonth] = useState(currentMonth);
-    const [selectedDate, setSelectedDate] = useState(''); // '' = semua
-
-    const monthRange = (() => {
-        const first = month + '-01';
-        const d = new Date(first + 'T00:00:00');
-        const last = new Date(d.getFullYear(), d.getMonth() + 1, 0).toISOString().slice(0, 10);
-        return { date_from: first, date_to: last };
-    })();
-
-    useEffect(() => {
-        setSelectedDate('');
-    }, [month]);
-
-    /* unique dates in current month that have reports */
-    const monthDates = useMemo(() => {
-        const dates = [...new Set(rows.map(r => r.report_date).filter(Boolean))];
-        return dates.sort().reverse().filter(d => d.startsWith(month));
-    }, [rows, month]);
-
+    const [toast, setToast] = useState(null);
     const showToast = (type, message) => {
         setToast({ type, message });
         setTimeout(() => setToast(null), 3500);
     };
 
-    const today = new Date().toLocaleDateString('id-ID', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
+    const status = report?.status ?? 'draft';
+    const editable = !report || status === 'draft' || status === 'rejected';
 
-    const fetchReports = useCallback(async () => {
+    const mapActivities = (activities = []) =>
+        activities.map((a) => ({
+            id: a.id ?? Date.now() + Math.random(),
+            start: toTimeInput(a.start_time),
+            end: toTimeInput(a.end_time),
+            activity: a.activity,
+            link: a.links?.[0]?.url ?? '',
+        }));
+
+    const load = useCallback(async () => {
         setLoading(true);
-        setError('');
+        setLoadError('');
         try {
-            const res = await wfhApi.getReports({
-                date_from: monthRange.date_from,
-                date_to: monthRange.date_to,
-                per_page: 100,
-            });
-            setRows(res.data.data || []);
-        } catch (e) {
-            setError(e.response?.data?.message || 'Gagal memuat laporan.');
-            setRows([]);
+            const res = await getReports({ per_page: 50 });
+            const list = res.data ?? [];
+            const iso = todayISO();
+            const todays = list.find((r) => r.report_date === iso) ?? null;
+            setReport(todays);
+            setRows(todays ? mapActivities(todays.activities) : []);
+        } catch (err) {
+            setLoadError(err.response?.data?.message || 'Gagal memuat laporan.');
         } finally {
             setLoading(false);
         }
     }, [monthRange.date_from, monthRange.date_to]);
 
-    useEffect(() => { fetchReports(); }, [fetchReports]);
+    useEffect(() => { load(); }, [load]);
 
-    /* rows displayed — filtered by selectedDate if set */
-    const displayedRows = selectedDate
-        ? rows.filter(r => r.report_date === selectedDate)
-        : rows;
-
-    /* aggregate stats */
-    const totalKegiatan = displayedRows.reduce((sum, r) => sum + (r.activities?.length ?? 0), 0);
-    const totalMinutes = displayedRows.reduce((sum, r) => {
-        if (!r.activities) return sum;
-        return r.activities.reduce((s, a) => {
-            const toMin = (t) => {
-                if (!t) return 0;
-                const [h, m] = t.split(':').map(Number);
-                return (h || 0) * 60 + (m || 0);
-            };
-            const diff = toMin(fmtTime(a.end_time)) - toMin(fmtTime(a.start_time));
-            return s + (diff > 0 ? diff : 0);
-        }, sum);
+    const totalKegiatan = rows.length;
+    const totalMinutes = rows.reduce((sum, r) => {
+        const toMin = (t) => {
+            const [h, m] = String(t || '0:0').replace('.', ':').split(':').map(Number);
+            return (h || 0) * 60 + (m || 0);
+        };
+        const diff = toMin(r.end) - toMin(r.start);
+        return sum + (diff > 0 ? diff : 0);
     }, 0);
     const totalWaktu = `${Math.floor(totalMinutes / 60)}j ${totalMinutes % 60}m`;
 
-    /* ── Form handling ── */
+    /** Persist the full activity list as a report (create or update). */
+    const persist = async (list) => {
+        const activities = list.map((r) => ({
+            start_time: toApiTime(r.start),
+            end_time: toApiTime(r.end),
+            activity: r.activity,
+            links: r.link ? [r.link] : [],
+        }));
 
-    // Find today's draft report (so we can append to it)
-    const todayDraft = rows.find(r => r.report_date === todayStr() && r.status === 'draft');
-
-    // "Tambah Kegiatan" — append to today's draft or create new report
-    const openAdd = () => {
-        setForm({ ...EMPTY_FORM, start: nowHHMM() });
-        if (todayDraft) {
-            // Append to existing today's draft
-            setEditingId(todayDraft.id);
-            setEditingActivityIdx(null); // new activity
-        } else {
-            setEditingId(null);
-            setEditingActivityIdx(null);
+        if (list.length === 0) {
+            // Backend requires at least one activity → delete the report instead.
+            if (report?.id) {
+                await deleteReport(report.id);
+                setReport(null);
+            }
+            return;
         }
-        setShowModal(true);
+
+        const payload = { report_date: report?.report_date ?? todayISO(), activities };
+        if (report?.id) {
+            const res = await updateReport(report.id, payload);
+            setReport(res.data);
+            setRows(mapActivities(res.data.activities));
+        } else {
+            const res = await createReport(payload);
+            setReport(res.data);
+            setRows(mapActivities(res.data.activities));
+        }
     };
 
-    // "Edit" — edit a specific activity in a report
-    const openEdit = (report, activityIdx) => {
-        const a = report.activities[activityIdx];
-        setForm({
-            start: fmtTime(a.start_time),
-            end: fmtTime(a.end_time),
-            activity: a.activity || '',
-            link: a.links?.[0]?.url || '',
-        });
-        setEditingId(report.id);
-        setEditingActivityIdx(activityIdx);
+    const openAdd = () => { setForm(EMPTY_FORM); setEditingId(null); setShowModal(true); };
+    const openEdit = (row) => {
+        setForm({ start: row.start, end: row.end, activity: row.activity, link: row.link });
+        setEditingId(row.id);
         setShowModal(true);
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
+        const next = editingId
+            ? rows.map((r) => (r.id === editingId ? { ...r, ...form } : r))
+            : [...rows, { id: Date.now(), ...form }];
+
         setSaving(true);
         try {
-            const td = todayStr();
-            if (editingId) {
-                // Update existing report: merge old activities with new/changed one
-                const target = rows.find(r => r.id === editingId);
-                const oldActs = target?.activities ?? [];
-
-                let newActivities;
-                if (editingActivityIdx !== null && editingActivityIdx < oldActs.length) {
-                    // Editing an existing activity
-                    newActivities = oldActs.map((a, i) =>
-                        i === editingActivityIdx
-                            ? {
-                                start_time: form.start,
-                                end_time: form.end,
-                                activity: form.activity,
-                                ...(form.link ? { links: [form.link] } : {}),
-                            }
-                            : {
-                                start_time: fmtTime(a.start_time),
-                                end_time: fmtTime(a.end_time),
-                                activity: a.activity,
-                                ...(a.links?.length ? { links: a.links.map(l => l.url) } : {}),
-                            }
-                    );
-                } else {
-                    // Appending new activity
-                    newActivities = [
-                        ...oldActs.map(a => ({
-                            start_time: fmtTime(a.start_time),
-                            end_time: fmtTime(a.end_time),
-                            activity: a.activity,
-                            ...(a.links?.length ? { links: a.links.map(l => l.url) } : {}),
-                        })),
-                        {
-                            start_time: form.start,
-                            end_time: form.end,
-                            activity: form.activity,
-                            ...(form.link ? { links: [form.link] } : {}),
-                        },
-                    ];
-                }
-
-                await wfhApi.updateReport(editingId, {
-                    activities: newActivities,
-                    report_date: target?.report_date || td,
-                });
-            } else {
-                // Create new report with this one activity
-                await wfhApi.createReport({
-                    activities: [{
-                        start_time: form.start,
-                        end_time: form.end,
-                        activity: form.activity,
-                        ...(form.link ? { links: [form.link] } : {}),
-                    }],
-                    report_date: td,
-                });
-            }
+            await persist(next);
             setShowModal(false);
-            await fetchReports();
             showToast('success', 'Kegiatan tersimpan.');
-        } catch (e) {
-            showToast('error', e.response?.data?.message || 'Gagal menyimpan laporan.');
+        } catch (err) {
+            const msg = err.response?.data?.message
+                || Object.values(err.response?.data?.errors ?? {})[0]?.[0]
+                || 'Gagal menyimpan kegiatan.';
+            showToast('error', msg);
         } finally {
             setSaving(false);
         }
     };
 
     const handleDelete = async (id) => {
-        if (!confirm('Hapus laporan ini?')) return;
+        const next = rows.filter((r) => r.id !== id);
         try {
-            await wfhApi.deleteReport(id);
-            await fetchReports();
+            await persist(next);
+            if (next.length === 0) setRows([]);
             showToast('success', 'Kegiatan dihapus.');
-        } catch (e) {
-            showToast('error', e.response?.data?.message || 'Gagal menghapus laporan.');
+        } catch (err) {
+            showToast('error', err.response?.data?.message || 'Gagal menghapus kegiatan.');
         }
     };
 
-    const handleDownloadPdf = async (id) => {
-        try {
-            // Cari semua report di tanggal yang sama
-            const report = rows.find(r => r.id === id);
-            const sameDateReports = report
-                ? rows.filter(r => r.report_date === report.report_date)
-                : [];
-
-            // Fetch report pertama buat data user & supervisor
-            const res = await wfhApi.getReport(id);
-            const r = res.data?.data ?? res.data ?? {};
-            const u = r.user ?? {};
-            const s = r.supervisor ?? {};
-
-            // Gabung kegiatan dari semua report di tanggal sama
-            const allKegiatan = [];
-            for (const sr of sameDateReports) {
-                for (const a of (sr.activities ?? [])) {
-                    allKegiatan.push({
-                        waktu: a.start_time && a.end_time ? `${fmtTime(a.start_time)} - ${fmtTime(a.end_time)}` : fmtTime(a.start_time),
-                        kegiatan: a.activity,
-                        links: (a.links ?? []).map((l) => l.url).filter(Boolean),
-                    });
-                }
-            }
-
-            printWfhReport({
-                nama: u.name || user?.name || '-',
-                nip: u.nip || user?.nip || '-',
-                pangkat: u.rank || user?.rank || '-',
-                jabatan: u.position || user?.position || '-',
-                unitKerja: user?.team?.name || '-',
-                tanggalPelaksanaan: r.report_date || '-',
-                kegiatan: allKegiatan,
-                isApproved: r.status === 'approved',
-                makerName: u.name || user?.name,
-                makerNip: u.nip || user?.nip,
-                makerSignatureUrl: u.signature_url || null,
-                supervisorName: s.name || '-',
-                supervisorNip: s.nip || '-',
-                supervisorSignatureUrl: s.signature_url || null,
-                city: 'Surabaya',
-            });
-        } catch (e) {
-            showToast('error', e.response?.data?.message || 'Gagal mencetak laporan.');
-        }
+    const formatTanggal = (d) => {
+        const src = d ?? todayISO();
+        return new Date(src).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
     };
 
-    const handleSubmit = async (id) => {
+    const handleDownloadPdf = () => {
+        const sigPath = user?.signature_path;
+        const sup = report?.supervisor;
+        printWfhReport({
+            nama: user?.name ?? '-',
+            nip: user?.nip ?? '-',
+            pangkat: user?.rank || '-',
+            jabatan: user?.position || '-',
+            unitKerja: user?.team?.field?.name || '-',
+            tanggalPelaksanaan: formatTanggal(report?.report_date),
+            kegiatan: rows.map((r) => ({
+                waktu: `${r.start} – ${r.end}`,
+                kegiatan: r.activity,
+                links: r.link ? [r.link] : [],
+            })),
+            isApproved: status === 'approved',
+            makerName: (user?.name || '').toUpperCase(),
+            makerNip: user?.nip ?? '-',
+            makerSignatureUrl: sigPath ? assetUrl(`/storage/${sigPath}`) : null,
+            supervisorName: sup?.name ? sup.name.toUpperCase() : '-',
+            supervisorNip: sup?.nip ?? '-',
+            supervisorSignatureUrl: sup?.signature_path ? assetUrl(`/storage/${sup.signature_path}`) : null,
+        });
+    };
+
+    const handleSubmitReport = async () => {
+        if (!report?.id) {
+            showToast('error', 'Tambahkan kegiatan terlebih dahulu.');
+            return;
+        }
+        setSaving(true);
         try {
-            await wfhApi.submitReport(id);
-            await fetchReports();
+            const res = await submitReport(report.id);
+            setReport(res.data ?? { ...report, status: 'submitted' });
             showToast('success', 'Laporan berhasil dikirim.');
-        } catch (e) {
-            showToast('error', e.response?.data?.message || 'Gagal mengirim laporan.');
+        } catch (err) {
+            showToast('error', err.response?.data?.message || 'Gagal mengirim laporan.');
+        } finally {
+            setSaving(false);
         }
     };
 
     return (
-        <div className="max-w-[1200px] mx-auto space-y-5 relative">
-            {/* Header — title + filter inline (seperti MonitorWfh) */}
-            <div className="flex items-start justify-between flex-wrap gap-3">
-                <div>
-                    <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Laporan Kegiatan</h1>
-                    <p className="text-sm text-gray-500 mt-1">{today}</p>
-                </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                    {/* Filter bulan */}
-                    <div className="relative flex items-center">
-                        <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
-                        <input
-                            type="month"
-                            value={month}
-                            onChange={(e) => setMonth(e.target.value)}
-                            title="Filter bulan"
-                            className="pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        />
-                    </div>
-                    {/* Pilih tanggal */}
-                    <div className="relative">
-                        <select
-                            value={selectedDate}
-                            onChange={(e) => setSelectedDate(e.target.value)}
-                            title="Pilih tanggal"
-                            className="appearance-none pl-4 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                        >
-                            <option value="">Semua Tanggal</option>
-                            {monthDates.map((d) => (
-                                <option key={d} value={d}>{formatDate(d)}</option>
-                            ))}
-                        </select>
-                        <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                    </div>
-                    <button
-                        onClick={() => { setMonth(currentMonth); setSelectedDate(''); }}
-                        className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer"
-                    >
-                        Bulan Ini
-                    </button>
-                </div>
-            </div>
+        <div className="max-w-[1200px] mx-auto">
+            <h1 className="text-3xl font-extrabold text-gray-900">Laporan Kegiatan</h1>
 
-            {error && (
-                <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
-            )}
+            {loadError && <div className="mt-6"><ErrorAlert message={loadError} onRetry={load} /></div>}
 
             {/* Stat cards */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mt-6 max-w-2xl">
@@ -378,7 +253,7 @@ export default function LaporanKegiatan() {
 
             {/* Actions */}
             <div className="flex items-center gap-3 mt-6 flex-wrap">
-                {hasPermission('wfh.report.create') && (
+                {editable && (
                     <button
                         onClick={openAdd}
                         className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
@@ -387,11 +262,9 @@ export default function LaporanKegiatan() {
                         Tambah Kegiatan
                     </button>
                 )}
-                {displayedRows.length > 0 && hasPermission('wfh.report.submit') && (
+                {editable && rows.length > 0 && (
                     <button
-                        onClick={() => {
-                            displayedRows.filter(r => r.status === 'draft').forEach(r => handleSubmit(r.id));
-                        }}
+                        onClick={handleSubmitReport}
                         disabled={saving}
                         className="flex items-center gap-2 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white text-sm font-bold px-6 py-3.5 rounded-xl transition-colors"
                     >
@@ -403,13 +276,17 @@ export default function LaporanKegiatan() {
 
             {/* Table — grouped by report, each shows all activities */}
             <div className="bg-white rounded-2xl border border-gray-200 mt-6 overflow-hidden">
+                {/* Table header bar */}
+                <div className="px-6 py-4 border-b border-gray-100">
+                    <h2 className="text-base font-bold text-gray-800">Rincian Kegiatan</h2>
+                </div>
+
                 {/* Desktop table */}
                 <div className="overflow-x-auto hidden md:block">
                     <table className="w-full min-w-[720px]">
                         <thead>
                             <tr className="text-gray-700 text-sm font-bold border-b border-gray-100">
-                                <th className="text-left px-8 py-5">Tanggal</th>
-                                <th className="text-left px-6 py-5">Jam Kerja</th>
+                                <th className="text-left px-8 py-5">Jam Kerja</th>
                                 <th className="text-left px-6 py-5">Kegiatan</th>
                                 <th className="text-left px-6 py-5">Link</th>
                                 <th className="text-center px-6 py-5">Status</th>
@@ -418,124 +295,81 @@ export default function LaporanKegiatan() {
                         </thead>
                         <tbody>
                             {loading ? (
-                                <tr><td colSpan={6} className="px-0 py-0"><SkeletonTable rows={4} cols={6} /></td></tr>
-                            ) : displayedRows.length === 0 ? (
-                                <tr><td colSpan={6} className="text-center py-16 text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</td></tr>
-                            ) : displayedRows.map((r) => {
-                                const acts = r.activities ?? [];
-                                const rowspan = Math.max(acts.length, 1);
-                                return acts.map((a, idx) => (
-                                    <tr key={`${r.id}-${idx}`} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40">
-                                        {idx === 0 && (
-                                            <td className="px-8 py-4 text-sm text-gray-600 align-top" rowSpan={rowspan}>
-                                                {formatDate(r.report_date)}
-                                            </td>
-                                        )}
-                                        <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">
-                                            {fmtTime(a.start_time)} – {fmtTime(a.end_time)}
-                                        </td>
-                                        <td className="px-6 py-4 text-sm text-gray-600 max-w-[240px]">{a.activity}</td>
-                                        <td className="px-6 py-4 text-sm">
-                                            {a.links?.[0]?.url ? (
-                                                <a href={a.links[0].url} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all">
-                                                    {a.links[0].url}
-                                                </a>
-                                            ) : <span className="text-gray-400">-</span>}
-                                        </td>
-                                        <td className="px-6 py-4 text-center align-top">
-                                            {idx === 0 ? <StatusBadge status={r.status} /> : ''}
-                                        </td>
-                                        <td className="px-6 py-4 align-top">
-                                            <div className="flex items-center justify-end gap-3">
-                                                {r.status === 'draft' && hasPermission('wfh.report.update') && (
-                                                    <button onClick={() => openEdit(r, idx)} className="text-gray-500 hover:text-brand-500 transition-colors" title="Edit">
+                                <tr><td colSpan={5} className="text-center py-12 text-gray-400"><Loader2 className="animate-spin inline mr-2" size={18} />Memuat...</td></tr>
+                            ) : rows.length === 0 ? (
+                                <tr><td colSpan={5} className="text-center py-16 text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</td></tr>
+                            ) : rows.map((r) => (
+                                <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40">
+                                    <td className="px-8 py-4 text-sm text-gray-600 whitespace-nowrap">{r.start} – {r.end}</td>
+                                    <td className="px-6 py-4 text-sm text-gray-600 max-w-[280px] truncate">{r.activity}</td>
+                                    <td className="px-6 py-4 text-sm">
+                                        {r.link ? (
+                                            <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all">
+                                                {r.link}
+                                            </a>
+                                        ) : <span className="text-gray-400">-</span>}
+                                    </td>
+                                    <td className="px-6 py-4 text-center"><StatusBadge status={status} /></td>
+                                    <td className="px-6 py-4">
+                                        <div className="flex items-center justify-end gap-3">
+                                            {editable && (
+                                                <>
+                                                    <button onClick={() => openEdit(r)} className="text-gray-500 hover:text-brand-500 transition-colors" title="Edit">
                                                         <Pencil size={17} />
                                                     </button>
-                                                )}
-                                                {idx === 0 && r.status === 'draft' && hasPermission('wfh.report.submit') && (
-                                                    <button onClick={() => handleSubmit(r.id)} className="text-blue-600 hover:text-blue-700 transition-colors" title="Kirim">
-                                                        <Send size={17} />
-                                                    </button>
-                                                )}
-                                                {idx === 0 && hasPermission('wfh.report.export_pdf') && (
-                                                    <button onClick={() => handleDownloadPdf(r.id)} className="text-indigo-500 hover:text-indigo-600 transition-colors" title="Cetak Laporan">
-                                                        <FileDown size={17} />
-                                                    </button>
-                                                )}
-                                                {idx === 0 && hasPermission('wfh.report.delete') && (
                                                     <button onClick={() => handleDelete(r.id)} className="text-red-500 hover:text-red-600 transition-colors" title="Hapus">
                                                         <Trash2 size={17} />
                                                     </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ));
-                            })}
+                                                </>
+                                            )}
+                                            <button onClick={handleDownloadPdf} className="text-gray-500 hover:text-indigo-600 transition-colors" title="Unduh PDF laporan">
+                                                <FileDown size={17} />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </div>
+
                 {/* Mobile cards */}
                 <div className="md:hidden divide-y divide-gray-50">
                     {loading ? (
-                        <div className="px-4 py-6"><SkeletonTable rows={3} cols={1} /></div>
-                    ) : displayedRows.length === 0 ? (
+                        <div className="py-12 text-center text-gray-400"><Loader2 className="animate-spin inline mr-2" size={18} />Memuat...</div>
+                    ) : rows.length === 0 ? (
                         <div className="py-16 text-center text-sm text-gray-400"><ClipboardList size={40} className="mx-auto mb-3 opacity-50" />Belum ada kegiatan.</div>
-                    ) : displayedRows.map((r) => {
-                        const acts = r.activities ?? [];
-                        return (
-                            <div key={r.id} className="p-4 space-y-2">
-                                <div className="flex items-center justify-between">
-                                    <span className="text-sm font-semibold text-gray-700">{formatDate(r.report_date)}</span>
-                                    <StatusBadge status={r.status} />
-                                </div>
-                                {acts.map((a, idx) => (
-                                    <div key={idx} className="border-l-2 border-gray-200 pl-3 space-y-1">
-                                        <span className="text-xs text-gray-500">{fmtTime(a.start_time)} – {fmtTime(a.end_time)}</span>
-                                        <p className="text-sm text-gray-600">{a.activity}</p>
-                                        {a.links?.[0]?.url && (
-                                            <a href={a.links[0].url} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all text-sm block">
-                                                {a.links[0].url}
-                                            </a>
-                                        )}
-                                        {r.status === 'draft' && hasPermission('wfh.report.update') && (
-                                            <button onClick={() => openEdit(r, idx)} className="flex items-center gap-1 text-gray-500 hover:text-brand-500 text-sm pt-1">
-                                                <Pencil size={14} /> Edit
-                                            </button>
-                                        )}
-                                    </div>
-                                ))}
-                                {r.status === 'draft' && hasPermission('wfh.report.submit') && (
-                                    <button onClick={() => handleSubmit(r.id)} className="flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm">
-                                        <Send size={15} /> Kirim
-                                    </button>
-                                )}
-                                {hasPermission('wfh.report.export_pdf') && (
-                                    <button onClick={() => handleDownloadPdf(r.id)} className="flex items-center gap-1 text-indigo-500 hover:text-indigo-600 text-sm">
-                                        <FileDown size={15} /> Cetak
-                                    </button>
-                                )}
-                                {hasPermission('wfh.report.delete') && (
-                                    <button onClick={() => handleDelete(r.id)} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
-                                        <Trash2 size={15} /> Hapus
-                                    </button>
-                                )}
+                    ) : rows.map((r) => (
+                        <div key={r.id} className="p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                                <span className="text-sm font-semibold text-gray-700 whitespace-nowrap">{r.start} – {r.end}</span>
+                                <StatusBadge status={status} />
                             </div>
-                        );
-                    })}
+                            <p className="text-sm text-gray-600">{r.activity}</p>
+                            {r.link && (
+                                <a href={r.link} target="_blank" rel="noopener noreferrer" className="text-brand-500 hover:underline break-all text-sm block">
+                                    {r.link}
+                                </a>
+                            )}
+                            <div className="flex items-center gap-4 pt-1">
+                                {editable && (
+                                    <>
+                                        <button onClick={() => openEdit(r)} className="flex items-center gap-1 text-gray-500 hover:text-brand-500 text-sm">
+                                            <Pencil size={15} /> Edit
+                                        </button>
+                                        <button onClick={() => handleDelete(r.id)} className="flex items-center gap-1 text-red-500 hover:text-red-600 text-sm">
+                                            <Trash2 size={15} /> Hapus
+                                        </button>
+                                    </>
+                                )}
+                                <button onClick={handleDownloadPdf} className="flex items-center gap-1 text-gray-500 hover:text-indigo-600 text-sm">
+                                    <FileDown size={15} /> Unduh
+                                </button>
+                            </div>
+                        </div>
+                    ))}
                 </div>
             </div>
-
-            {/* Toast */}
-            {toast && (
-                <div
-                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
-                        }`}
-                >
-                    {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
-                    {toast.message}
-                </div>
-            )}
 
             {/* Add / Edit modal */}
             <Modal
@@ -545,9 +379,7 @@ export default function LaporanKegiatan() {
                 footer={
                     <div className="flex gap-3">
                         <Button variant="secondary" onClick={() => setShowModal(false)}>Batal</Button>
-                        <Button type="submit" form="form-kegiatan" disabled={saving}>
-                            {saving ? 'Menyimpan...' : 'Simpan'}
-                        </Button>
+                        <Button type="submit" form="form-kegiatan" disabled={saving}>{saving ? 'Menyimpan...' : 'Simpan'}</Button>
                     </div>
                 }
             >
@@ -556,19 +388,18 @@ export default function LaporanKegiatan() {
                         <div>
                             <label className="block text-xs font-semibold text-text-secondary mb-1.5">Jam Mulai</label>
                             <input
-                                type="text" value={form.start}
+                                type="time" value={form.start}
                                 onChange={(e) => setForm((f) => ({ ...f, start: e.target.value }))}
-                                placeholder="08:00" required
+                                required
                                 className="w-full px-4 py-2.5 border border-border-light rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500"
                             />
-                            <p className="text-[10px] text-gray-400 mt-0.5">Format HH:MM · otomatis terisi waktu sekarang</p>
                         </div>
                         <div>
                             <label className="block text-xs font-semibold text-text-secondary mb-1.5">Jam Selesai</label>
                             <input
-                                type="text" value={form.end}
+                                type="time" value={form.end}
                                 onChange={(e) => setForm((f) => ({ ...f, end: e.target.value }))}
-                                placeholder="10:00" required
+                                required
                                 className="w-full px-4 py-2.5 border border-border-light rounded-lg text-sm outline-none focus:ring-2 focus:ring-brand-100 focus:border-brand-500"
                             />
                         </div>
@@ -593,6 +424,17 @@ export default function LaporanKegiatan() {
                     </div>
                 </form>
             </Modal>
+
+            {/* Toast */}
+            {toast && (
+                <div
+                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                        }`}
+                >
+                    {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                    {toast.message}
+                </div>
+            )}
         </div>
     );
 }

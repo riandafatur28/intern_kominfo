@@ -1,38 +1,28 @@
-import React, { useEffect, useRef, useState } from 'react';
-
-function upcomingFriday() {
-    const d = new Date();
-    const day = d.getDay();
-    const diff = day <= 5 ? (5 - day) : (5 - day + 7);
-    d.setDate(d.getDate() + diff);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${dd}`;
-}
-import { Calendar, ImageIcon, Plus, Trash2, Check, X, Loader2 } from 'lucide-react';
-import { SkeletonCard } from '../../components/ui/Skeleton';
-import { wfhApi } from '../../api/wfh';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
+import { ImageIcon, Plus, Trash2, Check, X, Loader2, CheckCircle2, XCircle, FileDown } from 'lucide-react';
+import { checkIn, getAttendance } from '../../api/attendance';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
+import { printWfhAttendance } from '../../pdf';
 
 /* ---------------- Session status badge ---------------- */
 function SessionBadge({ status }) {
     const map = {
-        hadir: 'bg-[#C9F2D6] text-[#15803D]',
+        terkirim: 'bg-[#C9F2D6] text-[#15803D]',
         belum: 'bg-[#FEE9C7] text-[#B45309]',
     };
-    const label = { hadir: 'Hadir', belum: 'Belum Absen' };
+    const label = { terkirim: 'Terkirim', belum: 'Belum Diisi' };
     return (
-        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${map[status] || map.belum}`}>
-            {label[status] || label.belum}
+        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${map[status]}`}>
+            {label[status]}
         </span>
     );
 }
 
 /* ---------------- Session card ---------------- */
-function SessionCard({ title, status, photo, loading, onUpload, onRemove, canCheckIn }) {
+function SessionCard({ title, status, photo, loading, onUpload, onRemove }) {
     const inputRef = useRef(null);
-    const isEmpty = status === 'belum' && !photo && !loading;
+    const isEmpty = status === 'belum';
     const borderColor = isEmpty ? 'border-amber-200' : 'border-green-200';
 
     return (
@@ -44,18 +34,15 @@ function SessionCard({ title, status, photo, loading, onUpload, onRemove, canChe
 
             <button
                 type="button"
-                onClick={() => !photo && !loading && canCheckIn && inputRef.current?.click()}
-                disabled={loading || (!photo && !canCheckIn)}
-                className={`w-full aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors ${
-                    loading
-                        ? 'border-brand-200 text-brand-400 bg-brand-50'
-                        : isEmpty
-                            ? 'border-amber-300 text-amber-500 hover:bg-amber-50/50'
-                            : 'border-green-300 text-green-500 bg-white'
-                }`}
+                onClick={() => !photo && !loading && inputRef.current?.click()}
+                disabled={loading}
+                className={`w-full aspect-square rounded-xl border-2 border-dashed flex flex-col items-center justify-center gap-2 transition-colors ${isEmpty
+                    ? 'border-amber-300 text-amber-500 hover:bg-amber-50/50'
+                    : 'border-green-300 text-green-500 bg-white'
+                    }`}
             >
                 {loading ? (
-                    <Loader2 size={40} className="animate-spin" />
+                    <Loader2 size={40} className="animate-spin text-brand-500" />
                 ) : photo ? (
                     <img src={photo} alt={title} className="w-full h-full object-cover rounded-lg" />
                 ) : isEmpty ? (
@@ -71,15 +58,16 @@ function SessionCard({ title, status, photo, loading, onUpload, onRemove, canChe
             <input
                 ref={inputRef}
                 type="file"
-                accept="image/*"
+                accept="image/jpg,image/jpeg,image/png"
                 className="hidden"
                 onChange={(e) => {
                     const file = e.target.files?.[0];
                     if (file) onUpload?.(file);
+                    e.target.value = '';
                 }}
             />
 
-            {photo && !loading && canCheckIn && (
+            {photo && !loading && (
                 <button
                     onClick={onRemove}
                     className="absolute bottom-3 right-3 text-gray-400 hover:text-red-500 transition-colors"
@@ -101,112 +89,130 @@ function Mark({ ok }) {
     );
 }
 
-/** Derive session name from current time */
-function currentSession() {
-    const h = new Date().getHours();
-    if (h < 10) return 'pagi';
-    if (h < 14) return 'siang';
-    return 'sore';
-}
+// Backend hanya menerima sesi 'pagi' dan 'sore' (lihat CheckInRequest).
+const SUPPORTED_SESSIONS = ['pagi', 'sore'];
 
-const SESSION_LABEL = { pagi: 'Sesi Pagi', siang: 'Sesi Siang', sore: 'Sesi Sore' };
-const SESSION_KEYS = ['pagi', 'siang', 'sore'];
+const todayISO = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+const fmtTgl = (d) => new Date(d).toLocaleDateString('id-ID', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' });
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export default function AbsensiWfh() {
-    const { hasPermission } = useAuth();
-    const canCheckIn = hasPermission('wfh.attendance.create');
-
-    const [sessions, setSessions] = useState(() => {
-        const obj = {};
-        SESSION_KEYS.forEach((k) => { obj[k] = { status: 'belum', photo: null, checkInAt: null }; });
-        return obj;
+    const [sessions, setSessions] = useState({
+        pagi: { status: 'belum', photo: null, loading: false },
+        siang: { status: 'belum', photo: null, loading: false },
+        sore: { status: 'belum', photo: null, loading: false },
     });
-    const [uploading, setUploading] = useState(null);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
-    const [loaded, setLoaded] = useState(false);
+    const [history, setHistory] = useState([]);
 
-    const doneCount = Object.values(sessions).filter((s) => s.status === 'hadir').length;
-    const percent = SESSION_KEYS.length > 0 ? Math.round((doneCount / SESSION_KEYS.length) * 100) : 0;
+    const { user } = useAuth();
+    const [toast, setToast] = useState(null);
+    const showToast = (type, message) => {
+        setToast({ type, message });
+        setTimeout(() => setToast(null), 3500);
+    };
 
-    const todayStr = upcomingFriday();
-    const fridayDate = new Date(todayStr + 'T00:00:00');
-    const today = fridayDate.toLocaleDateString('id-ID', {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
-    });
+    const setSession = (key, patch) =>
+        setSessions((s) => ({ ...s, [key]: { ...s[key], ...patch } }));
 
-    // Load existing attendance on mount
-    useEffect(() => {
-        wfhApi.getTodayAttendance(todayStr).then((res) => {
-            const data = res.data?.data;
-            if (!data) return;
-            const next = {};
-            SESSION_KEYS.forEach((k) => {
-                const s = data[k];
-                if (s?.status === 'hadir') {
-                    next[k] = { status: 'hadir', photo: s.photo_url, checkInAt: s.check_in_at };
-                } else {
-                    next[k] = { status: 'belum', photo: null, checkInAt: null };
-                }
+    // Muat riwayat absensi + status sesi hari ini dari backend.
+    const loadAttendance = useCallback(async () => {
+        try {
+            const items = await getAttendance();
+            const byDate = {};
+            items.forEach((a) => {
+                byDate[a.date] = byDate[a.date] || { date: a.date, pagi: false, siang: false, sore: false, photos: {} };
+                byDate[a.date][a.session] = true;
+                byDate[a.date].photos[a.session] = a.photo_url;
             });
-            setSessions(next);
-        }).catch(() => {}).finally(() => setLoaded(true));
+
+            const todayRec = byDate[todayISO()];
+            if (todayRec) {
+                setSessions((s) => ({
+                    pagi: { ...s.pagi, status: todayRec.pagi ? 'terkirim' : 'belum', photo: todayRec.photos.pagi ?? s.pagi.photo },
+                    siang: { ...s.siang, status: todayRec.siang ? 'terkirim' : 'belum', photo: todayRec.photos.siang ?? s.siang.photo },
+                    sore: { ...s.sore, status: todayRec.sore ? 'terkirim' : 'belum', photo: todayRec.photos.sore ?? s.sore.photo },
+                }));
+            }
+
+            const rows = Object.values(byDate)
+                .sort((a, b) => b.date.localeCompare(a.date))
+                .map((r) => {
+                    const miss = SUPPORTED_SESSIONS.filter((s) => !r[s]);
+                    let catatan;
+                    if (miss.length === 0) catatan = 'Absen lengkap';
+                    else if (miss.length === SUPPORTED_SESSIONS.length) catatan = 'Belum absen';
+                    else catatan = 'Tidak absen ' + miss.map(cap).join(', ');
+                    return { tgl: fmtTgl(r.date), pagi: r.pagi, siang: r.siang, sore: r.sore, catatan };
+                });
+            setHistory(rows);
+        } catch {
+            // abaikan; tabel riwayat tetap kosong bila gagal
+        }
     }, []);
 
-    const handleUpload = async (session, file) => {
-        setUploading(session);
-        setError('');
-        setSuccess('');
-        try {
-            const formData = new FormData();
-            formData.append('photo', file);
-            formData.append('session', session);
-            formData.append('date', todayStr);
+    useEffect(() => { loadAttendance(); }, [loadAttendance]);
 
-            const res = await wfhApi.checkIn(formData);
-            const photoUrl = res.data?.data?.photo_url;
-            setSessions((s) => ({
-                ...s,
-                [session]: { status: 'hadir', photo: photoUrl, checkInAt: res.data?.data?.check_in_at },
-            }));
-            setSuccess(`Absen ${SESSION_LABEL[session]} berhasil`);
-        } catch (e) {
-            setError(e.response?.data?.message || `Gagal absen ${SESSION_LABEL[session]}`);
-        } finally {
-            setUploading(null);
+    const handleUpload = async (key, file) => {
+        if (!SUPPORTED_SESSIONS.includes(key)) {
+            showToast('error', 'Sesi ini belum didukung sistem absensi. Gunakan sesi pagi atau sore.');
+            return;
+        }
+        // Optimistic preview
+        const preview = URL.createObjectURL(file);
+        setSession(key, { loading: true, photo: preview });
+        try {
+            const res = await checkIn({ photo: file, session: key });
+            setSession(key, { status: 'terkirim', photo: res.data?.photo_url ?? preview, loading: false });
+            showToast('success', res.message || 'Absensi berhasil dikirim.');
+            loadAttendance(); // refresh riwayat setelah absen berhasil
+        } catch (err) {
+            setSession(key, { status: 'belum', photo: null, loading: false });
+            showToast('error', err.response?.data?.message || 'Gagal mengirim absensi.');
         }
     };
 
-    const handleRemove = (session) => {
-        setSessions((s) => ({ ...s, [session]: { status: 'belum', photo: null, checkInAt: null } }));
+    const handleRemove = (key) => setSession(key, { status: 'belum', photo: null });
+
+    const handleDownloadPdf = () => {
+        printWfhAttendance({
+            judul: 'Laporan Bukti Absensi WFH',
+            tanggal: new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }),
+            unitKerja: user?.team?.field?.name,
+            rows: [{
+                no: 1,
+                nama: user?.name ?? '-',
+                pagi: sessions.pagi.photo ? assetUrl(sessions.pagi.photo) : null,
+                siang: sessions.siang.photo ? assetUrl(sessions.siang.photo) : null,
+                sore: sessions.sore.photo ? assetUrl(sessions.sore.photo) : null,
+            }],
+            makerName: (user?.name || '-').toUpperCase(),
+            makerNip: user?.nip ?? '-',
+            makerSignatureUrl: user?.signature_path ? assetUrl(`/storage/${user.signature_path}`) : null,
+        });
     };
 
-    if (!loaded) {
-        return (
-            <div className="max-w-[1200px] mx-auto">
-                <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
-                <div className="mt-6 space-y-4">
-                    <div className="h-5 bg-gray-200 rounded w-1/3 animate-pulse" />
-                    <div className="h-4 bg-gray-100 rounded w-1/2 animate-pulse" />
-                    <div className="mt-5 h-2 bg-gray-200 rounded-full w-full animate-pulse" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-                    {Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={i} />)}
-                </div>
-            </div>
-        );
-    }
+    const doneCount = Object.values(sessions).filter((s) => s.status === 'terkirim').length;
+    const percent = Math.round((doneCount / 3) * 100);
+
+    const today = new Date().toLocaleDateString('id-ID', {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    });
 
     return (
         <div className="max-w-[1200px] mx-auto">
-            <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Absensi WFH</h1>
-
-            {error && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
-            )}
-            {success && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">{success}</div>
-            )}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+                <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Absensi WFH</h1>
+                <button
+                    onClick={handleDownloadPdf}
+                    className="flex items-center gap-2 border border-gray-200 bg-white hover:bg-gray-50 text-gray-700 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                >
+                    <FileDown size={16} />
+                    Unduh Laporan Absensi
+                </button>
+            </div>
 
             {/* Status kehadiran */}
             <div className="mt-6">
@@ -218,19 +224,16 @@ export default function AbsensiWfh() {
                     <div className="relative flex items-center">
                         <div className="h-1.5 bg-gray-200 rounded-full w-full" />
                         <div
-                            className="h-1.5 bg-brand-600 rounded-full absolute top-0 left-0 transition-all"
+                            className="h-1.5 bg-indigo-500 rounded-full absolute top-0 left-0 transition-all"
                             style={{ width: `${percent}%` }}
                         />
+                        {/* dots */}
                         <div className="absolute inset-0 flex items-center justify-between">
-                            {SESSION_KEYS.map((_, i) => (
-                                <span key={i}
-                                    className={`w-5 h-5 rounded-full border-4 border-white shadow ${
-                                        percent >= ((i + 1) / SESSION_KEYS.length) * 100 ? 'bg-brand-600' : 'bg-gray-300'
-                                    }`}
-                                />
-                            ))}
+                            <span className="w-5 h-5 rounded-full bg-indigo-500 border-4 border-white shadow" />
+                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 50 ? 'bg-indigo-500' : 'bg-gray-300'}`} />
+                            <span className={`w-5 h-5 rounded-full border-4 border-white shadow ${percent >= 100 ? 'bg-indigo-500' : 'bg-indigo-500'}`} />
                         </div>
-                        <span className="absolute -top-7 right-0 text-lg font-extrabold text-brand-600">{percent}%</span>
+                        <span className="absolute -top-7 right-0 text-lg font-extrabold text-indigo-500">{percent}%</span>
                     </div>
                     <div className="flex items-center justify-between mt-3 text-sm text-gray-500">
                         <span>Pagi</span>
@@ -241,18 +244,12 @@ export default function AbsensiWfh() {
 
                 {/* Session cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 mt-6">
-                    {SESSION_KEYS.map((k) => (
-                        <SessionCard
-                            key={k}
-                            title={SESSION_LABEL[k]}
-                            status={sessions[k].status}
-                            photo={sessions[k].photo}
-                            loading={uploading === k}
-                            onUpload={canCheckIn ? (file) => handleUpload(k, file) : undefined}
-                            onRemove={() => handleRemove(k)}
-                            canCheckIn={canCheckIn}
-                        />
-                    ))}
+                    <SessionCard title="Sesi Pagi" status={sessions.pagi.status} photo={sessions.pagi.photo} loading={sessions.pagi.loading}
+                        onUpload={(f) => handleUpload('pagi', f)} onRemove={() => handleRemove('pagi')} />
+                    <SessionCard title="Sesi Siang" status={sessions.siang.status} photo={sessions.siang.photo} loading={sessions.siang.loading}
+                        onUpload={(f) => handleUpload('siang', f)} onRemove={() => handleRemove('siang')} />
+                    <SessionCard title="Sesi Sore" status={sessions.sore.status} photo={sessions.sore.photo} loading={sessions.sore.loading}
+                        onUpload={(f) => handleUpload('sore', f)} onRemove={() => handleRemove('sore')} />
                 </div>
             </div>
 
@@ -260,14 +257,11 @@ export default function AbsensiWfh() {
             <div className="mt-10">
                 <div className="flex items-center gap-4 mb-4 flex-wrap">
                     <h2 className="text-base font-bold text-gray-800">Riwayat Absensi</h2>
-                    <div className="relative">
-                        <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                        <input type="date" defaultValue={todayStr} className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 outline-none focus:ring-2 focus:ring-brand-100" />
-                    </div>
                 </div>
 
                 <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                    <div className="overflow-x-auto">
+                    {/* Desktop table */}
+                    <div className="overflow-x-auto hidden md:block">
                         <table className="w-full min-w-[640px]">
                             <thead>
                                 <tr className="text-gray-700 text-sm font-semibold border-b border-gray-100">
@@ -279,23 +273,36 @@ export default function AbsensiWfh() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {[todayStr].map((d) => {
-                                    const sn = SESSION_KEYS.map((k) => sessions[k].status === 'hadir');
-                                    const allAbsent = sn.every((v) => !v);
-                                    return (
-                                        <tr key={d} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
-                                            <td className="px-6 py-4 whitespace-nowrap">{today}</td>
-                                            {sn.map((v, i) => (
-                                                <td key={i} className="px-4 py-4 text-center"><Mark ok={v} /></td>
-                                            ))}
-                                            <td className="px-6 py-4 text-center">
-                                                {allAbsent ? 'Belum absen' : doneCount === SESSION_KEYS.length ? 'Lengkap' : 'Sebagian'}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                {history.length === 0 ? (
+                                    <tr><td colSpan={5} className="text-center py-12 text-sm text-gray-400">Belum ada riwayat absensi.</td></tr>
+                                ) : history.map((r, i) => (
+                                    <tr key={i} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
+                                        <td className="px-6 py-4 whitespace-nowrap">{r.tgl}</td>
+                                        <td className="px-4 py-4 text-center"><Mark ok={r.pagi} /></td>
+                                        <td className="px-4 py-4 text-center"><Mark ok={r.siang} /></td>
+                                        <td className="px-4 py-4 text-center"><Mark ok={r.sore} /></td>
+                                        <td className="px-6 py-4 text-center">{r.catatan}</td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile cards */}
+                    <div className="md:hidden divide-y divide-gray-50">
+                        {history.length === 0 ? (
+                            <div className="text-center py-12 text-sm text-gray-400">Belum ada riwayat absensi.</div>
+                        ) : history.map((r, i) => (
+                            <div key={i} className="p-4 space-y-2 text-sm text-gray-600">
+                                <p className="font-semibold text-gray-800">{r.tgl}</p>
+                                <div className="flex items-center gap-4">
+                                    <span className="flex items-center gap-1"><Mark ok={r.pagi} /> Pagi</span>
+                                    <span className="flex items-center gap-1"><Mark ok={r.siang} /> Siang</span>
+                                    <span className="flex items-center gap-1"><Mark ok={r.sore} /> Sore</span>
+                                </div>
+                                <p className="text-xs text-gray-400">{r.catatan}</p>
+                            </div>
+                        ))}
                     </div>
                 </div>
             </div>
@@ -310,6 +317,18 @@ export default function AbsensiWfh() {
                     <p className="flex gap-2"><span className="text-gray-400">•</span> Wajib isi kegiatan setelah absensi</p>
                 </div>
             </div>
+
+            {/* Toast */}
+            {toast && (
+                <div
+                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'
+                        }`}
+                >
+                    {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
+                    {toast.message}
+                </div>
+            )}
         </div>
     );
 }
+

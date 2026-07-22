@@ -33,17 +33,11 @@ class ChangeManagementPdfController extends Controller
             ], 404);
         }
 
-        if (! in_array($initiation->status, ['approved', 'pending'])) {
+        if ($initiation->status !== 'approved') {
             return response()->json([
                 'success' => false,
-                'message' => 'PDF hanya dapat di-generate untuk inisiasi yang sudah disetujui atau pending.',
+                'message' => 'PDF hanya dapat di-generate untuk inisiasi yang sudah disetujui.',
             ], 422);
-        }
-
-        // Pastikan verification_token ada (buat record lama yang belum punya)
-        if (! $initiation->verification_token) {
-            $initiation->verification_token = bin2hex(random_bytes(32));
-            $initiation->save();
         }
 
         $initiator = $initiation->initiator;

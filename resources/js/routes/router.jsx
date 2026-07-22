@@ -7,9 +7,8 @@ import RoleDashboard from '../pages/RoleDashboard.jsx';
 import RoleProfil from '../pages/RoleProfil.jsx';
 import StatusLaporanWfh from '../pages/admin/StatusLaporanWfh.jsx';
 import MonitorWfh from '../pages/admin/MonitorWfh.jsx';
-import ManajemenPengguna from '../pages/admin/ManajemenPengguna.jsx';
-import ManajemenRole from '../pages/admin/ManajemenRole.jsx';
 import GoogleSpreadsheet from '../pages/admin/GoogleSpreadsheet.jsx';
+import ManajemenPengguna from '../pages/admin/ManajemenPengguna.jsx';
 import AbsensiWfh from '../pages/pegawai/AbsensiWfh.jsx';
 import LaporanKegiatan from '../pages/pegawai/LaporanKegiatan.jsx';
 import InisiasiPerubahan from '../pages/pegawai/InisiasiPerubahan.jsx';
@@ -22,6 +21,7 @@ import PersetujuanLaporanIndividu from '../pages/kepala-bidang/PersetujuanLapora
 import Arsip from '../pages/change-management/Arsip.jsx';
 import ChangeDashboard from '../pages/change-management/Dashboard.jsx';
 import MonitoringInisiasi from '../pages/change-management/MonitoringInisiasi.jsx';
+import ArsipInisiasi from '../pages/change-management/Arsip.jsx';
 
 export const router = createBrowserRouter([
     {
@@ -45,7 +45,6 @@ export const router = createBrowserRouter([
             { path: 'status-laporan', element: <StatusLaporanWfh /> },
             { path: 'monitor-wfh', element: <MonitorWfh /> },
             { path: 'manajemen-pengguna', element: <ManajemenPengguna /> },
-            { path: 'manajemen-role', element: <ManajemenRole /> },
             { path: 'spreadsheet', element: <GoogleSpreadsheet /> },
             { path: 'profil', element: <RoleProfil /> },
             { path: 'absensi-wfh', element: <AbsensiWfh /> },

@@ -95,6 +95,10 @@ export function wfhReportBody(data) {
             </div>
         </div>
 
+        ${(qrBlock || bsreLogoUrl) ? `<div class="footer">
+            ${bsreLogoUrl ? `<img class="bsre" src="${escapeHtml(bsreLogoUrl)}" alt="BSrE" />` : ''}
+            ${qrBlock}
+        </div>` : ''}
     </div>`;
 }
 

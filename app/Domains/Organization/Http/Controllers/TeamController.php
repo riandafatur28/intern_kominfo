@@ -7,41 +7,24 @@ use App\Models\Team;
 use App\Support\Http\ResolvesFieldScope;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class TeamController extends Controller
 {
     use AuthorizesRequests, ResolvesFieldScope;
 
-    public function fields(Request $request): JsonResponse
+    public function index(): JsonResponse
     {
         $this->authorize('user.manage');
 
-        $fields = \App\Models\Field::orderBy('name')->get(['id', 'name']);
-
-        return response()->json([
-            'success' => true,
-            'data' => $fields,
+        $teams = Team::with('field')->orderBy('name')->get()->map(fn ($team) => [
+            'id' => $team->id,
+            'name' => $team->name,
+            'field' => $team->field ? [
+                'id' => $team->field->id,
+                'name' => $team->field->name,
+            ] : null,
         ]);
-    }
-
-    public function index(Request $request): JsonResponse
-    {
-        $this->authorize('user.manage');
-
-        $teams = Team::with('field')
-            ->when($request->filled('field_id'), fn ($q) => $q->where('field_id', $request->integer('field_id')))
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($team) => [
-                'id' => $team->id,
-                'name' => $team->name,
-                'field' => $team->field ? [
-                    'id' => $team->field->id,
-                    'name' => $team->field->name,
-                ] : null,
-            ]);
 
         return response()->json([
             'success' => true,

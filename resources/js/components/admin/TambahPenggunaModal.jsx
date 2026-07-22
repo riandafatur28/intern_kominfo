@@ -19,9 +19,15 @@ const emptyForm = {
     phone: '',
     password: '',
     roles: [],
+    is_active: true,
 };
 
-export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) {
+/**
+ * Modal tambah/edit pengguna.
+ * @param {Object|null} user - jika diisi, modal masuk mode edit.
+ */
+export default function TambahPenggunaModal({ open, onClose, onSuccess, user = null }) {
+    const isEdit = !!user;
     const [form, setForm] = useState(emptyForm);
     const [teams, setTeams] = useState([]);
     const [roles, setRoles] = useState([]);
@@ -34,6 +40,24 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
         if (!open) return;
         setErrors({});
         setGeneralError('');
+
+        if (isEdit) {
+            setForm({
+                name: user.name ?? '',
+                nip: user.nip ?? '',
+                email: user.email ?? '',
+                team_id: user.team?.id ?? '',
+                rank: user.rank ?? '',
+                position: user.position ?? '',
+                phone: user.phone ?? '',
+                password: '',
+                roles: user.roles ?? [],
+                is_active: user.is_active ?? true,
+            });
+        } else {
+            setForm(emptyForm);
+        }
+
         setLoadingOptions(true);
         Promise.all([getTeams().catch(() => []), getRoles().catch(() => [])])
             .then(([teamsData, rolesData]) => {
@@ -92,12 +116,31 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
             roles: form.roles,
         };
         if (!user || form.password) payload.password = form.password;
-
         try {
-            if (user) {
-                await updateUser(user.id, payload);
+            if (isEdit) {
+                await updateUser(user.id, {
+                    name: form.name,
+                    nip: form.nip,
+                    email: form.email,
+                    team_id: form.team_id || null,
+                    rank: form.rank || null,
+                    position: form.position || null,
+                    phone: form.phone || null,
+                    is_active: form.is_active,
+                    roles: form.roles,
+                });
             } else {
-                await createUser(payload);
+                await createUser({
+                    name: form.name,
+                    nip: form.nip,
+                    email: form.email,
+                    team_id: form.team_id || null,
+                    rank: form.rank || null,
+                    position: form.position || null,
+                    phone: form.phone || null,
+                    password: form.password,
+                    roles: form.roles,
+                });
             }
             onSuccess?.();
             onClose();
@@ -105,7 +148,7 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
             if (err.response?.status === 422 && err.response.data?.errors) {
                 setErrors(err.response.data.errors);
             } else {
-                setGeneralError(err.response?.data?.message || 'Gagal ' + (user ? 'memperbarui' : 'menambah') + ' pengguna.');
+                setGeneralError(err.response?.data?.message || `Gagal ${isEdit ? 'memperbarui' : 'menambah'} pengguna.`);
             }
         } finally {
             setSubmitting(false);
@@ -118,7 +161,7 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
         <Modal
             open={open}
             onClose={onClose}
-            title={user ? 'Edit Pengguna' : 'Tambah Pengguna'}
+            title={isEdit ? 'Edit Pengguna' : 'Tambah Pengguna'}
             width="max-w-2xl"
             footer={
                 <>
@@ -135,7 +178,7 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                         disabled={submitting || loadingOptions}
                         className="px-5 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold rounded-lg transition-colors disabled:opacity-50"
                     >
-                        {submitting ? 'Menyimpan...' : 'Simpan'}
+                        {submitting ? 'Menyimpan...' : (isEdit ? 'Simpan Perubahan' : 'Simpan')}
                     </button>
                 </>
             }
@@ -146,16 +189,6 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                 </div>
             )}
 
-            {loadingOptions ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
-                    {Array.from({ length: 8 }).map((_, i) => (
-                        <div key={i} className="space-y-2">
-                            <div className="h-3 bg-gray-200 rounded w-1/4" />
-                            <div className="h-9 bg-gray-200 rounded w-full" />
-                        </div>
-                    ))}
-                </div>
-            ) : (
             <form id="tambah-pengguna-form" onSubmit={handleSubmit} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Nama Lengkap" required error={fieldError('name')}>
                     <input
@@ -190,16 +223,18 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                     />
                 </Field>
 
-                <Field label="Password" required={!user} error={fieldError('password')}>
-                    <input
-                        type="password"
-                        value={form.password}
-                        onChange={(e) => setField('password', e.target.value)}
-                        className={inputCls(fieldError('password'))}
-                        placeholder={user ? 'Kosongkan jika tidak diubah' : 'Minimal 8 karakter'}
-                        required={!user}
-                    />
-                </Field>
+                {!isEdit && (
+                    <Field label="Password" required error={fieldError('password')}>
+                        <input
+                            type="password"
+                            value={form.password}
+                            onChange={(e) => setField('password', e.target.value)}
+                            className={inputCls(fieldError('password'))}
+                            placeholder="Minimal 8 karakter"
+                            required
+                        />
+                    </Field>
+                )}
 
                 <Field label="Tim" error={fieldError('team_id')}>
                     <select
@@ -209,7 +244,9 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                     >
                         <option value="">— Pilih Tim —</option>
                         {teams.map((t) => (
-                            <option key={t.id} value={t.id}>{t.name}</option>
+                            <option key={t.id} value={t.id}>
+                                {t.name}{t.field ? ` (${t.field.name})` : ''}
+                            </option>
                         ))}
                     </select>
                 </Field>
@@ -244,6 +281,19 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                     />
                 </Field>
 
+                {isEdit && (
+                    <Field label="Status Akun" error={fieldError('is_active')}>
+                        <select
+                            value={form.is_active ? '1' : '0'}
+                            onChange={(e) => setField('is_active', e.target.value === '1')}
+                            className={inputCls(fieldError('is_active'))}
+                        >
+                            <option value="1">Aktif</option>
+                            <option value="0">Nonaktif</option>
+                        </select>
+                    </Field>
+                )}
+
                 <div className="sm:col-span-2">
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                         Role <span className="text-red-500">*</span>
@@ -256,13 +306,12 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                                     type="button"
                                     key={r.id}
                                     onClick={() => toggleRole(r.name)}
-                                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-                                        active
+                                    className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${active
                                             ? 'bg-indigo-500 border-indigo-500 text-white'
                                             : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
-                                    }`}
+                                        }`}
                                 >
-                                    {roleLabels[r.name] || r.name}
+                                    {r.name}
                                 </button>
                             );
                         })}
@@ -271,17 +320,15 @@ export default function TambahPenggunaModal({ open, user, onClose, onSuccess }) 
                     {fieldError('roles') && <p className="text-red-500 text-xs mt-1">{fieldError('roles')}</p>}
                 </div>
             </form>
-            )}
         </Modal>
     );
 }
 
 function inputCls(hasError) {
-    return `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition ${
-        hasError
+    return `w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 transition ${hasError
             ? 'border-red-300 focus:ring-red-200'
             : 'border-gray-200 focus:ring-blue-500 focus:border-transparent'
-    }`;
+        }`;
 }
 
 function Field({ label, required, error, children }) {

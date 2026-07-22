@@ -46,10 +46,8 @@ class UserController extends Controller
     {
         $this->authorize('user.manage');
 
-        $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone']);
-        $data['password'] = config('app.default_user_password');
+        $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone', 'password']);
         $data['is_active'] = true;
-        $data['must_change_password'] = true;
 
         $user = $this->userRepository->create($data);
 

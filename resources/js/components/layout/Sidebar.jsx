@@ -1,31 +1,17 @@
-import React, { useState, Fragment } from 'react';
+import React, { useState } from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow, Users, History, CheckSquare, Shield } from 'lucide-react';
-
-const FITUR_INDIVIDU = 'Fitur Individu';
-const MANAJEMEN = 'Manajemen';
+import { LayoutDashboard, Monitor, Sheet, User, LogOut, AlertTriangle, Contact, FileText, GitPullRequestArrow, Users } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Modal from '../ui/Modal';
 import Button from '../ui/Button';
 import { assetUrl } from '../../utils/url';
 
-const withSection = (items, section) => items.map(i => ({ ...i, section }));
-
 const ADMIN_NAV = [
-    ...withSection([
-        { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard', perm: null },
-        { to: '/absensi-wfh', icon: Contact, label: 'Absensi WFH', perm: 'wfh.attendance.create' },
-        { to: '/laporan-kegiatan', icon: FileText, label: 'Laporan Kegiatan', perm: 'wfh.report.create' },
-        { to: '/profil', icon: User, label: 'Profil Saya', perm: null },
-    ], FITUR_INDIVIDU),
-    ...withSection([
-        { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH', perm: 'wfh.monitoring.view' },
-        { to: '/manajemen-pengguna', icon: Users, label: 'Manajemen Pengguna', perm: 'user.manage' },
-        { to: '/manajemen-role', icon: Shield, label: 'Manajemen Role', perm: 'role.manage' },
-        { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet', perm: 'wfh.monitoring.view' },
-        { to: '/manajemen-inisiasi', icon: GitPullRequestArrow, label: 'Monitoring Inisiasi', perm: 'change.initiation.view' },
-        { to: '/arsip', icon: History, label: 'Arsip', perm: 'change.initiation.view' },
-    ], MANAJEMEN),
+    { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+    { to: '/monitor-wfh', icon: Monitor, label: 'Monitor WFH' },
+    { to: '/manajemen-pengguna', icon: Users, label: 'Manajemen Pengguna' },
+    { to: '/spreadsheet', icon: Sheet, label: 'Google Spreadsheet' },
+    { to: '/profil', icon: User, label: 'Profil Saya' },
 ];
 
 const PEGAWAI_NAV = [
@@ -80,25 +66,13 @@ const ROLE_LABELS = {
 };
 
 export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClose }) {
-    const { user, logout, hasPermission } = useAuth();
+    const { user, logout } = useAuth();
     const [showConfirm, setShowConfirm] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
 
     const roleKey = user?.roles?.[0];
     const isPegawai = PEGAWAI_ROLES.includes(roleKey);
-
-    // Pick base nav group by role, then filter by permissions
-    let baseNav;
-    if (roleKey === 'kepala_tim') {
-        baseNav = TEAM_LEAD_NAV;
-    } else if (roleKey === 'kepala_bidang') {
-        baseNav = KEPALA_BIDANG_NAV;
-    } else if (isPegawai) {
-        baseNav = PEGAWAI_NAV;
-    } else {
-        baseNav = ADMIN_NAV;
-    }
-    const navItems = baseNav.filter((item) => !item.perm || hasPermission(item.perm));
+    const navItems = isPegawai ? PEGAWAI_NAV : ADMIN_NAV;
     const roleLabel = ROLE_LABELS[roleKey] ?? (roleKey || 'Admin');
 
     // Mini (icon-only) view is a desktop-collapsed concept; on the mobile
@@ -151,34 +125,24 @@ export default function Sidebar({ collapsed, onToggle, mobileOpen = false, onClo
                     )}
                 </div>
 
-                <nav className="flex-1 px-4 py-6 overflow-y-auto">
-                    {navItems.map(({ to, icon: Icon, label, section }, idx) => {
-                        // show section header before first item of each new section
-                        const showHeader = idx === 0 || navItems[idx - 1].section !== section;
-                        return (
-                            <Fragment key={to}>
-                                {showHeader && !showMini && (
-                                    <p className="text-[11px] font-bold text-gray-400 uppercase tracking-widest px-4 pt-4 pb-1.5">
-                                        {section}
-                                    </p>
-                                )}
-                                <NavLink
-                                    to={to}
-                                    onClick={onClose}
-                                    className={({ isActive }) =>
-                                        `flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap ${isActive
-                                            ? 'bg-brand-100 text-brand-600 font-bold'
-                                            : 'text-text-secondary hover:bg-gray-50 font-medium'
-                                        } ${showMini ? 'justify-center px-0' : ''}`
-                                    }
-                                    title={showMini ? label : undefined}
-                                >
-                                    <Icon size={20} strokeWidth={2} className="shrink-0" />
-                                    {!showMini && <span>{label}</span>}
-                                </NavLink>
-                            </Fragment>
-                        );
-                    })}
+                <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
+                    {navItems.map(({ to, icon: Icon, label }) => (
+                        <NavLink
+                            key={to}
+                            to={to}
+                            onClick={onClose}
+                            className={({ isActive }) =>
+                                `flex items-center gap-4 px-4 py-3.5 rounded-xl text-sm transition-colors whitespace-nowrap ${isActive
+                                    ? 'bg-brand-100 text-brand-600 font-bold'
+                                    : 'text-text-secondary hover:bg-gray-50 font-medium'
+                                } ${showMini ? 'justify-center px-0' : ''}`
+                            }
+                            title={showMini ? label : undefined}
+                        >
+                            <Icon size={20} strokeWidth={2} className="shrink-0" />
+                            {!showMini && <span>{label}</span>}
+                        </NavLink>
+                    ))}
                 </nav>
 
                 <div className="p-6 border-t border-sidebar-border mt-auto">

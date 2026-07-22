@@ -1,9 +1,9 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Calendar, ChevronDown, Pencil, Loader2, CheckCircle2, XCircle } from 'lucide-react';
-import { SkeletonTable } from '../../components/ui/Skeleton';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Calendar, Pencil, Loader2, CheckCircle2, XCircle, FileText } from 'lucide-react';
 import { changesApi } from '../../api/changes';
-import client from '../../api/client';
+import { getFields } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
+import ErrorAlert from '../../components/ui/ErrorAlert';
 
 /* ---------------- Reusable field bits ---------------- */
 function Label({ children }) {
@@ -18,168 +18,193 @@ function SelectField({ label, value, onChange, options }) {
         <div>
             <Label>{label}</Label>
             <div className="relative">
-                <select
-                    value={value}
-                    onChange={onChange}
-                    className={`${inputCls} appearance-none pr-10 bg-white cursor-pointer`}
-                >
-                    <option value="">Select</option>
+                <select value={value} onChange={onChange} className={`${inputCls} appearance-none pr-10 bg-white cursor-pointer`}>
+                    <option value="">Pilih</option>
                     {options.map((o) => <option key={o} value={o}>{o}</option>)}
                 </select>
-                <ChevronDown size={16} strokeWidth={2.5} className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
+                <svg className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
             </div>
         </div>
     );
 }
 
-/* ---------------- Status badge ---------------- */
-function RiwayatStatus({ status }) {
-    const map = {
-        draft: { label: 'Draf', cls: 'text-gray-600' },
-        pending: { label: 'Menunggu', cls: 'text-amber-600' },
-        approved: { label: 'Disetujui', cls: 'text-green-600' },
-        rejected: { label: 'Ditolak', cls: 'text-red-600' },
-    };
-    const s = map[status] || { label: status, cls: 'text-gray-600' };
+/** Radio pills (single choice). */
+function RadioPills({ label, value, onChange, options }) {
     return (
-        <span className={`${s.cls}`}>
-            {s.label}
-            {status === 'draft' && <Pencil size={13} className="inline ml-1 text-brand-500" />}
-        </span>
+        <div>
+            <Label>{label}</Label>
+            <div className="flex flex-wrap gap-2">
+                {options.map((o) => (
+                    <button
+                        type="button"
+                        key={o}
+                        onClick={() => onChange(o)}
+                        className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${value === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                            }`}
+                    >
+                        {o}
+                    </button>
+                ))}
+            </div>
+        </div>
     );
 }
 
-function todayStr() {
-    return new Date().toISOString().slice(0, 10);
+function SectionCard({ title, children }) {
+    return (
+        <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+            <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">{title}</h2>
+            <div className="p-6 space-y-5">{children}</div>
+        </section>
+    );
 }
 
+/* ---------------- Riwayat status ---------------- */
+const STATUS_LABEL = { draft: 'Draf', pending: 'Menunggu', approved: 'Disetujui', rejected: 'Ditolak' };
+
+function RiwayatStatus({ status }) {
+    if (status === 'draft') return <span className="inline-flex items-center gap-1 text-gray-600">Draf <Pencil size={13} className="text-brand-500" /></span>;
+    if (status === 'rejected') return <span className="text-red-500">Ditolak</span>;
+    return <span className="text-gray-600">{STATUS_LABEL[status] ?? status}</span>;
+}
+
+const STATUS_FILTERS = [
+    { value: '', label: 'Semua' },
+    { value: 'draft', label: 'Draf' },
+    { value: 'pending', label: 'Menunggu' },
+    { value: 'approved', label: 'Disetujui' },
+    { value: 'rejected', label: 'Ditolak' },
+];
+
+/* ---------------- Constants (sesuai dokumen) ---------------- */
+const TIPE_OPTIONS = ['Hardware', 'Network', 'Software', 'Utilities', 'Aplikasi', 'Prosedur', 'Operating System', 'Personil'];
+// Dokumen memakai Normal/Emergency & Minor/Mayor; backend memakai enum berbeda.
+const PRIORITY_MAP = { Normal: 'medium', Emergency: 'critical' };
+const IMPACT_MAP = { Minor: 'low', Mayor: 'high' };
+
+const EMPTY_INISIASI = { field_id: '', needed_by_date: '', description: '', reason: '' };
+const EMPTY_IMPL = {
+    field_id: '',
+    tanggal: '',
+    halaman: '',
+    tipe: [],
+    prioritas: 'Normal',
+    dampak: 'Minor',
+    dampakProduksi: '',
+    upaya: '',
+    kebutuhanBiaya: 'Tidak',
+    jumlahBiaya: '',
+    sumberDaya: '',
+    rencanaPengujian: '',
+    evalNama: '',
+    evalBidang: '',
+    evalJabatan: '',
+};
+
 export default function InisiasiPerubahan() {
-    const { user, hasPermission } = useAuth();
-    const [tab, setTab] = useState('form');
-    const [form, setForm] = useState({
-        description: '',
-        reason: '',
-        needed_by_date: todayStr(),
-    });
-    const [saving, setSaving] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
+    const { user } = useAuth();
+    const ownField = user?.team?.field ?? null;
 
-    // ——— Implementasi ———
-    const [impl, setImpl] = useState({
-        initiationId: '',
-        tanggal: '',
-        tipe: [],
-        prioritas: 'Normal',
-        dampak: 'Minor',
-        dampakProduksi: '',
-        upaya: '',
-        kebutuhanBiaya: 'Tidak',
-        jumlahBiaya: '',
-        sumberDaya: '',
-        rencanaPengujian: '',
-        evalNama: '',
-        evalBidang: '',
-        evalJabatan: '',
-    });
-    const [submittingImpl, setSubmittingImpl] = useState(false);
-    const [showImplModal, setShowImplModal] = useState(false);
-    const [selectedImplInitiation, setSelectedImplInitiation] = useState(null);
-    const [teamMembers, setTeamMembers] = useState([]);
+    // Daftar bidang untuk dropdown (inisiator bisa mengajukan untuk banyak bidang).
+    const [fields, setFields] = useState([]);
+    useEffect(() => {
+        getFields()
+            .then((fs) => setFields(fs.length ? fs : (ownField ? [ownField] : [])))
+            .catch(() => setFields(ownField ? [ownField] : []));
+    }, [ownField]);
+
+    const [tab, setTab] = useState('inisiasi');
     const [toast, setToast] = useState(null);
-
     const showToast = (type, message) => {
         setToast({ type, message });
         setTimeout(() => setToast(null), 3500);
     };
 
-    // ——— Riwayat list
-    const [riwayat, setRiwayat] = useState([]);
-    const [riwayatLoading, setRiwayatLoading] = useState(true);
-    const [pageLoading, setPageLoading] = useState(true);
+    /* ===== Tab 1: Inisiasi ===== */
+    const [ini, setIni] = useState({ ...EMPTY_INISIASI, field_id: ownField?.id ?? '' });
+    const setIniField = (k) => (e) => setIni((f) => ({ ...f, [k]: e.target.value }));
+    const [submittingIni, setSubmittingIni] = useState(false);
 
-    const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
+    // Default bidang ke bidang user sendiri saat data user tersedia.
+    useEffect(() => {
+        if (ownField?.id) setIni((f) => (f.field_id ? f : { ...f, field_id: ownField.id }));
+    }, [ownField]);
 
-    const fetchRiwayat = useCallback(async () => {
-        setRiwayatLoading(true);
+    const resetInisiasi = () => setIni({ ...EMPTY_INISIASI, field_id: ownField?.id ?? '' });
+
+    const submitInisiasi = async (e, isDraft) => {
+        e.preventDefault();
+        if (!ini.field_id) return showToast('error', 'Pilih bidang terlebih dahulu.');
+        if (!ini.description.trim()) return showToast('error', 'Deskripsi perubahan wajib diisi.');
+        if (!ini.reason.trim()) return showToast('error', 'Alasan perubahan wajib diisi.');
+
+        setSubmittingIni(true);
         try {
-            const res = await changesApi.getInitiations({ per_page: 50 });
-            setRiwayat(res.data.data || []);
-        } catch {
-            // silent
+            const res = await changesApi.createInitiation({
+                field_id: ini.field_id,
+                needed_by_date: ini.needed_by_date || null,
+                description: ini.description.trim(),
+                reason: ini.reason.trim(),
+            });
+            const created = res.data?.data;
+            if (!isDraft && created?.id) {
+                await changesApi.submitInitiation(created.id);
+                showToast('success', 'Permohonan inisiasi berhasil dikirim.');
+            } else {
+                showToast('success', 'Inisiasi berhasil disimpan sebagai draf.');
+            }
+            resetInisiasi();
+            setTab('riwayat');
+        } catch (err) {
+            showToast('error', err.response?.data?.message || (err.response?.status === 403 ? 'Anda tidak punya izin membuat inisiasi.' : 'Gagal menyimpan inisiasi.'));
         } finally {
-            setRiwayatLoading(false);
-            setPageLoading(false);
+            setSubmittingIni(false);
+        }
+    };
+
+    /* ===== Tab 2: Implementasi ===== */
+    const [impl, setImpl] = useState(EMPTY_IMPL);
+    const setImplField = (k, v) => setImpl((f) => ({ ...f, [k]: v }));
+    const [approvedList, setApprovedList] = useState([]);
+    const [submittingImpl, setSubmittingImpl] = useState(false);
+
+    // Default bidang implementasi ke bidang user sendiri.
+    useEffect(() => {
+        if (ownField?.id) setImpl((f) => (f.field_id ? f : { ...f, field_id: ownField.id }));
+    }, [ownField]);
+
+    // Inisiasi disetujui yang cocok dengan bidang terpilih (untuk tautan backend).
+    const matchedInitiation = approvedList.find((i) => String(i.field_id) === String(impl.field_id)) ?? null;
+
+    const loadApproved = useCallback(async () => {
+        try {
+            const res = await changesApi.getInitiations({ per_page: 100, status: 'approved' });
+            setApprovedList(res.data?.data ?? []);
+        } catch {
+            setApprovedList([]);
         }
     }, []);
 
     useEffect(() => {
-        fetchRiwayat();
-    }, [fetchRiwayat]);
-
-    const handleSubmit = async (e, isDraft) => {
-        e.preventDefault();
-        setSaving(true);
-        setError('');
-        setSuccess('');
-        try {
-            const payload = {
-                ...form,
-                field_id: user?.team?.field?.id,
-            };
-            const res = await changesApi.createInitiation(payload);
-            if (!isDraft) {
-                await changesApi.submitInitiation(res.data.data.id);
-            }
-            setSuccess(isDraft ? 'Draf berhasil disimpan.' : 'Inisiasi berhasil dikirim.');
-            setForm({ description: '', reason: '', needed_by_date: todayStr() });
-        } catch (e) {
-            setError(e.response?.data?.message || 'Gagal menyimpan inisiasi.');
-        } finally {
-            setSaving(false);
-        }
-    };
+        if (tab === 'implementasi') loadApproved();
+    }, [tab, loadApproved]);
 
     const toggleTipe = (t) => setImpl((f) => ({
         ...f,
         tipe: f.tipe.includes(t) ? f.tipe.filter((x) => x !== t) : [...f.tipe, t],
     }));
 
-    const todayDate = () => new Date().toISOString().split('T')[0];
-
-    const resetImpl = () => setImpl({
-        initiationId: '', tanggal: todayDate(), tipe: [],
-        prioritas: 'Normal', dampak: 'Minor', dampakProduksi: '', upaya: '',
-        kebutuhanBiaya: 'Tidak', jumlahBiaya: '', sumberDaya: '',
-        rencanaPengujian: '', evalNama: '', evalBidang: '', evalJabatan: '',
-    });
-
-    const openImplModal = async (initiation) => {
-        setSelectedImplInitiation(initiation);
-        resetImpl();
-        setShowImplModal(true);
-        // fetch team members (filter by field di backend)
-        try {
-            const res = await client.get('/team-members');
-            setTeamMembers(res.data || []);
-        } catch { setTeamMembers([]); }
-    };
-
-    const closeImplModal = () => {
-        setShowImplModal(false);
-        setSelectedImplInitiation(null);
-    };
-
-    const submitImplementasiModal = async (e, isDraft) => {
+    const submitImplementasi = async (e, isDraft) => {
         e.preventDefault();
-        if (!selectedImplInitiation) return showToast('error', 'Pilih inisiasi terlebih dahulu.');
+        if (!impl.field_id) return showToast('error', 'Pilih bidang terlebih dahulu.');
+        if (!matchedInitiation) return showToast('error', 'Belum ada inisiasi yang disetujui untuk bidang ini. Ajukan & setujui inisiasi dulu.');
         if (impl.kebutuhanBiaya === 'Ada' && !impl.jumlahBiaya) return showToast('error', 'Isi jumlah biaya.');
 
         setSubmittingImpl(true);
         try {
             const payload = {
-                priority: impl.prioritas === 'Emergency' ? 'critical' : 'medium',
-                impact: impl.dampak === 'Mayor' ? 'high' : 'low',
+                priority: PRIORITY_MAP[impl.prioritas] ?? null,
+                impact: IMPACT_MAP[impl.dampak] ?? null,
                 production_impact: impl.dampakProduksi || null,
                 required_effort: impl.upaya || null,
                 cost_needed: impl.kebutuhanBiaya === 'Ada',
@@ -187,7 +212,7 @@ export default function InisiasiPerubahan() {
                 resources: impl.sumberDaya || null,
                 test_plan: impl.rencanaPengujian || null,
             };
-            const res = await changesApi.createImplementation(selectedImplInitiation.id, payload);
+            const res = await changesApi.createImplementation(matchedInitiation.id, payload);
             const createdId = res.data?.data?.id;
             if (!isDraft && createdId) {
                 await changesApi.submitImplementation(createdId);
@@ -195,7 +220,8 @@ export default function InisiasiPerubahan() {
             } else {
                 showToast('success', 'Implementasi berhasil disimpan sebagai draf.');
             }
-            closeImplModal();
+            setImpl(EMPTY_IMPL);
+            setTab('riwayat');
         } catch (err) {
             showToast('error', err.response?.data?.message || Object.values(err.response?.data?.errors ?? {})[0]?.[0] || 'Gagal menyimpan implementasi.');
         } finally {
@@ -203,400 +229,303 @@ export default function InisiasiPerubahan() {
         }
     };
 
-    const setImplField = (k) => (e) => setImpl((f) => ({ ...f, [k]: e.target.value }));
+    /* ===== Tab 3: Riwayat ===== */
+    const [rows, setRows] = useState([]);
+    const [loadingRows, setLoadingRows] = useState(false);
+    const [rowsError, setRowsError] = useState('');
+    const [statusFilter, setStatusFilter] = useState('');
+    const [page, setPage] = useState(1);
+    const [meta, setMeta] = useState(null);
 
-    const handleEvalNameChange = (e) => {
-        const userId = e.target.value;
-        const selected = teamMembers.find((m) => String(m.id) === userId);
-        setImpl((f) => ({
-            ...f,
-            evalNama: userId,
-            evalBidang: selected?.team?.field?.name || '',
-            evalJabatan: selected?.position || '',
-        }));
+    const loadRiwayat = useCallback(async () => {
+        setLoadingRows(true);
+        setRowsError('');
+        try {
+            const res = await changesApi.getInitiations({ per_page: 10, page, status: statusFilter || undefined });
+            setRows(res.data?.data ?? []);
+            setMeta(res.data?.meta ?? null);
+        } catch (err) {
+            setRowsError(err.response?.data?.message || 'Gagal memuat riwayat permohonan.');
+        } finally {
+            setLoadingRows(false);
+        }
+    }, [page, statusFilter]);
+
+    useEffect(() => {
+        if (tab === 'riwayat') loadRiwayat();
+    }, [tab, loadRiwayat]);
+
+    const downloadPdf = async (id) => {
+        try {
+            const res = await changesApi.getInitiationPdf(id);
+            const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
+            window.open(url, '_blank');
+        } catch {
+            showToast('error', 'Gagal membuka dokumen PDF.');
+        }
     };
 
-    if (pageLoading) {
-        return (
-            <div className="max-w-[1200px] mx-auto space-y-6">
-                <div className="h-8 w-56 bg-gray-200 rounded animate-pulse" />
-                <div className="flex gap-3">
-                    <div className="h-10 w-36 bg-gray-200 rounded-lg animate-pulse" />
-                    <div className="h-10 w-24 bg-gray-100 rounded-lg animate-pulse" />
-                </div>
-                <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                    <div className="h-12 bg-gray-200 w-full animate-pulse" />
-                    <div className="p-6 space-y-5">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                            <div className="space-y-2">
-                                <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
-                                <div className="h-10 bg-gray-200 rounded w-full animate-pulse" />
-                            </div>
-                            <div className="space-y-2">
-                                <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
-                                <div className="h-10 bg-gray-200 rounded w-full animate-pulse" />
-                            </div>
-                        </div>
-                        <div className="space-y-2">
-                            <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
-                            <div className="h-24 bg-gray-200 rounded w-full animate-pulse" />
-                        </div>
-                        <div className="space-y-2">
-                            <div className="h-3 bg-gray-200 rounded w-1/4 animate-pulse" />
-                            <div className="h-20 bg-gray-200 rounded w-full animate-pulse" />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
+    const TabButton = ({ id, children }) => (
+        <button
+            onClick={() => setTab(id)}
+            className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors outline-none focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-200 ${tab === id ? 'bg-brand-100 text-brand-700 border-brand-200' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+                }`}
+        >
+            {children}
+        </button>
+    );
 
     return (
         <div className="max-w-[1200px] mx-auto">
             <h1 className="text-3xl font-extrabold text-gray-900">Inisiasi Perubahan</h1>
 
-            {error && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm">{error}</div>
-            )}
-            {success && (
-                <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg text-green-700 text-sm">{success}</div>
-            )}
-
             {/* Tabs */}
-            <div className="flex items-center gap-3 mt-6">
-                <button
-                    onClick={() => setTab('form')}
-                    className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
-                        tab === 'form'
-                            ? 'bg-brand-100 text-brand-700 border-brand-200'
-                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                    Form Permohonan
-                </button>
-
-                <button
-                    onClick={() => setTab('riwayat')}
-                    className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition-colors ${
-                        tab === 'riwayat'
-                            ? 'bg-brand-100 text-brand-700 border-brand-200'
-                            : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
-                    }`}
-                >
-                    Riwayat
-                </button>
+            <div className="flex items-center gap-3 mt-6 flex-wrap">
+                <TabButton id="inisiasi">Inisiasi Perubahan</TabButton>
+                <TabButton id="implementasi">Implementasi Perubahan</TabButton>
+                <TabButton id="riwayat">Riwayat</TabButton>
             </div>
 
-            {tab === 'form' ? (
-                <form onSubmit={(e) => handleSubmit(e, false)} className="mt-5 space-y-5">
-                    {/* Informasi Permohonan */}
-                    <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                        <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
-                            Informasi Permohonan
-                        </h2>
-                        <div className="p-6 space-y-5">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                <div>
-                                    <Label>Bidang</Label>
-                                    <input value={user?.team?.field?.name || '-'} readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
-                                </div>
-                                <div>
-                                    <Label>Tanggal Pengajuan</Label>
-                                    <div className="relative">
-                                        <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
-                                        <input
-                                            type="date"
-                                            value={form.needed_by_date || todayStr()}
-                                            onChange={set('needed_by_date')}
-                                            className={`${inputCls} pl-10`}
-                                        />
-                                    </div>
+            {/* ===== TAB INISIASI (sesuai Formulir Inisiasi Perubahan) ===== */}
+            {tab === 'inisiasi' && (
+                <form onSubmit={(e) => submitInisiasi(e, false)} className="mt-5 space-y-5">
+                    <SectionCard title="Inisiator Perubahan">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <Label>Bidang</Label>
+                                <div className="relative">
+                                    <select value={ini.field_id} onChange={setIniField('field_id')}
+                                        className={`${inputCls} appearance-none pr-10 bg-white cursor-pointer`}>
+                                        <option value="">— Pilih bidang —</option>
+                                        {fields.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                    </select>
+                                    <svg className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
                                 </div>
                             </div>
                             <div>
-                                <Label>Deskripsi Permohonan</Label>
-                                <textarea
-                                    value={form.description}
-                                    onChange={set('description')}
-                                    placeholder="Jelaskan latar belakang dan tujuan perubahan..."
-                                    rows={4}
-                                    className={`${inputCls} resize-none`}
-                                    required
-                                />
-                            </div>
-                            <div>
-                                <Label>Alasan / Justifikasi</Label>
-                                <textarea
-                                    value={form.reason}
-                                    onChange={set('reason')}
-                                    placeholder="Mengapa perubahan ini diperlukan?"
-                                    rows={3}
-                                    className={`${inputCls} resize-none`}
-                                    required
-                                />
+                                <Label>Hasil Perubahan Dibutuhkan Pada Tanggal</Label>
+                                <div className="relative">
+                                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
+                                    <input type="date" value={ini.needed_by_date} onChange={setIniField('needed_by_date')} className={`${inputCls} pl-10`} />
+                                </div>
                             </div>
                         </div>
-                    </section>
+                        <div>
+                            <Label>Deskripsi Perubahan</Label>
+                            <textarea value={ini.description} onChange={setIniField('description')} rows={3} placeholder="Jelaskan perubahan yang diusulkan" className={`${inputCls} resize-none`} />
+                        </div>
+                        <div>
+                            <Label>Alasan Perubahan</Label>
+                            <textarea value={ini.reason} onChange={setIniField('reason')} rows={3} placeholder="Jelaskan alasan/tujuan perubahan" className={`${inputCls} resize-none`} />
+                        </div>
+                    </SectionCard>
 
-                    {/* Footer buttons */}
                     <div className="flex items-center justify-end gap-4 pb-4">
-                        {hasPermission('change.initiation.create') && (
-                            <button
-                                type="button"
-                                onClick={(e) => handleSubmit(e, true)}
-                                disabled={saving}
-                                className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50"
-                            >
-                                {saving ? 'Menyimpan...' : 'Simpan Draf'}
-                            </button>
-                        )}
-                        {hasPermission('change.initiation.create') && hasPermission('change.initiation.submit') && (
-                            <button
-                                type="submit"
-                                disabled={saving}
-                                className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50"
-                            >
-                                {saving ? 'Mengirim...' : 'Kirim Laporan'}
-                            </button>
-                        )}
+                        <button type="button" onClick={(e) => submitInisiasi(e, true)} disabled={submittingIni}
+                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 disabled:opacity-60 transition-colors">
+                            Simpan Draf
+                        </button>
+                        <button type="submit" disabled={submittingIni}
+                            className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 disabled:opacity-60 transition-colors">
+                            {submittingIni && <Loader2 size={16} className="animate-spin" />}
+                            Kirim Permohonan
+                        </button>
                     </div>
                 </form>
-            ) : (
-                <div className="mt-5">
-                    <div className="flex items-center gap-4 mb-4">
-                        <h2 className="text-base font-bold text-gray-800">Daftar Riwayat Permohonan</h2>
-                        <div className="relative">
-                            <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-                            <input type="date" defaultValue={todayStr()} className="pl-9 pr-3 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 outline-none focus:ring-2 focus:ring-brand-100" />
-                        </div>
-                    </div>
-
-                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                        {riwayatLoading ? (
-                            <SkeletonTable rows={5} cols={5} />
-                        ) : riwayat.length === 0 ? (
-                            <p className="text-center py-12 text-sm text-gray-400">Belum ada permohonan.</p>
-                        ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[700px]">
-                                <thead>
-                                    <tr className="text-gray-700 text-sm font-bold border-b border-gray-100">
-                                        <th className="text-left px-8 py-5">Nomor Dokumen</th>
-                                        <th className="text-left px-6 py-5">Tanggal</th>
-                                        <th className="text-left px-6 py-5">Deskripsi</th>
-                                        <th className="text-left px-6 py-5">Status</th>
-                                        <th className="text-left px-6 py-5">Dokumen</th>
-                                        <th className="text-left px-6 py-5">Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {riwayat.map((r) => (
-                                        <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
-                                            <td className="px-8 py-4">{r.doc_number || '-'}</td>
-                                            <td className="px-6 py-4">{r.initiation_date}</td>
-                                            <td className="px-6 py-4 max-w-[300px] truncate">{r.description}</td>
-                                            <td className="px-6 py-4"><RiwayatStatus status={r.status} /></td>
-                                            <td className="px-6 py-4">
-                                                {(r.status === 'approved' || r.status === 'pending') && hasPermission('change.initiation.export_pdf') ? (
-                                                    <button onClick={async () => {
-                                                        try {
-                                                            const res = await changesApi.getInitiationPdf(r.id);
-                                                            const url = window.URL.createObjectURL(new Blob([res.data]));
-                                                            const a = document.createElement('a');
-                                                            a.href = url;
-                                                            a.download = `CR-${r.doc_number || r.id}.pdf`;
-                                                            document.body.appendChild(a); a.click(); a.remove();
-                                                            window.URL.revokeObjectURL(url);
-                                                        } catch (e) {
-                                                            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
-                                                            alert(msg);
-                                                        }
-                                                    }} className="text-brand-500 hover:underline cursor-pointer">
-                                                        Lihat PDF
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-gray-400">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                {r.status === 'approved' && hasPermission('change.implementation.create') ? (
-                                                    <button onClick={() => openImplModal(r)}
-                                                        className="text-brand-500 hover:underline cursor-pointer text-sm font-semibold">
-                                                        Buat Implementasi
-                                                    </button>
-                                                ) : (
-                                                    <span className="text-gray-400">-</span>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                        )}
-                    </div>
-                </div>
             )}
 
-            {/* Modal Implementasi */}
-            {showImplModal && (
-                <div className="fixed inset-0 z-40 flex items-start justify-center pt-10 pb-10 bg-black/40" onClick={closeImplModal}>
-                    <div className="bg-white rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl" onClick={(e) => e.stopPropagation()}>
-                        <div className="sticky top-0 bg-white z-10 flex items-center justify-between px-6 py-4 border-b border-gray-100 rounded-t-2xl">
-                            <h2 className="text-base font-bold text-gray-800">Buat Implementasi</h2>
-                            <button onClick={closeImplModal} className="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
-                        </div>
-
-                        <div className="p-6 space-y-5">
-                            {/* Berdasarkan Inisiasi */}
-                            <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
-                                    Berdasarkan Inisiasi
-                                </h2>
-                                <div className="p-6 space-y-5">
-                                    <div>
-                                        <Label>Bidang</Label>
-                                        <input value={user?.team?.field?.name || '-'} readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
-                                    </div>
-                                    {selectedImplInitiation && (
-                                        <p className="text-xs text-green-600">
-                                            ✓ Inisiasi: {selectedImplInitiation.doc_number} — {selectedImplInitiation.description}
-                                        </p>
-                                    )}
-                                    <div>
-                                        <Label>Tanggal</Label>
-                                        <div className="relative">
-                                            <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
-                                            <input type="date" value={impl.tanggal} onChange={setImplField('tanggal')} className={`${inputCls} pl-10`} />
-                                        </div>
-                                    </div>
-                                </div>
-                            </section>
-
-                            {/* Evaluasi Dampak Perubahan */}
-                            <section className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                                <h2 className="text-base font-bold text-gray-800 px-6 py-4 border-b border-gray-100">
-                                    Evaluasi Dampak Perubahan
-                                </h2>
-                                <div className="p-6 space-y-5">
-                                    <div>
-                                        <Label>Tipe Perubahan</Label>
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                                            {['Hardware','Network','Software','Utilities','Aplikasi','Prosedur','Operating System','Personil'].map((t) => {
-                                                const active = impl.tipe.includes(t);
-                                                return (
-                                                    <label key={t}
-                                                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${active ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                        <input type="checkbox" checked={active} onChange={() => toggleTipe(t)} className="w-4 h-4 accent-white" />
-                                                        {t}
-                                                    </label>
-                                                );
-                                            })}
-                                        </div>
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                        <div>
-                                            <Label>Prioritas Perubahan</Label>
-                                            <div className="flex flex-wrap gap-3">
-                                                {['Normal','Emergency'].map((o) => (
-                                                    <label key={o}
-                                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${impl.prioritas === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                        <input type="radio" name="prioritas" checked={impl.prioritas === o} onChange={() => setImpl((f) => ({...f, prioritas: o}))} className="w-4 h-4 accent-white" />
-                                                        {o}
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <Label>Dampak Perubahan</Label>
-                                            <div className="flex flex-wrap gap-3">
-                                                {['Minor','Mayor'].map((o) => (
-                                                    <label key={o}
-                                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${impl.dampak === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                        <input type="radio" name="dampak" checked={impl.dampak === o} onChange={() => setImpl((f) => ({...f, dampak: o}))} className="w-4 h-4 accent-white" />
-                                                        {o}
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <Label>Dampak Terhadap Lingkungan Produksi</Label>
-                                        <textarea value={impl.dampakProduksi} onChange={setImplField('dampakProduksi')} rows={3} className={`${inputCls} resize-none`} />
-                                    </div>
-                                    <div>
-                                        <Label>Upaya / Tindakan yang Diperlukan</Label>
-                                        <textarea value={impl.upaya} onChange={setImplField('upaya')} rows={3} className={`${inputCls} resize-none`} />
-                                    </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                                        <div>
-                                            <Label>Kebutuhan Biaya</Label>
-                                            <div className="flex flex-wrap gap-3">
-                                                {['Ada','Tidak'].map((o) => (
-                                                    <label key={o}
-                                                        className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors cursor-pointer ${impl.kebutuhanBiaya === o ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'}`}>
-                                                        <input type="radio" name="kebutuhanBiaya" checked={impl.kebutuhanBiaya === o} onChange={() => setImpl((f) => ({...f, kebutuhanBiaya: o, jumlahBiaya: o === 'Tidak' ? '' : f.jumlahBiaya}))} className="w-4 h-4 accent-white" />
-                                                        {o}
-                                                    </label>
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <Label>Jumlah Biaya</Label>
-                                            <input value={impl.jumlahBiaya} onChange={setImplField('jumlahBiaya')} placeholder="Rp." disabled={impl.kebutuhanBiaya !== 'Ada'} className={`${inputCls} ${impl.kebutuhanBiaya !== 'Ada' ? 'bg-gray-50 text-gray-400' : ''}`} />
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <Label>Kebutuhan Sumber Daya (Personil, H/W, S/W)</Label>
-                                        <textarea value={impl.sumberDaya} onChange={setImplField('sumberDaya')} rows={2} className={`${inputCls} resize-none`} />
-                                    </div>
-                                    <div>
-                                        <Label>Penjelasan Rencana Pengujian</Label>
-                                        <textarea value={impl.rencanaPengujian} onChange={setImplField('rencanaPengujian')} rows={2} className={`${inputCls} resize-none`} />
-                                    </div>
-                                    <div>
-                                        <Label>Dievaluasi Oleh</Label>
-                                        <select value={impl.evalNama} onChange={handleEvalNameChange} className={inputCls}>
-                                            <option value="">-- Pilih Nama --</option>
-                                            {teamMembers.map((m) => (
-                                                <option key={m.id} value={m.id}>{m.name}</option>
-                                            ))}
-                                        </select>
-                                        {impl.evalNama && (
-                                            <div className="mt-2 flex gap-4 text-xs text-gray-500">
-                                                <span>Bidang: <b>{impl.evalBidang || '-'}</b></span>
-                                                <span>Jabatan: <b>{impl.evalJabatan || '-'}</b></span>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </section>
-
-                            <div className="flex items-center gap-2 text-xs text-gray-500 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3">
-                                <span>Setelah dikirim, implementasi menunggu <b>tinjauan Team Lead</b>. Hasil implementasi, hasil pengujian, tanggal pelaksanaan &amp; rilis akan diisi oleh Team Lead pada tahap peninjauan.</span>
-                            </div>
-
-                            <div className="flex items-center justify-end gap-4">
-                                <button type="button" onClick={closeImplModal}
-                                    className="px-8 py-3 rounded-xl text-sm font-bold border border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors">
-                                    Batal
-                                </button>
-                                {hasPermission('change.implementation.create') && (
-                                    <button type="button" onClick={(e) => submitImplementasiModal(e, true)} disabled={submittingImpl}
-                                        className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 transition-colors disabled:opacity-50">
-                                        {submittingImpl ? 'Menyimpan...' : 'Simpan Draf'}
-                                    </button>
-                                )}
-                                {hasPermission('change.implementation.create') && hasPermission('change.implementation.submit') && (
-                                    <button type="button" onClick={(e) => submitImplementasiModal(e, false)} disabled={submittingImpl}
-                                        className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 transition-colors disabled:opacity-50">
-                                        {submittingImpl && <Loader2 size={16} className="animate-spin" />}
-                                        {submittingImpl ? 'Mengirim...' : 'Kirim untuk Ditinjau'}
-                                    </button>
-                                )}
+            {/* ===== TAB IMPLEMENTASI (sesuai Formulir Persetujuan/Implementasi Perubahan) ===== */}
+            {tab === 'implementasi' && (
+                <form onSubmit={(e) => submitImplementasi(e, false)} className="mt-5 space-y-5">
+                    <SectionCard title="Berdasarkan Inisiasi">
+                        <div>
+                            <Label>Bidang</Label>
+                            <div className="relative">
+                                <select value={impl.field_id} onChange={(e) => setImplField('field_id', e.target.value)}
+                                    className={`${inputCls} appearance-none pr-10 bg-white cursor-pointer`}>
+                                    <option value="">— Pilih bidang —</option>
+                                    {fields.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                                </select>
+                                <svg className="absolute right-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M6 9l6 6 6-6" /></svg>
                             </div>
                         </div>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                            <div>
+                                <Label>Nomor</Label>
+                                <input value="Otomatis dibuat sistem" readOnly className={`${inputCls} bg-gray-50 text-gray-500`} />
+                            </div>
+                            <div>
+                                <Label>Tanggal</Label>
+                                <div className="relative">
+                                    <Calendar size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-brand-500 pointer-events-none" />
+                                    <input type="date" value={impl.tanggal} onChange={(e) => setImplField('tanggal', e.target.value)} className={`${inputCls} pl-10`} />
+                                </div>
+                            </div>
+                            <div>
+                                <Label>Halaman</Label>
+                                <input value={impl.halaman} onChange={(e) => setImplField('halaman', e.target.value)} placeholder="Halaman" className={inputCls} />
+                            </div>
+                        </div>
+                        {impl.field_id && !matchedInitiation && (
+                            <p className="text-xs text-amber-600">Belum ada inisiasi yang disetujui untuk bidang ini. Ajukan & setujui inisiasi dulu agar implementasi bisa dikirim.</p>
+                        )}
+                    </SectionCard>
+
+                    <SectionCard title="Evaluasi Dampak Perubahan">
+                        <div>
+                            <Label>Tipe Perubahan</Label>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                {TIPE_OPTIONS.map((t) => {
+                                    const active = impl.tipe.includes(t);
+                                    return (
+                                        <button type="button" key={t} onClick={() => toggleTipe(t)}
+                                            className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors text-left ${active ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                                }`}>
+                                            {t}
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <RadioPills label="Prioritas Perubahan" value={impl.prioritas} onChange={(v) => setImplField('prioritas', v)} options={['Normal', 'Emergency']} />
+                            <RadioPills label="Dampak Perubahan" value={impl.dampak} onChange={(v) => setImplField('dampak', v)} options={['Minor', 'Mayor']} />
+                        </div>
+                        <div>
+                            <Label>Dampak Terhadap Lingkungan Produksi</Label>
+                            <textarea value={impl.dampakProduksi} onChange={(e) => setImplField('dampakProduksi', e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+                        </div>
+                        <div>
+                            <Label>Upaya / Tindakan yang Diperlukan</Label>
+                            <textarea value={impl.upaya} onChange={(e) => setImplField('upaya', e.target.value)} rows={3} className={`${inputCls} resize-none`} />
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <RadioPills label="Kebutuhan Biaya" value={impl.kebutuhanBiaya} onChange={(v) => setImplField('kebutuhanBiaya', v)} options={['Ada', 'Tidak']} />
+                            <div>
+                                <Label>Jumlah Biaya</Label>
+                                <input value={impl.jumlahBiaya} onChange={(e) => setImplField('jumlahBiaya', e.target.value)} placeholder="Rp." disabled={impl.kebutuhanBiaya !== 'Ada'} className={`${inputCls} ${impl.kebutuhanBiaya !== 'Ada' ? 'bg-gray-50 text-gray-400' : ''}`} />
+                            </div>
+                        </div>
+                        <div>
+                            <Label>Kebutuhan Sumber Daya (Personil, H/W, S/W)</Label>
+                            <textarea value={impl.sumberDaya} onChange={(e) => setImplField('sumberDaya', e.target.value)} rows={2} className={`${inputCls} resize-none`} />
+                        </div>
+                        <div>
+                            <Label>Penjelasan Rencana Pengujian</Label>
+                            <textarea value={impl.rencanaPengujian} onChange={(e) => setImplField('rencanaPengujian', e.target.value)} rows={2} className={`${inputCls} resize-none`} />
+                        </div>
+                        <div>
+                            <Label>Dievaluasi Oleh</Label>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <input value={impl.evalNama} onChange={(e) => setImplField('evalNama', e.target.value)} placeholder="Nama" className={inputCls} />
+                                <input value={impl.evalBidang} onChange={(e) => setImplField('evalBidang', e.target.value)} placeholder="Bidang" className={inputCls} />
+                                <input value={impl.evalJabatan} onChange={(e) => setImplField('evalJabatan', e.target.value)} placeholder="Jabatan" className={inputCls} />
+                            </div>
+                        </div>
+                    </SectionCard>
+
+                    <div className="flex items-start gap-2 text-xs text-gray-500 bg-brand-50 border border-brand-100 rounded-xl px-4 py-3">
+                        <span>
+                            Setelah dikirim, implementasi menunggu <b>tinjauan Team Lead</b>. Hasil implementasi, hasil
+                            pengujian, tanggal pelaksanaan &amp; rilis akan diisi oleh Team Lead pada tahap peninjauan.
+                        </span>
                     </div>
+
+                    <div className="flex items-center justify-end gap-4 pb-4">
+                        <button type="button" onClick={(e) => submitImplementasi(e, true)} disabled={submittingImpl}
+                            className="px-8 py-3 rounded-xl text-sm font-bold bg-brand-100 text-brand-700 hover:bg-brand-200 disabled:opacity-60 transition-colors">
+                            Simpan Draf
+                        </button>
+                        <button type="submit" disabled={submittingImpl}
+                            className="flex items-center gap-2 px-8 py-3 rounded-xl text-sm font-bold bg-brand-700 text-white hover:bg-brand-600 disabled:opacity-60 transition-colors">
+                            {submittingImpl && <Loader2 size={16} className="animate-spin" />}
+                            Kirim untuk Ditinjau
+                        </button>
+                    </div>
+                </form>
+            )}
+
+            {/* ===== TAB RIWAYAT ===== */}
+            {tab === 'riwayat' && (
+                <div className="mt-5">
+                    <div className="flex flex-wrap gap-2 mb-4">
+                        {STATUS_FILTERS.map((f) => (
+                            <button key={f.value} onClick={() => { setStatusFilter(f.value); setPage(1); }}
+                                className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${statusFilter === f.value ? 'bg-brand-500 border-brand-500 text-white' : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                    }`}>
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {rowsError ? (
+                        <ErrorAlert message={rowsError} onRetry={loadRiwayat} />
+                    ) : (
+                        <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
+                            <div className="overflow-x-auto hidden md:block">
+                                <table className="w-full min-w-[700px]">
+                                    <thead>
+                                        <tr className="text-gray-700 text-sm font-bold border-b border-gray-100">
+                                            <th className="text-left px-8 py-5">Nomor</th>
+                                            <th className="text-left px-6 py-5">Tanggal</th>
+                                            <th className="text-left px-6 py-5">Deskripsi</th>
+                                            <th className="text-left px-6 py-5">Status</th>
+                                            <th className="text-left px-6 py-5">Dokumen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {loadingRows ? (
+                                            <tr><td colSpan={5} className="text-center py-12 text-gray-400"><Loader2 className="animate-spin inline mr-2" size={18} />Memuat...</td></tr>
+                                        ) : rows.length === 0 ? (
+                                            <tr><td colSpan={5} className="text-center py-16 text-sm text-gray-400"><FileText size={40} className="mx-auto mb-3 opacity-50" />Belum ada permohonan.</td></tr>
+                                        ) : rows.map((r) => (
+                                            <tr key={r.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50/40 text-sm text-gray-600">
+                                                <td className="px-8 py-4 whitespace-nowrap">{r.doc_number}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">{r.initiation_date ?? '-'}</td>
+                                                <td className="px-6 py-4 max-w-[280px] truncate" title={r.description}>{(r.description || '-').split('\n')[0]}</td>
+                                                <td className="px-6 py-4"><RiwayatStatus status={r.status} /></td>
+                                                <td className="px-6 py-4">
+                                                    {r.status === 'approved' ? (
+                                                        <button onClick={() => downloadPdf(r.id)} className="text-brand-500 hover:underline">Lihat PDF</button>
+                                                    ) : <span className="text-gray-400">-</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="md:hidden divide-y divide-gray-50">
+                                {loadingRows ? (
+                                    <div className="py-12 text-center text-gray-400"><Loader2 className="animate-spin inline mr-2" size={18} />Memuat...</div>
+                                ) : rows.length === 0 ? (
+                                    <div className="py-16 text-center text-sm text-gray-400"><FileText size={40} className="mx-auto mb-3 opacity-50" />Belum ada permohonan.</div>
+                                ) : rows.map((r) => (
+                                    <div key={r.id} className="p-4 space-y-2">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-bold text-gray-800">{r.doc_number}</span>
+                                            <RiwayatStatus status={r.status} />
+                                        </div>
+                                        <p className="text-xs text-gray-400">{r.initiation_date ?? '-'}</p>
+                                        <p className="text-sm text-gray-600 line-clamp-2">{(r.description || '-').split('\n')[0]}</p>
+                                        {r.status === 'approved' && <button onClick={() => downloadPdf(r.id)} className="text-brand-500 hover:underline text-sm">Lihat PDF</button>}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {meta && meta.last_page > 1 && (
+                        <div className="flex items-center justify-between flex-wrap gap-3 mt-4">
+                            <p className="text-sm text-gray-400">Halaman {meta.current_page} dari {meta.last_page} · {meta.total} permohonan</p>
+                            <div className="flex gap-2">
+                                <button disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}
+                                    className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors">Sebelumnya</button>
+                                <button disabled={page >= meta.last_page} onClick={() => setPage((p) => p + 1)}
+                                    className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg disabled:opacity-40 hover:bg-gray-50 transition-colors">Selanjutnya</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 

@@ -33,20 +33,9 @@ return [
     | services the application utilizes. Set this in your ".env" file.
     |
     */
+
     'env' => env('APP_ENV', 'production'),
-
-    /*
-    |--------------------------------------------------------------------------
-    | Default User Password
-    |--------------------------------------------------------------------------
-    |
-    | Default password assigned to all newly created user accounts (form,
-    | Excel import, role seeders). Separate from the admin bootstrap password
-    | so rotating one does not affect the other. Set via APP_DEFAULT_USER_PASSWORD.
-    |
-    */
-
-    'default_user_password' => env('APP_DEFAULT_USER_PASSWORD', 'Kominfo@123'),
+    'admin_password' => env('APP_ADMIN_PASSWORD'),
 
     /*
     |--------------------------------------------------------------------------
@@ -145,14 +134,14 @@ return [
 
     /*
     |--------------------------------------------------------------------------
-    | Admin Bootstrap Password
+    | Admin Default Password
     |--------------------------------------------------------------------------
     |
     | Used by AdminUserSeeder to set the initial admin password.
     |
     */
 
-    'admin_password' => env('APP_ADMIN_PASSWORD', 'admin123'),
+    'admin_password' => env('ADMIN_PASSWORD', 'admin123'),
 
     /*
     |--------------------------------------------------------------------------

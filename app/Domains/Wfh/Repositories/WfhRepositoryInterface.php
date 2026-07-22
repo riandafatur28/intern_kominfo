@@ -13,8 +13,6 @@ interface WfhRepositoryInterface extends RepositoryInterface
     // Attendance
     public function findAttendanceByUserAndDate(int $userId, string $date, ?string $session = null): ?WfhAttendance;
 
-    public function getUserAttendanceByDate(int $userId, string $date): Collection;
-
     public function createAttendance(array $data): WfhAttendance;
 
     public function getTeamAttendancesForDate(int $teamId, string $date): Collection;

@@ -3,6 +3,7 @@
 namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Http\Requests\CheckInRequest;
+use App\Domains\Wfh\Models\WfhAttendance;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Support\Constants\WfhSession;
 use App\Support\Wfh\AttendancePhotoServiceInterface;
@@ -21,23 +22,36 @@ class AttendanceController extends Controller
         private AttendancePhotoServiceInterface $photoService,
     ) {}
 
-    public function today(Request $request): JsonResponse
+    /**
+     * Daftar absensi milik user yang login (untuk riwayat & status sesi hari ini).
+     * Query opsional: date, date_from, date_to.
+     */
+    public function index(Request $request): JsonResponse
     {
-        $user = $request->user();
-        $date = $request->input('date', now()->toDateString());
-        $attendances = $this->wfhRepository->getUserAttendanceByDate($user->id, $date);
+        $query = WfhAttendance::where('user_id', $request->user()->id);
 
-        $result = [];
-        foreach (['pagi', 'siang', 'sore'] as $session) {
-            $a = $attendances->firstWhere('session', $session);
-            $result[$session] = [
-                'status' => $a ? 'hadir' : 'belum',
-                'photo_url' => $a ? asset("storage/{$a->photo_path}") : null,
-                'check_in_at' => $a ? $a->check_in_at : null,
-            ];
+        if ($request->filled('date')) {
+            $query->whereDate('date', $request->input('date'));
+        }
+        if ($request->filled('date_from')) {
+            $query->whereDate('date', '>=', $request->input('date_from'));
+        }
+        if ($request->filled('date_to')) {
+            $query->whereDate('date', '<=', $request->input('date_to'));
         }
 
-        return response()->json(['success' => true, 'data' => $result]);
+        $items = $query->orderByDesc('date')->orderBy('session')->get()->map(fn ($a) => [
+            'id' => $a->id,
+            'date' => $a->date->format('Y-m-d'),
+            'session' => $a->session,
+            'photo_url' => asset('storage/'.$a->photo_path),
+            'check_in_at' => $a->check_in_at,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'data' => $items,
+        ]);
     }
 
     public function checkIn(CheckInRequest $request): JsonResponse

@@ -6,7 +6,7 @@ import { demoInitiations } from '../../utils/mockData';
 import { useAuth } from '../../context/AuthContext';
 import StatusBadge from '../../components/common/StatusBadge';
 import Card from '../../components/ui/Card';
-import { SkeletonCard, SkeletonBlock } from '../../components/ui/Skeleton';
+import LoadingSpinner from '../../components/ui/LoadingSpinner';
 
 
 const statIcons = {
@@ -18,7 +18,7 @@ const statIcons = {
 
 export default function Dashboard() {
     const navigate = useNavigate();
-    const { demoMode, hasPermission } = useAuth();
+    const { demoMode } = useAuth();
     const [initiations, setInitiations] = useState([]);
     const [stats, setStats] = useState({ total: 0, pending: 0, approved: 0, rejected: 0, thisWeek: 0 });
     const [loading, setLoading] = useState(true);
@@ -38,10 +38,6 @@ export default function Dashboard() {
 
     const fetchData = async () => {
         setLoading(true);
-        if (!hasPermission('change.initiation.view')) {
-            setLoading(false);
-            return;
-        }
         try {
             const res = await changesApi.getInitiations({ per_page: 10 });
             const all = res.data.data;
@@ -108,21 +104,7 @@ export default function Dashboard() {
             )}
 
             {loading ? (
-                <>
-                    <div className="grid grid-cols-4 gap-4">
-                        {Array.from({ length: 4 }).map((_, i) => <SkeletonCard key={i} />)}
-                    </div>
-                    <div className="flex gap-8">
-                        <div className="flex-1 space-y-4">
-                            <SkeletonBlock className="h-10 w-48" />
-                            <SkeletonBlock className="h-64" />
-                        </div>
-                        <div className="w-80 space-y-4">
-                            <SkeletonBlock className="h-48" />
-                            <SkeletonBlock className="h-48" />
-                        </div>
-                    </div>
-                </>
+                <LoadingSpinner />
             ) : (
                 <>
                     {/* Stats Grid — Figma: 4 cards row */}
@@ -158,7 +140,6 @@ export default function Dashboard() {
                                 {initiations.length === 0 ? (
                                     <p className="text-center py-12 text-sm text-gray-400">Belum ada pengajuan</p>
                                 ) : (
-                                    <div className="overflow-x-auto">
                                     <table className="w-full">
                                         <thead>
                                             <tr className="border-b border-gray-100 bg-bg-page">
@@ -185,7 +166,6 @@ export default function Dashboard() {
                                             ))}
                                         </tbody>
                                     </table>
-                                    </div>
                                 )}
                             </Card>
                         </div>

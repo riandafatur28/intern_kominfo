@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera } from 'lucide-react';
-import { getProfile, updateProfile, changePassword, uploadPhoto, uploadSignature } from '../../api/profile';
-import { SkeletonCard, SkeletonLine } from '../../components/ui/Skeleton';
+import { Hash, Building2, Briefcase, MapPin, Loader2, CheckCircle2, XCircle, Camera, Save } from 'lucide-react';
+import { getProfile, updateProfile, changePassword, uploadPhoto } from '../../api/profile';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
 
 const ROLE_LABELS = {
     admin: 'WFH Admin',
@@ -32,8 +32,6 @@ export default function ProfilSaya() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [photoLoading, setPhotoLoading] = useState(false);
-    const [sigLoading, setSigLoading] = useState(false);
-    const sigInputRef = useRef(null);
     const photoInputRef = useRef(null);
 
     // Toast notification
@@ -113,26 +111,6 @@ export default function ProfilSaya() {
         }
     };
 
-    const submitSignature = async (e) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-        setSigLoading(true);
-        try {
-            const fd = new FormData();
-            fd.append('signature', file);
-            await uploadSignature(fd);
-            const fresh = await getProfile();
-            hydrate(fresh);
-            await fetchUser?.();
-            showToast('success', 'Tanda tangan berhasil diunggah.');
-        } catch (err) {
-            showToast('error', err.response?.data?.message || 'Gagal mengunggah tanda tangan.');
-        } finally {
-            setSigLoading(false);
-            if (sigInputRef.current) sigInputRef.current.value = '';
-        }
-    };
-
     const submitPhoto = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -140,12 +118,10 @@ export default function ProfilSaya() {
         try {
             const fd = new FormData();
             fd.append('photo', file);
-            await uploadPhoto(fd);
-            // Refresh full profile agar dapat photo_url + data lainnya
-            const fresh = await getProfile();
-            hydrate(fresh);
+            const res = await uploadPhoto(fd);
+            setProfile((prev) => ({ ...prev, photo_url: res.data?.photo_url, photo_path: res.data?.photo_path }));
             await fetchUser?.();
-            showToast('success', 'Foto profil berhasil diunggah.');
+            showToast('success', res.message || 'Foto profil berhasil diunggah.');
         } catch (err) {
             showToast('error', err.response?.data?.message || 'Gagal mengunggah foto profil.');
         } finally {
@@ -156,27 +132,8 @@ export default function ProfilSaya() {
 
     if (loading) {
         return (
-            <div className="max-w-[800px] mx-auto space-y-6">
-                <div className="h-8 w-36 bg-gray-200 rounded animate-pulse" />
-                <div className="bg-white rounded-2xl border border-gray-100 p-6 space-y-5">
-                    <div className="flex items-center gap-4">
-                        <div className="w-20 h-20 rounded-full bg-gray-200 animate-pulse shrink-0" />
-                        <div className="space-y-2 flex-1">
-                            <SkeletonLine width="w-1/3" />
-                            <SkeletonLine width="w-1/4" />
-                        </div>
-                    </div>
-                    {Array.from({ length: 5 }).map((_, i) => (
-                        <div key={i} className="flex items-center gap-3">
-                            <div className="w-5 h-5 bg-gray-200 rounded animate-pulse shrink-0" />
-                            <div className="flex-1 space-y-1">
-                                <SkeletonLine width="w-1/5" className="h-3" />
-                                <SkeletonLine width="w-1/3" />
-                            </div>
-                        </div>
-                    ))}
-                </div>
-                <SkeletonCard />
+            <div className="flex items-center justify-center h-96">
+                <Loader2 className="animate-spin text-indigo-600" size={32} />
             </div>
         );
     }
@@ -204,7 +161,7 @@ export default function ProfilSaya() {
                         <div className="flex flex-col items-center text-center pb-6">
                             <div className="relative w-24 h-24">
                                 {p.photo_url ? (
-                                    <img src={p.photo_url} alt="Foto profil" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-100" />
+                                    <img src={assetUrl(p.photo_url)} alt="Foto profil" className="w-24 h-24 rounded-full object-cover border-2 border-indigo-100" />
                                 ) : (
                                     <div className="w-24 h-24 rounded-full bg-indigo-500 flex items-center justify-center text-white text-3xl font-bold">
                                         {initialsOf(p.name)}
@@ -232,13 +189,11 @@ export default function ProfilSaya() {
                                 />
                             </div>
                             <h2 className="mt-4 text-lg font-bold text-gray-900">{p.name}</h2>
-                            <p className="text-sm text-gray-500">{p.position || 'Pegawai'}</p>
+                            <p className="text-sm text-gray-500">{p.position || roleTxt}</p>
                             <p className="text-sm text-gray-400">{fieldName}</p>
-                            {p.rank && (
-                                <span className="mt-2 inline-block bg-indigo-100 text-indigo-500 text-[11px] font-semibold px-3 py-1 rounded-full">
-                                    {p.rank}
-                                </span>
-                            )}
+                            <span className="mt-2 inline-block bg-indigo-100 text-indigo-500 text-[11px] font-semibold px-3 py-1 rounded-full">
+                                {p.rank || 'Penata Muda'}
+                            </span>
                         </div>
 
                         <div className="border-t border-gray-100 pt-5 space-y-4">
@@ -288,60 +243,12 @@ export default function ProfilSaya() {
                                         disabled={savingProfile}
                                         className="w-full sm:w-auto flex items-center justify-center gap-2 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 rounded-lg transition-colors"
                                     >
-                                        {savingProfile && <Loader2 size={15} className="animate-spin" />}
+                                        {savingProfile ? <Loader2 size={15} className="animate-spin" /> : <Save size={16} />}
                                         Simpan Perubahan
                                     </button>
                                 </div>
                             </div>
                         </form>
-                    </div>
-                </div>
-            </div>
-
-            {/* Tanda Tangan Digital */}
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-                <div className="mb-5">
-                    <h2 className="text-lg font-bold text-gray-900">Tanda Tangan Digital (TTD)</h2>
-                    <p className="text-xs text-gray-400">Upload TTD untuk validasi laporan dan rekap</p>
-                </div>
-                <div className="flex flex-col sm:flex-row items-center gap-6">
-                    <div className="relative shrink-0">
-                        {p.signature_url ? (
-                            <img
-                                src={p.signature_url}
-                                alt="Tanda Tangan"
-                                className="w-48 h-24 object-contain border border-gray-200 rounded-xl bg-white"
-                            />
-                        ) : (
-                            <div className="w-48 h-24 rounded-xl bg-gray-50 flex items-center justify-center border border-dashed border-gray-300">
-                                <p className="text-xs text-gray-400 text-center px-2">Belum upload TTD</p>
-                            </div>
-                        )}
-                        {sigLoading && (
-                            <div className="absolute inset-0 bg-black/30 rounded-xl flex items-center justify-center">
-                                <Loader2 size={20} className="animate-spin text-white" />
-                            </div>
-                        )}
-                    </div>
-                    <div className="text-center sm:text-left">
-                        <p className="text-sm text-gray-700 mb-1">Upload gambar tanda tangan Anda</p>
-                        <p className="text-xs text-gray-400 mb-3">Format: PNG/JPG, maks 2MB, latar belakang transparan</p>
-                        <button
-                            onClick={() => sigInputRef.current?.click()}
-                            disabled={sigLoading}
-                            className="inline-flex items-center gap-2 rounded-lg bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-sm font-semibold px-6 py-2.5 transition-colors cursor-pointer"
-                        >
-                            {sigLoading ? <Loader2 size={15} className="animate-spin" /> : <Camera size={15} />}
-                            {p.signature_url ? 'Ganti TTD' : 'Upload TTD'}
-                        </button>
-                        <input
-                            ref={sigInputRef}
-                            type="file"
-                            accept="image/png,image/jpeg"
-                            className="hidden"
-                            onChange={submitSignature}
-                            disabled={sigLoading}
-                        />
                     </div>
                 </div>
             </div>
@@ -395,11 +302,10 @@ export default function ProfilSaya() {
             {/* Toast */}
             {toast && (
                 <div
-                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${
-                        toast.type === 'success'
-                            ? 'bg-green-600 text-white'
-                            : 'bg-red-600 text-white'
-                    }`}
+                    className={`fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-3 rounded-xl shadow-lg text-sm font-medium ${toast.type === 'success'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-red-600 text-white'
+                        }`}
                 >
                     {toast.type === 'success' ? <CheckCircle2 size={18} /> : <XCircle size={18} />}
                     {toast.message}
@@ -431,13 +337,11 @@ function Field({ label, value, onChange, readOnly = false, type = 'text', placeh
                 readOnly={readOnly}
                 onChange={onChange ? (e) => onChange(e.target.value) : undefined}
                 placeholder={placeholder}
-                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors ${
-                    error ? 'border-red-300' : 'border-gray-200'
-                } ${
-                    readOnly
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm text-gray-800 outline-none transition-colors ${error ? 'border-red-300' : 'border-gray-200'
+                    } ${readOnly
                         ? 'bg-gray-50 text-gray-500 cursor-not-allowed'
                         : 'bg-white focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100'
-                }`}
+                    }`}
             />
             {error && <p className="text-xs text-red-500 mt-1">{error}</p>}
         </div>

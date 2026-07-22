@@ -4,6 +4,8 @@ namespace App\Support\Import;
 
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
@@ -60,9 +62,6 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             return null;
         }
 
-        // ponytail: counter is incremented here before Maatwebsite\Excel persists the model,
-        // so 'imported' may over-count if a row fails DB-level save. Acceptable for admin
-        // feedback; reconcile against DB row count if exactness required.
         $this->results['imported']++;
 
         return new User([
@@ -73,9 +72,8 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             'phone' => trim($row['telepon'] ?? ''),
             'rank' => trim($row['pangkat_golongan'] ?? ''),
             'position' => trim($row['jabatan'] ?? ''),
-            'password' => config('app.default_user_password'),
+            'password' => Hash::make(Str::random(12)),
             'is_active' => true,
-            'must_change_password' => true,
         ]);
     }
 

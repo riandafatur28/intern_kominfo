@@ -34,7 +34,6 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
-        $user->load(['team.field', 'roles.permissions']);
 
         return response()->json([
             'success' => true,
@@ -42,7 +41,6 @@ class AuthController extends Controller
             'data' => [
                 'token' => $token,
                 'user' => $this->userData($user),
-                'must_change_password' => (bool) $user->must_change_password,
             ],
         ]);
     }
@@ -78,15 +76,11 @@ class AuthController extends Controller
             'position' => $user->position,
             'phone' => $user->phone,
             'signature_path' => $user->signature_path,
-            'signature_url' => $user->signature_path
-                ? asset("storage/{$user->signature_path}")
-                : null,
             'photo_path' => $user->photo_path,
             'photo_url' => $user->photo_path
                 ? asset("storage/{$user->photo_path}")
                 : null,
             'is_active' => $user->is_active,
-            'must_change_password' => (bool) $user->must_change_password,
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name')->values(),
         ];

@@ -38,7 +38,7 @@ export async function uploadPhoto(formData) {
 }
 
 /**
- * Upload/replace the current user's signature (TTD).
+ * Upload/replace the current user's digital signature.
  * @param {FormData} formData - must contain a 'signature' file field
  */
 export async function uploadSignature(formData) {

@@ -1,14 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-    Calendar, RefreshCw, FileDown, Search, ChevronDown, Check, X,
-    Eye, MessageSquare, Download, Loader2, Send,
+    Filter, RefreshCw, FileDown, Search, ChevronDown, Check, X,
+    Eye, Download, Loader2,
 } from 'lucide-react';
-import axios from 'axios';
-import { getMonitoringBoard, getReportDetail, getRecaps } from '../../api/admin';
-import { SkeletonTable } from '../../components/ui/Skeleton';
-import { wfhApi } from '../../api/wfh';
+import { getMonitoringBoard, getReportDetail, getAdminReports, approveReport, rejectReport } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
+import { wfhFullHtml, wfhFullBatchHtml, openPrintWindow, fillPrintWindow } from '../../pdf';
 import Modal from '../../components/ui/Modal';
 
 const STATUS_OPTIONS = [
@@ -24,51 +22,49 @@ const STATUS_BADGE = {
     belum_absensi: { label: 'Belum Absensi', cls: 'bg-slate-300 text-slate-600' },
 };
 
-const now = new Date();
-const day = now.getDay();
-const fri = new Date(now);
-fri.setDate(now.getDate() + ((5 - day + 7) % 7));
-function upcomingFriday() {
-    const d = new Date();
-    const day = d.getDay();
-    // 5 = Friday. If today ≤ Friday → this week's Friday. If Saturday → next week's Friday.
-    const diff = day <= 5 ? (5 - day) : (5 - day + 7);
-    d.setDate(d.getDate() + diff);
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${dd}`;
+// Status laporan (report.status) — beda dari status board di atas.
+const REPORT_STATUS = {
+    draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
+    pending: { label: 'Menunggu Persetujuan', cls: 'bg-amber-100 text-amber-700' },
+    approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
+    rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-700' },
+};
+
+function fmtDateTime(t) {
+    if (!t) return null;
+    const d = new Date(t);
+    return isNaN(d) ? t : d.toLocaleString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
 
-const DEFAULT_DATE = upcomingFriday();
+const pad2 = (n) => String(n).padStart(2, '0');
+const toDateStr = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`;
 
-function fridaysInMonth(ym) {
+const DEFAULT_DATE = toDateStr(new Date());
+
+// Semua tanggal dalam sebuah bulan 'YYYY-MM'.
+function daysInMonth(ym) {
     if (!ym) return [];
     const [y, m] = ym.split('-').map(Number);
     const res = [];
     const d = new Date(y, m - 1, 1);
     while (d.getMonth() === m - 1) {
-        if (d.getDay() === 5) {
-            const yy = d.getFullYear();
-            const mm = String(d.getMonth() + 1).padStart(2, '0');
-            const dd = String(d.getDate()).padStart(2, '0');
-            res.push(`${yy}-${mm}-${dd}`);
-        }
+        res.push(toDateStr(d));
         d.setDate(d.getDate() + 1);
     }
     return res;
 }
 
-function pickFridayForMonth(fridays) {
-    if (!fridays.length) return '';
-    const today = new Date();
-    const t = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    const past = fridays.filter((f) => f <= t);
-    return past.length ? past[past.length - 1] : fridays[0];
+// Pilih tanggal default: hari ini bila ada di bulan itu, jika tidak tanggal terakhir <= hari ini.
+function pickDayForMonth(days) {
+    if (!days.length) return '';
+    const today = toDateStr(new Date());
+    if (days.includes(today)) return today;
+    const past = days.filter((d) => d <= today);
+    return past.length ? past[past.length - 1] : days[0];
 }
 
 function fmtFriday(d) {
-    return new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
+    return new Date(d).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 
 function fmtTime(t) {
@@ -78,15 +74,62 @@ function fmtTime(t) {
     return isNaN(d) ? t : d.toISOString().slice(11, 16);
 }
 
+/** Petakan objek report backend ke bentuk data template PDF laporan kegiatan. */
+function reportToPdfData(report, unitKerja, fallbackDate) {
+    const u = report.user ?? {};
+    const sup = report.supervisor;
+    return {
+        nama: u.name ?? '-',
+        nip: u.nip ?? '-',
+        pangkat: u.rank ?? '-',
+        jabatan: u.position ?? '-',
+        unitKerja: report.user?.team?.field?.name ?? unitKerja ?? '-',
+        tanggalPelaksanaan: fmtFriday(report.report_date ?? fallbackDate),
+        kegiatan: (report.activities ?? []).map((a) => ({
+            waktu: `${fmtTime(a.start_time)} – ${fmtTime(a.end_time)}`,
+            kegiatan: a.activity,
+            links: (a.links ?? []).map((l) => (typeof l === 'string' ? l : l.url)),
+        })),
+        isApproved: report.status === 'approved',
+        makerName: (u.name ?? '').toUpperCase(),
+        makerNip: u.nip ?? '-',
+        makerSignatureUrl: u.signature_path ? assetUrl(`/storage/${u.signature_path}`) : null,
+        supervisorName: sup?.name ? sup.name.toUpperCase() : '-',
+        supervisorNip: sup?.nip ?? '-',
+        supervisorSignatureUrl: sup?.signature_path ? assetUrl(`/storage/${sup.signature_path}`) : null,
+    };
+}
+
+/** Data PDF minimal untuk pegawai yang sudah absen namun belum mengirim laporan kegiatan. */
+function boardEmpToPdfData(emp, unitKerja, fallbackDate) {
+    return {
+        nama: emp.name ?? '-',
+        nip: emp.nip ?? '-',
+        pangkat: '-',
+        jabatan: '-',
+        unitKerja: unitKerja ?? '-',
+        tanggalPelaksanaan: fmtFriday(fallbackDate),
+        kegiatan: [],
+        isApproved: false,
+        makerName: (emp.name ?? '').toUpperCase(),
+        makerNip: emp.nip ?? '-',
+        makerSignatureUrl: null,
+        supervisorName: '-',
+        supervisorNip: '-',
+        supervisorSignatureUrl: null,
+    };
+}
+
 export default function MonitorWfh() {
     const { user, hasPermission } = useAuth();
+    const canApprove = hasPermission('wfh.report.approve');
     const [month, setMonth] = useState(DEFAULT_DATE.slice(0, 7));
     const [date, setDate] = useState(DEFAULT_DATE);
-    const fridays = useMemo(() => fridaysInMonth(month), [month]);
+    const days = useMemo(() => daysInMonth(month), [month]);
 
     const handleMonthChange = (val) => {
         setMonth(val);
-        setDate(pickFridayForMonth(fridaysInMonth(val)));
+        setDate(pickDayForMonth(daysInMonth(val)));
         setPage(1);
     };
     const [search, setSearch] = useState('');
@@ -126,121 +169,125 @@ export default function MonitorWfh() {
         fetchBoard();
     }, [fetchBoard]);
 
-    const handleSendReminder = (emp) => {
-        // TODO: hubungkan ke endpoint backend pengiriman notifikasi/peringatan
-        // saat sudah tersedia (misal: POST /api/admin/wfh/reminders).
-        setToast(`Peringatan untuk ${emp.name} akan dikirim setelah fitur notifikasi backend tersedia.`);
-        setTimeout(() => setToast(''), 4000);
-    };
-
     const stats = data?.stats;
     const employees = data?.employees ?? [];
     const meta = data?.meta;
 
-    const teamId = user?.team?.id;
-    const [pdfLoading, setPdfLoading] = useState(false);
-    const [recapLoading, setRecapLoading] = useState(false);
-    const [recaps, setRecaps] = useState([]);
-    const [recapsLoading, setRecapsLoading] = useState(false);
-    const [downloadRecapId, setDownloadRecapId] = useState(null);
+    const unitKerja = user?.team?.field?.name ?? '-';
 
-    const handleSubmitRecap = async () => {
-        if (!teamId) return;
-        setRecapLoading(true);
-        try {
-            // Hitung period: 1 minggu dari Jumat yang dipilih
-            const startDate = new Date(date);
-            const endDate = new Date(date);
-            endDate.setDate(endDate.getDate() + 6); // Sabtu minggu itu
-
-            const fmt = (d) => d.toISOString().split('T')[0];
-
-            // Buat rekap baru
-            const createRes = await wfhApi.createRecap({
-                team_id: teamId,
-                period_start: fmt(startDate),
-                period_end: fmt(endDate),
-            });
-            const recapId = createRes.data?.data?.id;
-
-            if (!recapId) {
-                throw new Error('Gagal membuat rekap.');
-            }
-
-            // Submit rekap ke kepala bidang
-            const submitRes = await wfhApi.submitRecap(recapId);
-            if (submitRes.data?.success) {
-                setToast('Rekap laporan berhasil diajukan ke Kepala Bidang untuk TTD.');
-                fetchRecaps();
-            } else {
-                throw new Error(submitRes.data?.message || 'Gagal mengajukan rekap.');
-            }
+    // Unduh PDF perorangan (kegiatan + foto absensi) — digenerate di frontend.
+    const handleDownloadOne = async (emp) => {
+        if (!emp.report_id) {
+            setToast('Pegawai ini belum mengirim laporan kegiatan.');
             setTimeout(() => setToast(''), 4000);
-        } catch (e) {
-            const msg = e.response?.data?.message || e.message || 'Gagal mengajukan rekap.';
-            setToast(msg);
-            setTimeout(() => setToast(''), 5000);
-        } finally {
-            setRecapLoading(false);
+            return;
         }
-    };
-
-    const handleGeneratePdf = async () => {
-        if (!teamId) return;
-        setPdfLoading(true);
-        try {
-            const res = await axios.get(`/api/admin/wfh/teams/${teamId}/pdf`, { params: { date }, responseType: 'blob' });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `WFH-Team-${teamId}-${date}.pdf`;
-            document.body.appendChild(a); a.click(); a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (e) {
-            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
-            alert(msg);
-        } finally {
-            setPdfLoading(false);
+        // Buka window SEKARANG (dalam handler klik) agar tidak diblokir popup.
+        const win = openPrintWindow();
+        if (!win) {
+            setToast('Popup diblokir browser. Izinkan popup untuk situs ini.');
+            setTimeout(() => setToast(''), 4000);
+            return;
         }
-    };
-
-    const fetchRecaps = useCallback(async () => {
-        if (!hasPermission('wfh.monitoring.view')) return;
         try {
-            setRecapsLoading(true);
-            const res = await getRecaps({ per_page: 50 });
-            setRecaps(res.data || []);
-        } catch (e) {
-            // silent
-        } finally {
-            setRecapsLoading(false);
-        }
-    }, [hasPermission]);
-
-    useEffect(() => { fetchRecaps() }, [fetchRecaps]);
-
-    const handleDownloadRecapPdf = async (recap) => {
-        setDownloadRecapId(recap.id);
-        try {
-            const date = recap.period_start;
-            const teamId = recap.team_id;
-            const res = await axios.get(`/api/admin/wfh/teams/${teamId}/pdf`, {
-                params: { date },
-                responseType: 'blob',
+            const report = await getReportDetail(emp.report_id);
+            const rd = reportToPdfData(report, unitKerja, date);
+            const html = wfhFullHtml({
+                report: rd,
+                attendance: {
+                    tanggal: fmtFriday(date),
+                    unitKerja,
+                    rows: [{ no: 1, nama: report.user?.name ?? emp.name, pagi: null, siang: null, sore: null }],
+                    makerName: rd.makerName,
+                    makerNip: rd.makerNip,
+                    makerSignatureUrl: rd.makerSignatureUrl,
+                    supervisorName: rd.supervisorName,
+                    supervisorNip: rd.supervisorNip,
+                    supervisorSignatureUrl: rd.supervisorSignatureUrl,
+                },
             });
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            const teamName = recap.team?.name?.replace(/\s+/g, '-') || teamId;
-            a.download = `Rekap-WFH-${teamName}-${date}.pdf`;
-            document.body.appendChild(a); a.click(); a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (e) {
-            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
-            setToast(msg);
-            setTimeout(() => setToast(''), 5000);
-        } finally {
-            setDownloadRecapId(null);
+            fillPrintWindow(win, html);
+        } catch {
+            try { win.close(); } catch { /* ignore */ }
+            setToast('Gagal memuat laporan untuk PDF.');
+            setTimeout(() => setToast(''), 4000);
+        }
+    };
+
+    // Generate semua laporan pegawai (tanggal terpilih) jadi satu file PDF.
+    const handleGeneratePdf = async () => {
+        // Buka window SEKARANG (dalam handler klik) agar tidak diblokir popup.
+        const win = openPrintWindow();
+        if (!win) {
+            setToast('Popup diblokir browser. Izinkan popup untuk situs ini.');
+            setTimeout(() => setToast(''), 4000);
+            return;
+        }
+        try {
+            // 1) Ambil SEMUA pegawai pada tanggal terpilih dari monitoring board
+            //    (lintas halaman) — inilah daftar otoritatif siapa saja yang absen.
+            let employeesAll = [];
+            let bp = 1;
+            let bLast = 1;
+            do {
+                const board = await getMonitoringBoard({ date, per_page: 100, page: bp });
+                employeesAll = employeesAll.concat(board.employees ?? []);
+                bLast = board.meta?.last_page ?? 1;
+                bp += 1;
+            } while (bp <= bLast);
+
+            // Sertakan pegawai yang sudah absen (minimal satu sesi) ATAU sudah kirim laporan.
+            const targets = employeesAll.filter(
+                (e) => e.report_id || e.sessions?.pagi || e.sessions?.siang || e.sessions?.sore,
+            );
+
+            if (targets.length === 0) {
+                try { win.close(); } catch { /* ignore */ }
+                setToast('Belum ada pegawai yang absen pada tanggal ini.');
+                setTimeout(() => setToast(''), 4000);
+                return;
+            }
+
+            // 2) Ambil SEMUA laporan (lintas halaman) untuk melengkapi bagian kegiatan.
+            let reports = [];
+            let rp = 1;
+            let rLast = 1;
+            do {
+                const res = await getAdminReports({ date_from: date, date_to: date, per_page: 100, page: rp });
+                reports = reports.concat(res.data ?? []);
+                rLast = res.meta?.last_page ?? 1;
+                rp += 1;
+            } while (rp <= rLast);
+            const reportByUser = {};
+            reports.forEach((r) => { if (r.user?.id) reportByUser[r.user.id] = r; });
+
+            // 3) Bangun daftar PDF untuk setiap pegawai yang absen.
+            const list = targets.map((emp, i) => {
+                const report = reportByUser[emp.id];
+                const rd = report
+                    ? reportToPdfData(report, unitKerja, date)
+                    : boardEmpToPdfData(emp, unitKerja, date);
+                return {
+                    report: rd,
+                    attendance: {
+                        tanggal: fmtFriday(date),
+                        unitKerja,
+                        rows: [{ no: i + 1, nama: emp.name ?? rd.nama, pagi: null, siang: null, sore: null }],
+                        makerName: rd.makerName,
+                        makerNip: rd.makerNip,
+                        makerSignatureUrl: rd.makerSignatureUrl,
+                        supervisorName: rd.supervisorName,
+                        supervisorNip: rd.supervisorNip,
+                        supervisorSignatureUrl: rd.supervisorSignatureUrl,
+                    },
+                };
+            });
+            setToast('');
+            fillPrintWindow(win, wfhFullBatchHtml(list, { tanggal: fmtFriday(date) }));
+        } catch {
+            try { win.close(); } catch { /* ignore */ }
+            setToast('Gagal menyiapkan PDF.');
+            setTimeout(() => setToast(''), 4000);
         }
     };
 
@@ -252,7 +299,7 @@ export default function MonitorWfh() {
                 <div className="flex items-center gap-2 flex-wrap">
                     {/* Filter bulan */}
                     <div className="relative flex items-center">
-                        <Calendar size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
+                        <Filter size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-500 pointer-events-none z-10" />
                         <input
                             type="month"
                             value={month}
@@ -266,13 +313,13 @@ export default function MonitorWfh() {
                         <select
                             value={date}
                             onChange={(e) => { setDate(e.target.value); setPage(1); }}
-                            title="Pilih hari WFH (Jumat)"
+                            title="Pilih tanggal WFH"
                             className="appearance-none pl-4 pr-9 py-2 text-sm border border-gray-200 rounded-lg text-gray-600 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                         >
-                            {fridays.length === 0 ? (
-                                <option value="">Tidak ada Jumat</option>
+                            {days.length === 0 ? (
+                                <option value="">Tidak ada tanggal</option>
                             ) : (
-                                fridays.map((f) => (
+                                days.map((f) => (
                                     <option key={f} value={f}>{fmtFriday(f)}</option>
                                 ))
                             )}
@@ -286,25 +333,13 @@ export default function MonitorWfh() {
                         <RefreshCw size={15} className={loading ? 'animate-spin' : ''} />
                         Perbarui
                     </button>
-                    {hasPermission('wfh.report.export_pdf') && (
-                        <button
-                            onClick={handleGeneratePdf}
-                            className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                        >
-                            {pdfLoading ? <Loader2 size={15} className="animate-spin" /> : <FileDown size={15} />}
-                            {pdfLoading ? 'Memproses...' : 'Generate Semua PDF'}
-                        </button>
-                    )}
-                    {hasPermission('wfh.monitoring.view') && (
-                        <button
-                            onClick={handleSubmitRecap}
-                            disabled={recapLoading}
-                            className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-60 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-                        >
-                            {recapLoading ? <Loader2 size={15} className="animate-spin" /> : <Send size={15} />}
-                            {recapLoading ? 'Mengajukan...' : 'Ajukan Rekap ke Kabid'}
-                        </button>
-                    )}
+                    <button
+                        onClick={handleGeneratePdf}
+                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+                    >
+                        <FileDown size={15} />
+                        Generate Semua PDF
+                    </button>
                 </div>
             </div>
 
@@ -389,7 +424,7 @@ export default function MonitorWfh() {
                                 </thead>
                                 <tbody>
                                     {loading ? (
-                                        <tr><td colSpan={7} className="px-0 py-0"><SkeletonTable rows={5} cols={7} /></td></tr>
+                                        <tr><td colSpan={7} className="py-16 text-center"><Loader2 className="animate-spin inline text-blue-600" /></td></tr>
                                     ) : employees.length === 0 ? (
                                         <tr><td colSpan={7} className="py-16 text-center text-gray-400 text-sm">Tidak ada pegawai ditemukan.</td></tr>
                                     ) : (
@@ -408,7 +443,7 @@ export default function MonitorWfh() {
                                                 <td className="px-6 py-4 text-sm text-gray-500">{emp.catatan}</td>
                                                 <td className="px-6 py-4">
                                                     <div className="flex justify-center">
-                                                        <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} />
+                                                        <PreviewDropdown emp={emp} date={date} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
                                                     </div>
                                                 </td>
                                             </tr>
@@ -421,17 +456,7 @@ export default function MonitorWfh() {
                         {/* Mobile cards */}
                         <div className="md:hidden divide-y divide-gray-50">
                             {loading ? (
-                                <div className="p-6 space-y-4 animate-pulse">
-                                    {Array.from({ length: 4 }).map((_, i) => (
-                                        <div key={i} className="flex items-center gap-3">
-                                            <div className="w-10 h-10 rounded-full bg-gray-200" />
-                                            <div className="flex-1 space-y-2">
-                                                <div className="h-4 bg-gray-200 rounded w-1/2" />
-                                                <div className="h-3 bg-gray-100 rounded w-1/3" />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
+                                <div className="py-16 text-center"><Loader2 className="animate-spin inline text-blue-600" /></div>
                             ) : employees.length === 0 ? (
                                 <div className="py-16 text-center text-gray-400 text-sm">Tidak ada pegawai ditemukan.</div>
                             ) : (
@@ -445,7 +470,7 @@ export default function MonitorWfh() {
                                                     <p className="text-xs text-gray-400">{emp.nip}</p>
                                                 </div>
                                             </div>
-                                            <PreviewDropdown emp={emp} date={date} onSendReminder={handleSendReminder} />
+                                            <PreviewDropdown emp={emp} date={date} onDownload={handleDownloadOne} canApprove={canApprove} onChanged={fetchBoard} />
                                         </div>
                                         <div className="flex items-center gap-4 text-xs text-gray-500">
                                             <SessionPill label="Pagi" ok={emp.sessions.pagi} />
@@ -502,57 +527,6 @@ export default function MonitorWfh() {
                 </div>
             </div>
 
-            {/* Recap List */}
-            {hasPermission('wfh.monitoring.view') && (
-                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-                    <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-                        <h2 className="text-sm font-bold text-gray-900">Rekap yang Diajukan</h2>
-                        {recapsLoading && <Loader2 size={14} className="animate-spin text-gray-400" />}
-                    </div>
-                    {recaps.length === 0 ? (
-                        <div className="p-8 text-center text-sm text-gray-400">Belum ada rekap diajukan.</div>
-                    ) : (
-                        <div className="divide-y divide-gray-50">
-                            {recaps.map((r) => {
-                                const statusMeta = {
-                                    draft: { label: 'Draft', cls: 'bg-gray-100 text-gray-600' },
-                                    pending: { label: 'Menunggu', cls: 'bg-amber-100 text-amber-700' },
-                                    approved: { label: 'Disetujui', cls: 'bg-green-100 text-green-700' },
-                                    rejected: { label: 'Ditolak', cls: 'bg-red-100 text-red-600' },
-                                }[r.status] || { label: r.status, cls: 'bg-gray-100 text-gray-600' };
-                                const fmt = (d) => d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-';
-                                return (
-                                    <div key={r.id} className="px-5 py-4 flex items-center justify-between gap-4">
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <p className="text-sm font-semibold text-gray-900 truncate">{r.team?.name || '—'}</p>
-                                                <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-medium ${statusMeta.cls}`}>{statusMeta.label}</span>
-                                            </div>
-                                            <p className="text-xs text-gray-400">{fmt(r.period_start)} — {fmt(r.period_end)}</p>
-                                            {r.admin && <p className="text-xs text-gray-400">Dibuat oleh: {r.admin.name}</p>}
-                                        </div>
-                                        <div className="shrink-0">
-                                            {r.status === 'approved' ? (
-                                                <button
-                                                    onClick={() => handleDownloadRecapPdf(r)}
-                                                    disabled={downloadRecapId === r.id}
-                                                    className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
-                                                >
-                                                    {downloadRecapId === r.id ? <Loader2 size={13} className="animate-spin" /> : <FileDown size={13} />}
-                                                    Unduh
-                                                </button>
-                                            ) : (
-                                                <span className="text-xs text-gray-400 italic">Menunggu TTD</span>
-                                            )}
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            )}
-
             {toast && (
                 <div className="fixed bottom-6 right-6 z-50 bg-amber-500 text-white text-sm font-medium px-4 py-3 rounded-lg shadow-lg max-w-sm">
                     {toast}
@@ -603,123 +577,37 @@ function StatusBadge({ status }) {
     );
 }
 
-function PreviewDropdown({ emp, date, onSendReminder }) {
-    const [open, setOpen] = useState(false);
+function PreviewDropdown({ emp, date, onDownload, canApprove, onChanged }) {
     const [showDetail, setShowDetail] = useState(false);
-    const [menuPos, setMenuPos] = useState(null);
-    const triggerRef = useRef(null);
-    const menuRef = useRef(null);
-    const token = localStorage.getItem('token');
-
-    const MENU_WIDTH = 208; // w-52
-
-    const openMenu = () => {
-        const rect = triggerRef.current?.getBoundingClientRect();
-        if (rect) {
-            setMenuPos({
-                top: rect.bottom + 4,
-                left: Math.max(8, rect.right - MENU_WIDTH),
-            });
-        }
-        setOpen(true);
-    };
-
-    const toggleMenu = () => (open ? setOpen(false) : openMenu());
-
-    // Tutup dropdown saat klik di luar, scroll, atau resize
-    useEffect(() => {
-        if (!open) return;
-        const handleClick = (e) => {
-            if (
-                triggerRef.current?.contains(e.target) ||
-                menuRef.current?.contains(e.target)
-            ) return;
-            setOpen(false);
-        };
-        const handleClose = () => setOpen(false);
-        document.addEventListener('mousedown', handleClick);
-        window.addEventListener('scroll', handleClose, true);
-        window.addEventListener('resize', handleClose);
-        return () => {
-            document.removeEventListener('mousedown', handleClick);
-            window.removeEventListener('scroll', handleClose, true);
-            window.removeEventListener('resize', handleClose);
-        };
-    }, [open]);
-
-    const handleDownload = async () => {
-        setOpen(false);
-        try {
-            const res = await wfhApi.getReportPdf(emp.report_id);
-            const url = window.URL.createObjectURL(new Blob([res.data]));
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `WFH-${emp.name || emp.report_id}.pdf`;
-            document.body.appendChild(a); a.click(); a.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (e) {
-            const msg = e.response?.data?.message || e.message || 'Gagal download PDF';
-            alert(msg);
-        }
-    };
-
-    const handleReminder = () => {
-        onSendReminder?.(emp);
-        setOpen(false);
-    };
 
     return (
-        <div className="inline-flex flex-col items-center" ref={triggerRef}>
-            {/* Trigger: Preview + tombol dropdown */}
-            <div className="flex items-center gap-1">
-                <button
-                    type="button"
-                    onClick={() => setShowDetail(true)}
-                    title="Preview laporan"
-                    className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
-                >
-                    <Eye size={19} />
-                    <span className="text-[11px] font-medium text-gray-500">Preview</span>
-                </button>
-                <button
-                    type="button"
-                    onClick={toggleMenu}
-                    aria-label="Aksi lainnya"
-                    aria-expanded={open}
-                    className="p-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
-                >
-                    <ChevronDown size={16} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
-                </button>
-            </div>
-
-            {/* Dropdown: Peringatan + Unduh (portal agar tidak terpotong tabel) */}
-            {open && menuPos && createPortal(
-                <div
-                    ref={menuRef}
-                    style={{ position: 'fixed', top: menuPos.top, left: menuPos.left, width: MENU_WIDTH }}
-                    className="bg-white border border-gray-100 rounded-xl shadow-lg z-50 py-1 text-left"
-                >
-                    <button
-                        onClick={handleReminder}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-amber-600 hover:bg-amber-50"
-                    >
-                        <MessageSquare size={16} /> Peringatan
-                    </button>
-                    <button
-                        onClick={handleDownload}
-                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-blue-600 hover:bg-blue-50"
-                    >
-                        <Download size={16} /> Unduh Perorangan
-                    </button>
-                </div>,
-                document.body
-            )}
+        <div className="inline-flex items-center gap-3">
+            <button
+                type="button"
+                onClick={() => setShowDetail(true)}
+                title="Preview laporan"
+                className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+            >
+                <Eye size={19} />
+                <span className="text-[11px] font-medium text-gray-500">Preview</span>
+            </button>
+            <button
+                type="button"
+                onClick={() => onDownload?.(emp)}
+                title="Unduh laporan perorangan"
+                className="flex flex-col items-center gap-0.5 text-gray-400 hover:text-indigo-600 transition-colors"
+            >
+                <Download size={19} />
+                <span className="text-[11px] font-medium text-gray-500">Unduh</span>
+            </button>
 
             {showDetail && (
                 <ReportDetailModal
                     reportId={emp.report_id}
                     empName={emp.name}
                     date={date}
+                    canApprove={canApprove}
+                    onChanged={onChanged}
                     onClose={() => setShowDetail(false)}
                 />
             )}
@@ -727,40 +615,83 @@ function PreviewDropdown({ emp, date, onSendReminder }) {
     );
 }
 
-function ReportDetailModal({ reportId, empName, date, onClose }) {
+function ReportDetailModal({ reportId, empName, date, canApprove, onChanged, onClose }) {
     const [report, setReport] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
+    const [acting, setActing] = useState(false);
+    const [rejectMode, setRejectMode] = useState(false);
+    const [rejectReason, setRejectReason] = useState('');
+    const [actionMsg, setActionMsg] = useState('');
+
     useEffect(() => {
+        if (!reportId) {
+            setLoading(false);
+            return;
+        }
         getReportDetail(reportId)
             .then(setReport)
             .catch((e) => setError(e.response?.data?.message || 'Gagal memuat laporan.'))
             .finally(() => setLoading(false));
     }, [reportId]);
 
+    const doApprove = async () => {
+        setActing(true);
+        setActionMsg('');
+        try {
+            await approveReport(reportId);
+            onChanged?.();
+            onClose();
+        } catch (e) {
+            setActionMsg(e.response?.data?.message || 'Gagal menyetujui laporan.');
+        } finally {
+            setActing(false);
+        }
+    };
+
+    const doReject = async () => {
+        if (!rejectReason.trim()) {
+            setActionMsg('Alasan penolakan wajib diisi.');
+            return;
+        }
+        setActing(true);
+        setActionMsg('');
+        try {
+            await rejectReport(reportId, rejectReason.trim());
+            onChanged?.();
+            onClose();
+        } catch (e) {
+            setActionMsg(e.response?.data?.message || 'Gagal menolak laporan.');
+        } finally {
+            setActing(false);
+        }
+    };
+
+    const rs = REPORT_STATUS[report?.status] ?? null;
+    const showActions = canApprove && report?.status === 'pending';
+
     return (
         <Modal open onClose={onClose} title={`Laporan WFH — ${empName}`} width="max-w-2xl">
             {loading ? (
-                <div className="p-6 space-y-3 animate-pulse">
-                    <div className="h-4 bg-gray-200 rounded w-1/3" />
-                    <div className="space-y-2">
-                        <div className="h-3 bg-gray-100 rounded w-full" />
-                        <div className="h-3 bg-gray-100 rounded w-5/6" />
-                        <div className="h-3 bg-gray-100 rounded w-4/6" />
-                    </div>
+                <div className="py-10 text-center"><Loader2 className="animate-spin inline text-blue-600" /></div>
+            ) : !reportId ? (
+                <div className="p-4 bg-slate-50 text-slate-500 text-sm rounded-lg text-center">
+                    Pegawai belum mengirim laporan untuk tanggal ini.
                 </div>
             ) : error ? (
                 <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg">{error}</div>
             ) : (
                 <div className="space-y-4">
-                    <div className="flex items-center gap-3 text-sm">
+                    <div className="flex items-center gap-3 text-sm flex-wrap">
                         <span className="text-gray-400">Tanggal:</span>
                         <span className="font-semibold text-gray-800">{report?.report_date ?? date}</span>
-                        <StatusBadge status={report?.status === 'approved' || report?.status === 'pending' ? 'terkirim' : 'tidak_lengkap'} />
+                        {rs && <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${rs.cls}`}>{rs.label}</span>}
                     </div>
+
+                    {/* Activities + links */}
                     <div>
-                        <p className="text-sm font-semibold text-gray-700 mb-2">Aktivitas</p>
+                        <p className="text-sm font-semibold text-gray-700 mb-2">Aktivitas & Bukti Kerja</p>
                         {(report?.activities?.length ?? 0) === 0 ? (
                             <p className="text-sm text-gray-400">Belum ada aktivitas.</p>
                         ) : (
@@ -770,13 +701,27 @@ function ReportDetailModal({ reportId, empName, date, onClose }) {
                                         <tr className="bg-gray-50 text-left text-xs text-gray-500">
                                             <th className="px-4 py-2">Waktu</th>
                                             <th className="px-4 py-2">Aktivitas</th>
+                                            <th className="px-4 py-2">Link Bukti</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         {report.activities.map((a) => (
-                                            <tr key={a.id} className="border-t border-gray-50">
+                                            <tr key={a.id} className="border-t border-gray-50 align-top">
                                                 <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{fmtTime(a.start_time)}–{fmtTime(a.end_time)}</td>
                                                 <td className="px-4 py-2 text-gray-700">{a.activity}</td>
+                                                <td className="px-4 py-2">
+                                                    {(a.links?.length ?? 0) === 0 ? (
+                                                        <span className="text-gray-300">-</span>
+                                                    ) : (
+                                                        <div className="space-y-1">
+                                                            {a.links.map((l) => (
+                                                                <a key={l.id} href={l.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline break-all block text-xs">
+                                                                    {l.url}
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    )}
+                                                </td>
                                             </tr>
                                         ))}
                                     </tbody>
@@ -784,8 +729,66 @@ function ReportDetailModal({ reportId, empName, date, onClose }) {
                             </div>
                         )}
                     </div>
+
+                    {/* Signature status */}
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                        <div className="border border-gray-100 rounded-lg p-3">
+                            <p className="text-gray-400">TTD Pegawai</p>
+                            <p className={`font-semibold ${report?.maker_signed_at ? 'text-green-600' : 'text-gray-400'}`}>
+                                {report?.maker_signed_at ? `Ditandatangani · ${fmtDateTime(report.maker_signed_at)}` : 'Belum ditandatangani'}
+                            </p>
+                        </div>
+                        <div className="border border-gray-100 rounded-lg p-3">
+                            <p className="text-gray-400">TTD Atasan</p>
+                            <p className={`font-semibold ${report?.supervisor_signed_at ? 'text-green-600' : 'text-gray-400'}`}>
+                                {report?.supervisor_signed_at ? `Disetujui · ${fmtDateTime(report.supervisor_signed_at)}` : 'Belum disetujui'}
+                            </p>
+                        </div>
+                    </div>
+
+                    {/* Reject reason */}
+                    {report?.status === 'rejected' && report?.reject_reason && (
+                        <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+                            <span className="font-semibold">Alasan ditolak: </span>{report.reject_reason}
+                        </div>
+                    )}
+
+                    {actionMsg && <div className="p-2 bg-red-50 text-red-600 text-sm rounded-lg">{actionMsg}</div>}
+
+                    {/* Approve / Reject actions */}
+                    {showActions && (
+                        rejectMode ? (
+                            <div className="space-y-2 border-t border-gray-100 pt-4">
+                                <label className="block text-sm text-gray-600">Alasan Penolakan</label>
+                                <textarea
+                                    value={rejectReason}
+                                    onChange={(e) => setRejectReason(e.target.value)}
+                                    rows={3}
+                                    placeholder="Jelaskan alasan penolakan..."
+                                    className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-red-100 focus:border-red-400 resize-none"
+                                />
+                                <div className="flex justify-end gap-2">
+                                    <button onClick={() => { setRejectMode(false); setActionMsg(''); }} disabled={acting} className="px-4 py-2 text-sm font-medium border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-50">Batal</button>
+                                    <button onClick={doReject} disabled={acting} className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-red-500 hover:bg-red-600 text-white rounded-lg disabled:opacity-50">
+                                        {acting ? <Loader2 size={15} className="animate-spin" /> : <X size={15} />} Kirim Penolakan
+                                    </button>
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="flex justify-end gap-2 border-t border-gray-100 pt-4">
+                                <button onClick={() => setRejectMode(true)} disabled={acting} className="flex items-center gap-2 px-5 py-2 text-sm font-semibold border border-red-200 text-red-600 rounded-lg hover:bg-red-50 disabled:opacity-50">
+                                    <X size={15} /> Tolak
+                                </button>
+                                <button onClick={doApprove} disabled={acting} className="flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-green-600 hover:bg-green-700 text-white rounded-lg disabled:opacity-50">
+                                    {acting ? <Loader2 size={15} className="animate-spin" /> : <Check size={15} />} Setujui
+                                </button>
+                            </div>
+                        )
+                    )}
                 </div>
             )}
         </Modal>
     );
 }
+
+

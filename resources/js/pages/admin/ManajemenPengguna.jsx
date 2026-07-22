@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { UserPlus, Search, Users, Pencil, Trash2, AlertTriangle } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { SkeletonTable } from '../../components/ui/Skeleton';
+import { UserPlus, Search, Users, Pencil, Trash2, Loader2, AlertTriangle } from 'lucide-react';
 import { getUsers, deleteUser } from '../../api/admin';
 import TambahPenggunaModal from '../../components/admin/TambahPenggunaModal';
 import Modal from '../../components/ui/Modal';
@@ -36,7 +34,6 @@ function StatusBadge({ active }) {
 }
 
 export default function ManajemenPengguna() {
-    const { hasPermission } = useAuth();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -124,15 +121,13 @@ export default function ManajemenPengguna() {
                     <h1 className="text-2xl sm:text-3xl font-extrabold text-gray-900">Manajemen Pengguna</h1>
                     <p className="text-sm text-gray-400 mt-1">Kelola seluruh pengguna sistem</p>
                 </div>
-                {hasPermission('user.create') && (
-                    <button
-                        onClick={openAdd}
-                        className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
-                    >
-                        <UserPlus size={16} />
-                        Tambah Pengguna
-                    </button>
-                )}
+                <button
+                    onClick={openAdd}
+                    className="flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors"
+                >
+                    <UserPlus size={16} />
+                    Tambah Pengguna
+                </button>
             </div>
 
             {/* Filters */}
@@ -162,7 +157,9 @@ export default function ManajemenPengguna() {
             {/* Content */}
             <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
                 {loading ? (
-                    <div className="p-6"><SkeletonTable rows={8} cols={5} /></div>
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+                    </div>
                 ) : error ? (
                     <div className="p-6 text-red-600 text-sm bg-red-50 flex items-center justify-between">
                         <span>{error}</span>
@@ -209,16 +206,12 @@ export default function ManajemenPengguna() {
                                         <td className="px-6 py-4"><StatusBadge active={u.is_active} /></td>
                                         <td className="px-6 py-4">
                                             <div className="flex items-center justify-end gap-2">
-                                                {hasPermission('user.update') && (
-                                                    <button onClick={() => openEdit(u)} className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit">
-                                                        <Pencil size={16} />
-                                                    </button>
-                                                )}
-                                                {hasPermission('user.delete') && (
-                                                    <button onClick={() => setDeleting(u)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                )}
+                                                <button onClick={() => openEdit(u)} className="p-1.5 text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors" title="Edit">
+                                                    <Pencil size={16} />
+                                                </button>
+                                                <button onClick={() => setDeleting(u)} className="p-1.5 text-red-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors" title="Hapus">
+                                                    <Trash2 size={16} />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -248,16 +241,12 @@ export default function ManajemenPengguna() {
                                     </div>
                                     <RoleBadges roles={u.roles} />
                                     <div className="flex items-center gap-4 pt-1">
-                                        {hasPermission('user.update') && (
-                                            <button onClick={() => openEdit(u)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600">
-                                                <Pencil size={15} /> Edit
-                                            </button>
-                                        )}
-                                        {hasPermission('user.delete') && (
-                                            <button onClick={() => setDeleting(u)} className="flex items-center gap-1 text-sm text-red-500 hover:text-red-600">
-                                                <Trash2 size={15} /> Hapus
-                                            </button>
-                                        )}
+                                        <button onClick={() => openEdit(u)} className="flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600">
+                                            <Pencil size={15} /> Edit
+                                        </button>
+                                        <button onClick={() => setDeleting(u)} className="flex items-center gap-1 text-sm text-red-500 hover:text-red-600">
+                                            <Trash2 size={15} /> Hapus
+                                        </button>
                                     </div>
                                 </div>
                             ))}
