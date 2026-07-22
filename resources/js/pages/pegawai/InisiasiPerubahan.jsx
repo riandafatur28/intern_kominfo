@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Calendar, Pencil, Loader2, CheckCircle2, XCircle, FileText } from 'lucide-react';
+import { Calendar, Pencil, Loader2, CheckCircle2, XCircle, FileText, FileDown } from 'lucide-react';
 import { changesApi } from '../../api/changes';
 import { getFields } from '../../api/admin';
 import { useAuth } from '../../context/AuthContext';
+import { assetUrl } from '../../utils/url';
+import { openPrintWindow, fillPrintWindow, changeInitiationHtml, changeImplementationHtml } from '../../pdf';
 import ErrorAlert from '../../components/ui/ErrorAlert';
 
 /* ---------------- Reusable field bits ---------------- */
@@ -81,6 +83,61 @@ const TIPE_OPTIONS = ['Hardware', 'Network', 'Software', 'Utilities', 'Aplikasi'
 // Dokumen memakai Normal/Emergency & Minor/Mayor; backend memakai enum berbeda.
 const PRIORITY_MAP = { Normal: 'medium', Emergency: 'critical' };
 const IMPACT_MAP = { Minor: 'low', Mayor: 'high' };
+// Kebalikan (untuk menampilkan di PDF).
+const PRIORITY_REV = { medium: 'Normal', critical: 'Emergency' };
+const IMPACT_REV = { low: 'Minor', high: 'Mayor' };
+
+const fmtTanggalID = (d) =>
+    d ? new Date(d).toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '-';
+
+/** Petakan detail inisiasi (API) ke data template PDF. */
+function mapInitiationToPdf(d) {
+    return {
+        docNumber: d.doc_number ?? '',
+        tanggal: fmtTanggalID(d.initiation_date),
+        halaman: 1,
+        bidang: d.field?.name ?? '-',
+        neededByDate: d.needed_by_date ? fmtTanggalID(d.needed_by_date) : '-',
+        description: d.description ?? '-',
+        reason: d.reason ?? '-',
+        initiatorName: d.initiator?.name ?? '-',
+        initiatorNip: d.initiator?.nip ?? '-',
+        initiatorPosition: d.initiator?.position ?? '-',
+        initiatorSignatureUrl: d.initiator?.signature_path ? assetUrl(`/storage/${d.initiator.signature_path}`) : null,
+        // Tampilkan TTD hanya bila sudah dikirim/disetujui.
+        isApproved: ['pending', 'approved'].includes(d.status),
+    };
+}
+
+/** Petakan sebuah implementasi + inisiasi induknya ke data template PDF. */
+function mapImplementationToPdf(impl, initiation) {
+    return {
+        docNumber: '',
+        tanggal: fmtTanggalID(impl.execution_date || initiation.initiation_date),
+        halaman: '',
+        bidang: initiation.field?.name ?? '-',
+        changeTypeNames: (impl.change_types ?? []).map((t) => t.name),
+        priority: PRIORITY_REV[impl.priority] ?? '',
+        impact: IMPACT_REV[impl.impact] ?? '',
+        productionImpact: impl.production_impact ?? '',
+        requiredEffort: impl.required_effort ?? '',
+        costNeeded: !!impl.cost_needed,
+        costAmount: impl.cost_amount ?? '',
+        resources: impl.resources ?? '',
+        testPlan: impl.test_plan ?? '',
+        evaluator: {},
+        reviewStatus: impl.review_status ?? '',
+        reviewResponse: impl.review_response ?? '',
+        executionDate: impl.execution_date ? fmtTanggalID(impl.execution_date) : '',
+        responsibleLabel: '',
+        reviewer: {},
+        implementationResult: impl.implementation_result ?? '',
+        testingResult: impl.testing_result ?? '',
+        releaseDate: impl.release_date ? fmtTanggalID(impl.release_date) : '',
+        attachments: (impl.attachments ?? []).map((a) => assetUrl(a.url)),
+        responsible: {},
+    };
+}
 
 const EMPTY_INISIASI = { field_id: '', needed_by_date: '', description: '', reason: '' };
 const EMPTY_IMPL = {
@@ -255,13 +312,37 @@ export default function InisiasiPerubahan() {
         if (tab === 'riwayat') loadRiwayat();
     }, [tab, loadRiwayat]);
 
-    const downloadPdf = async (id) => {
+    // Unduh Formulir Inisiasi Perubahan (PDF digenerate di frontend).
+    const printInitiation = async (id) => {
+        const win = openPrintWindow();
+        if (!win) return showToast('error', 'Popup diblokir browser. Izinkan popup untuk situs ini.');
         try {
-            const res = await changesApi.getInitiationPdf(id);
-            const url = URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }));
-            window.open(url, '_blank');
+            const res = await changesApi.getInitiation(id);
+            const d = res.data?.data;
+            fillPrintWindow(win, changeInitiationHtml(mapInitiationToPdf(d)));
         } catch {
-            showToast('error', 'Gagal membuka dokumen PDF.');
+            try { win.close(); } catch { /* ignore */ }
+            showToast('error', 'Gagal menyiapkan dokumen PDF.');
+        }
+    };
+
+    // Unduh Formulir Persetujuan/Implementasi Perubahan (PDF digenerate di frontend).
+    const printImplementation = async (id) => {
+        const win = openPrintWindow();
+        if (!win) return showToast('error', 'Popup diblokir browser. Izinkan popup untuk situs ini.');
+        try {
+            const res = await changesApi.getInitiation(id);
+            const d = res.data?.data;
+            const impls = d.implementations ?? [];
+            const impl = impls[impls.length - 1];
+            if (!impl) {
+                try { win.close(); } catch { /* ignore */ }
+                return showToast('error', 'Belum ada implementasi untuk inisiasi ini.');
+            }
+            fillPrintWindow(win, changeImplementationHtml(mapImplementationToPdf(impl, d)));
+        } catch {
+            try { win.close(); } catch { /* ignore */ }
+            showToast('error', 'Gagal menyiapkan dokumen PDF.');
         }
     };
 
@@ -485,9 +566,18 @@ export default function InisiasiPerubahan() {
                                                 <td className="px-6 py-4 max-w-[280px] truncate" title={r.description}>{(r.description || '-').split('\n')[0]}</td>
                                                 <td className="px-6 py-4"><RiwayatStatus status={r.status} /></td>
                                                 <td className="px-6 py-4">
-                                                    {r.status === 'approved' ? (
-                                                        <button onClick={() => downloadPdf(r.id)} className="text-brand-500 hover:underline">Lihat PDF</button>
-                                                    ) : <span className="text-gray-400">-</span>}
+                                                    <div className="flex items-center gap-3">
+                                                        <button onClick={() => printInitiation(r.id)} title="Unduh Formulir Inisiasi"
+                                                            className="inline-flex items-center gap-1 text-brand-500 hover:underline">
+                                                            <FileDown size={14} /> Inisiasi
+                                                        </button>
+                                                        {(r.implementations?.length ?? 0) > 0 && (
+                                                            <button onClick={() => printImplementation(r.id)} title="Unduh Formulir Implementasi"
+                                                                className="inline-flex items-center gap-1 text-brand-500 hover:underline">
+                                                                <FileDown size={14} /> Implementasi
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         ))}
@@ -508,7 +598,16 @@ export default function InisiasiPerubahan() {
                                         </div>
                                         <p className="text-xs text-gray-400">{r.initiation_date ?? '-'}</p>
                                         <p className="text-sm text-gray-600 line-clamp-2">{(r.description || '-').split('\n')[0]}</p>
-                                        {r.status === 'approved' && <button onClick={() => downloadPdf(r.id)} className="text-brand-500 hover:underline text-sm">Lihat PDF</button>}
+                                        <div className="flex items-center gap-4 pt-1">
+                                            <button onClick={() => printInitiation(r.id)} className="inline-flex items-center gap-1 text-brand-500 hover:underline text-sm">
+                                                <FileDown size={14} /> Inisiasi
+                                            </button>
+                                            {(r.implementations?.length ?? 0) > 0 && (
+                                                <button onClick={() => printImplementation(r.id)} className="inline-flex items-center gap-1 text-brand-500 hover:underline text-sm">
+                                                    <FileDown size={14} /> Implementasi
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
                                 ))}
                             </div>

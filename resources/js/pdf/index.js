@@ -13,11 +13,15 @@ import { printHtmlDocument } from './printDocument';
 import { wrapDocument } from './shared';
 import { wfhReportHtml, wfhReportBody, wfhReportBatchHtml } from './wfhReportTemplate';
 import { wfhAttendanceHtml, wfhAttendanceBody } from './wfhAttendanceTemplate';
+import { changeInitiationHtml } from './changeInitiationTemplate';
+import { changeImplementationHtml } from './changeImplementationTemplate';
 
 export { escapeHtml, printHtmlDocument, openPrintWindow, fillPrintWindow } from './printDocument';
 export { DOC_STYLES, wrapDocument } from './shared';
 export { wfhReportHtml, wfhReportBody, wfhReportBatchHtml } from './wfhReportTemplate';
 export { wfhAttendanceHtml, wfhAttendanceBody } from './wfhAttendanceTemplate';
+export { changeInitiationHtml, changeInitiationBody } from './changeInitiationTemplate';
+export { changeImplementationHtml, changeImplementationBody } from './changeImplementationTemplate';
 
 /** Bangun HTML gabungan (kegiatan + foto absensi) untuk satu pegawai. */
 export function wfhFullHtml({ report, attendance, title } = {}) {
@@ -70,4 +74,14 @@ export function printWfhReportsCombined(list, meta, opts) {
  */
 export function printWfhFullBatch(list = [], meta = {}, opts) {
     printHtmlDocument(wfhFullBatchHtml(list, meta), opts);
+}
+
+/** Cetak PDF Formulir Inisiasi Perubahan. */
+export function printChangeInitiation(data, opts) {
+    printHtmlDocument(changeInitiationHtml(data), opts);
+}
+
+/** Cetak PDF Formulir Persetujuan / Implementasi Perubahan. */
+export function printChangeImplementation(data, opts) {
+    printHtmlDocument(changeImplementationHtml(data), opts);
 }
