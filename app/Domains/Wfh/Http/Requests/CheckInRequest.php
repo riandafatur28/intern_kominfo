@@ -2,6 +2,7 @@
 
 namespace App\Domains\Wfh\Http\Requests;
 
+use App\Models\Setting;
 use Illuminate\Foundation\Http\FormRequest;
 
 class CheckInRequest extends FormRequest
@@ -13,7 +14,7 @@ class CheckInRequest extends FormRequest
 
     public function rules(): array
     {
-        $sessions = \App\Models\Setting::get('wfh_sessions', ['pagi', 'siang', 'sore']);
+        $sessions = Setting::get('wfh_sessions', ['pagi', 'siang', 'sore']);
 
         return [
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
