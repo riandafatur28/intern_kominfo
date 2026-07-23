@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 2.0.0
+  version: 3.0.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -105,6 +105,7 @@ components:
             position: Staf Pelaksana
             phone: "081234567890"
             signature_path: signatures/budi-signature.png
+            must_change_password: true
             is_active: true
             roles: [staf]
             permissions: [wfh.attendance.create, wfh.report.create]
@@ -119,7 +120,7 @@ components:
                 name: Bidang Teknologi Informasi
     AuthUser:
       type: object
-      required: [id, name, nip, email, is_active, roles, permissions]
+      required: [id, name, nip, email, must_change_password, is_active, roles, permissions]
       properties:
         id:
           type: integer
@@ -150,6 +151,10 @@ components:
           type: string
           nullable: true
           example: signatures/budi-signature.png
+        must_change_password:
+          type: boolean
+          description: True when the user must set a new password before full access is granted.
+          example: true
         is_active:
           type: boolean
           example: true
@@ -276,7 +281,7 @@ components:
     # ── User Management ─────────────────────────────────────────────
     StoreUserRequest:
       type: object
-      required: [name, nip, email, password, role]
+      required: [name, nip, email, roles]
       properties:
         name:
           type: string
@@ -312,8 +317,10 @@ components:
         password:
           type: string
           format: password
+          nullable: true
           minLength: 8
           maxLength: 255
+          description: Optional. If omitted, a default password is injected from Settings based on the assigned role.
           example: rahasiaBudi123
         roles:
           type: array
@@ -611,25 +618,57 @@ components:
     # ── WFH Reports ─────────────────────────────────────────────────
     StoreReportRequest:
       type: object
-      required: [report_date, activities]
+      description: |
+        WFH report create/update payload. Sent as `multipart/form-data` when
+        attendance photos are uploaded (attendances.*.photo are file uploads).
+        The `status` field controls validation: when set to `submit`, at least
+        one attendance photo OR one activity must be present.
+      required: [report_date]
       properties:
-        wfh_attendance_id:
-          type: integer
-          nullable: true
-          description: Must belong to the authenticated user.
-          example: 45
         report_date:
           type: string
           format: date
           example: "2025-07-11"
+        status:
+          type: string
+          enum: [draft, submit]
+          default: draft
+          description: '"draft" saves partial progress; "submit" requires activities or attendance photos.'
+          example: submit
         activities:
           type: array
-          minItems: 1
+          nullable: true
           items:
             $ref: "#/components/schemas/ReportActivityInput"
+        attendances:
+          type: object
+          nullable: true
+          description: |
+            Optional attendance photo uploads, keyed by session. Each session
+            is independent; provide any subset of pagi/siang/sore. Requires a
+            multipart/form-data request body.
+          properties:
+            pagi:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+            siang:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
+            sore:
+              type: object
+              properties:
+                photo:
+                  type: string
+                  format: binary
       example:
-        wfh_attendance_id: 45
         report_date: "2025-07-11"
+        status: submit
         activities:
           - start_time: "08:00"
             end_time: "10:00"
@@ -646,7 +685,7 @@ components:
               - https://git.kominfo.go.id/intern/wfh-api/-/issues/34
     ReportActivityInput:
       type: object
-      required: [start_time, end_time, activity]
+      required: [activity]
       properties:
         start_time:
           type: string
@@ -1610,6 +1649,206 @@ components:
             name: permission.manage
           - id: 4
             name: wfh.report.approve
+    # ── Settings ─────────────────────────────────────────────────────
+    Setting:
+      type: object
+      required: [id, key, value, created_at, updated_at]
+      properties:
+        id:
+          type: integer
+          example: 1
+        key:
+          type: string
+          example: default_password.staf
+        value:
+          type: string
+          description: Stored as text; may be JSON-encoded for structured values.
+          example: "Rahasia123!"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-07-01T00:00:00.000000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-07-20T10:15:00.000000Z"
+    UpdateSettingRequest:
+      type: object
+      required: [value]
+      properties:
+        value:
+          description: Any scalar or JSON-encodable structure.
+          example: "RahasiaBaru123!"
+      example:
+        value: "RahasiaBaru123!"
+    # ── Auth: Forced Password Change ─────────────────────────────────
+    ChangePasswordRequest:
+      type: object
+      required: [current_password, new_password, new_password_confirmation]
+      properties:
+        current_password:
+          type: string
+          format: password
+          example: rahasiaLama123
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          example: rahasiaBaru123
+        new_password_confirmation:
+          type: string
+          format: password
+          example: rahasiaBaru123
+      example:
+        current_password: rahasiaLama123
+        new_password: rahasiaBaru123
+        new_password_confirmation: rahasiaBaru123
+    # ── WFH Team Reports ─────────────────────────────────────────────
+    WfhTeamReport:
+      type: object
+      required: [id, team_id, report_date, status, created_by]
+      properties:
+        id:
+          type: integer
+          example: 12
+        team_id:
+          type: integer
+          example: 3
+        report_date:
+          type: string
+          format: date
+          example: "2025-07-11"
+        status:
+          type: string
+          enum: [draft, pending, approved, rejected]
+          example: pending
+        created_by:
+          type: integer
+          example: 1
+        supervisor_id:
+          type: integer
+          nullable: true
+          example: 5
+        maker_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-11T15:45:00.000000Z"
+        supervisor_signed_at:
+          type: string
+          format: date-time
+          nullable: true
+          example: "2025-07-12T09:00:00.000000Z"
+        reject_reason:
+          type: string
+          nullable: true
+          example: null
+        verification_token:
+          type: string
+          nullable: true
+          description: 64-char hex token populated once the report is approved.
+          example: "a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2"
+        created_at:
+          type: string
+          format: date-time
+          example: "2025-07-11T14:00:00.000000Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2025-07-12T09:00:00.000000Z"
+        team:
+          $ref: "#/components/schemas/TeamNested"
+        creator:
+          $ref: "#/components/schemas/ReportUserNested"
+        supervisor:
+          $ref: "#/components/schemas/ReportUserNested"
+      example:
+        id: 12
+        team_id: 3
+        report_date: "2025-07-11"
+        status: pending
+        created_by: 1
+        supervisor_id: null
+        maker_signed_at: "2025-07-11T15:45:00.000000Z"
+        supervisor_signed_at: null
+        reject_reason: null
+        verification_token: null
+        created_at: "2025-07-11T14:00:00.000000Z"
+        updated_at: "2025-07-11T15:45:00.000000Z"
+    CreateTeamReportRequest:
+      type: object
+      required: [team_id, report_date]
+      properties:
+        team_id:
+          type: integer
+          description: Must reference a team within the admin's field (bidang).
+          example: 3
+        report_date:
+          type: string
+          format: date
+          example: "2025-07-11"
+      example:
+        team_id: 3
+        report_date: "2025-07-11"
+    RejectTeamReportRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          example: "Data anggota tim tidak lengkap untuk tanggal ini."
+      example:
+        reason: "Data anggota tim tidak lengkap untuk tanggal ini."
+    TeamReportListResponse:
+      type: object
+      description: Raw Laravel paginator envelope returned by the controller (no success wrapper).
+      required: [data, current_page, last_page, per_page, total]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WfhTeamReport"
+        current_page:
+          type: integer
+          example: 1
+        last_page:
+          type: integer
+          example: 3
+        per_page:
+          type: integer
+          example: 15
+        total:
+          type: integer
+          example: 32
+        from:
+          type: integer
+          nullable: true
+          example: 1
+        to:
+          type: integer
+          nullable: true
+          example: 15
+        first_page_url:
+          type: string
+          format: uri
+          example: "http://localhost/api/admin/wfh/team-reports?page=1"
+        last_page_url:
+          type: string
+          format: uri
+          example: "http://localhost/api/admin/wfh/team-reports?page=3"
+        next_page_url:
+          type: string
+          format: uri
+          nullable: true
+          example: "http://localhost/api/admin/wfh/team-reports?page=2"
+        prev_page_url:
+          type: string
+          format: uri
+          nullable: true
+          example: null
+        path:
+          type: string
+          example: "http://localhost/api/admin/wfh/team-reports"
   parameters:
     UserIdPath:
       name: user
@@ -1654,12 +1893,16 @@ tags:
     description: Admin user CRUD and import
   - name: RBAC Management
     description: Dynamic role-permission management (view roles, toggle permissions)
+  - name: Settings
+    description: Application-wide key/value settings management
   - name: WFH Attendance
     description: Work-from-home attendance check-in
   - name: WFH Reports
     description: WFH report CRUD and approval workflow
   - name: WFH Monitoring
     description: Admin monitoring of WFH attendance and reports
+  - name: WFH Team Reports
+    description: Team-level WFH report creation and supervisor approval
   - name: Change Initiation
     description: Change initiation workflow (draft → pending → approved/rejected)
   - name: Change Implementation
@@ -1811,6 +2054,60 @@ paths:
               example:
                 success: false
                 message: Unauthenticated.
+  /api/auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change the authenticated user's password
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      description: |
+        Allows an authenticated user to set a new password. Reachable even when
+        the `password.changed` middleware would otherwise block access — used to
+        satisfy the forced password-change flow (`must_change_password`).
+        On success, `must_change_password` is cleared.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordRequest"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: Password berhasil diubah.
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "422":
+          description: current_password incorrect, or new_password invalid/unconfirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                wrongCurrent:
+                  summary: current_password does not match
+                  value:
+                    success: false
+                    message: "Password saat ini tidak sesuai."
+                notConfirmed:
+                  summary: new_password confirmation mismatch
+                  value:
+                    success: false
+                    message: "Konfirmasi password baru tidak sesuai."
   # ── Profile ──────────────────────────────────────────────────────
   /api/profile:
     get:
@@ -2514,6 +2811,125 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
 
+  # ── Settings ──────────────────────────────────────────────────────
+  /api/admin/settings:
+    get:
+      tags: [Settings]
+      summary: List all settings as a key→value map
+      operationId: listSettings
+      security:
+        - bearerAuth: []
+      description: |
+        Returns every setting as a flat `{ key: value }` object. Values are
+        JSON-decoded when possible (numbers, booleans, arrays). Requires the
+        `setting.manage` permission.
+      responses:
+        "200":
+          description: Settings map
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: true
+                    description: Arbitrary key→value pairs.
+                    example:
+                      default_password.staf: "Rahasia123!"
+                      default_password.kepala_tim: "KtRahasia123!"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing setting.manage permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+  /api/admin/settings/{key}:
+    put:
+      tags: [Settings]
+      summary: Update a single setting value
+      operationId: updateSetting
+      security:
+        - bearerAuth: []
+      description: |
+        Updates the value of an existing setting identified by `key`. Requires
+        the `setting.manage` permission.
+      parameters:
+        - name: key
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Setting key (must already exist).
+          example: default_password.staf
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateSettingRequest"
+      responses:
+        "200":
+          description: Setting updated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: object
+                    required: [key, value]
+                    properties:
+                      key:
+                        type: string
+                        example: default_password.staf
+                      value:
+                        description: Updated value (decoded if JSON-encodable).
+                        example: "RahasiaBaru123!"
+              example:
+                data:
+                  key: default_password.staf
+                  value: "RahasiaBaru123!"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing setting.manage permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "422":
+          description: Setting key not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: "Setting 'unknown_key' tidak ditemukan."
   # ── WFH Attendance ───────────────────────────────────────────────
   /api/wfh/attendance:
     post:
@@ -2624,12 +3040,12 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: "#/components/schemas/StoreReportRequest"
             example:
-              wfh_attendance_id: 45
               report_date: "2025-07-11"
+              status: submit
               activities:
                 - start_time: "08:00"
                   end_time: "10:00"
@@ -2644,6 +3060,9 @@ paths:
                   activity: "Perbaikan bug validasi tanggal absensi"
                   links:
                     - https://git.kominfo.go.id/intern/wfh-api/-/issues/34
+              attendances:
+                pagi:
+                  photo: <binary file upload>
       responses:
         "201":
           description: Report created
@@ -2791,12 +3210,12 @@ paths:
       requestBody:
         required: true
         content:
-          application/json:
+          multipart/form-data:
             schema:
               $ref: "#/components/schemas/StoreReportRequest"
             example:
-              wfh_attendance_id: 45
               report_date: "2025-07-11"
+              status: submit
               activities:
                 - start_time: "08:00"
                   end_time: "10:00"
@@ -2811,6 +3230,9 @@ paths:
                   activity: "Perbaikan bug validasi tanggal absensi dan testing"
                   links:
                     - https://git.kominfo.go.id/intern/wfh-api/-/issues/34
+              attendances:
+                pagi:
+                  photo: <binary file upload>
       responses:
         "200":
           description: Report updated
@@ -3375,6 +3797,237 @@ paths:
                 success: false
                 message: Tim tidak ditemukan dalam bidang Anda.
 
+  # ── WFH Team Reports ──────────────────────────────────────────────
+  /api/admin/wfh/team-reports:
+    get:
+      tags: [WFH Team Reports]
+      summary: List team reports within the admin's field (paginated)
+      operationId: listWfhTeamReports
+      security:
+        - bearerAuth: []
+      description: |
+        Returns a paginated list of WFH team reports scoped to the admin's own
+        field (bidang). Requires the `wfh.team_report.create` permission.
+      parameters:
+        - name: per_page
+          in: query
+          schema:
+            type: integer
+            default: 15
+            maximum: 100
+          example: 15
+      responses:
+        "200":
+          description: Paginated team reports
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamReportListResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing wfh.team_report.create permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+    post:
+      tags: [WFH Team Reports]
+      summary: Create a team report
+      operationId: createWfhTeamReport
+      security:
+        - bearerAuth: []
+      description: |
+        Creates a team report with status=pending and created_by set to the
+        authenticated user. The referenced team must belong to the admin's own
+        field. Requires the `wfh.team_report.create` permission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateTeamReportRequest"
+      responses:
+        "201":
+          description: Team report created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WfhTeamReport"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing permission, or team outside admin's field
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Tim tidak ditemukan dalam bidang Anda.
+        "422":
+          description: Validation error or duplicate (same team_id + report_date)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Laporan untuk tim dan tanggal ini sudah ada.
+  /api/admin/wfh/team-reports/{id}/approve:
+    post:
+      tags: [WFH Team Reports]
+      summary: Approve a team report
+      operationId: approveWfhTeamReport
+      security:
+        - bearerAuth: []
+      description: |
+        Approves a pending team report: sets status=approved, records
+        supervisor_signed_at, and generates a verification_token. Requires the
+        `wfh.team_report.approve` permission.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Team report ID
+          example: 12
+      responses:
+        "200":
+          description: Team report approved
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WfhTeamReport"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing wfh.team_report.approve permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Team report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Report is not in a pending state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak dapat disetujui pada status saat ini.
+  /api/admin/wfh/team-reports/{id}/reject:
+    post:
+      tags: [WFH Team Reports]
+      summary: Reject a team report
+      operationId: rejectWfhTeamReport
+      security:
+        - bearerAuth: []
+      description: |
+        Rejects a pending team report with a reason: sets status=rejected and
+        stores reject_reason. Requires the `wfh.team_report.approve` permission.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Team report ID
+          example: 12
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectTeamReportRequest"
+      responses:
+        "200":
+          description: Team report rejected
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: "#/components/schemas/WfhTeamReport"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Missing wfh.team_report.approve permission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: This action is unauthorized.
+        "404":
+          description: Team report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                message: Laporan tidak ditemukan.
+        "422":
+          description: Report is not in a pending state, or reason missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Laporan tidak dapat ditolak pada status saat ini.
   /api/verify/{token}:
     get:
       tags: [Verification]
