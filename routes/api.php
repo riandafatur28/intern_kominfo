@@ -1,3 +1,4 @@
+
 <?php
 
 use App\Domains\Auth\Http\Controllers\AuthController;
@@ -15,12 +16,15 @@ use App\Domains\Wfh\Http\Controllers\ReportController;
 use App\Domains\Wfh\Http\Controllers\ReportPdfController;
 use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
 use App\Http\Controllers\QrVerificationController;
+use App\Http\Controllers\SettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
 Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
 
-Route::middleware('auth:sanctum')->group(function () {
+Route::middleware('auth:sanctum')->post('/auth/change-password', [AuthController::class, 'changePassword']);
+
+Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     // Auth
     Route::get('/auth/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
@@ -50,6 +54,11 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::middleware('permission:permission.manage')->group(function () {
         Route::get('/admin/permissions', [PermissionController::class, 'index']);
+    });
+
+    Route::middleware('permission:setting.manage')->group(function () {
+        Route::get('/admin/settings', [SettingController::class, 'index']);
+        Route::put('/admin/settings/{key}', [SettingController::class, 'update']);
     });
 
     // WFH Module

@@ -2,6 +2,7 @@
 
 namespace App\Domains\Auth\Http\Controllers;
 
+use App\Domains\Auth\Http\Requests\ChangePasswordRequest;
 use App\Domains\Auth\Http\Requests\LoginRequest;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -65,6 +66,21 @@ class AuthController extends Controller
         ]);
     }
 
+    public function changePassword(ChangePasswordRequest $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $user->update([
+            'password' => $request->new_password,
+            'must_change_password' => false,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil diubah.',
+        ]);
+    }
+
     private function userData(User $user): array
     {
         $data = [
@@ -76,6 +92,7 @@ class AuthController extends Controller
             'position' => $user->position,
             'phone' => $user->phone,
             'signature_path' => $user->signature_path,
+            'must_change_password' => $user->must_change_password,
             'is_active' => $user->is_active,
             'roles' => $user->getRoleNames(),
             'permissions' => $user->getAllPermissions()->pluck('name')->values(),

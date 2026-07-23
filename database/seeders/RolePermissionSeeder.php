@@ -56,6 +56,13 @@ class RolePermissionSeeder extends Seeder
             'change.implementation.submit',
             'change.implementation.review',
             'change.implementation.export_pdf',
+
+            // Settings
+            'setting.manage',
+
+            // WFH Team Reports (Phase 4)
+            'wfh.team_report.create',
+            'wfh.team_report.approve',
         ];
 
         foreach ($permissions as $perm) {

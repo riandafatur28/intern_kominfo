@@ -73,6 +73,7 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             'rank' => trim($row['pangkat_golongan'] ?? ''),
             'position' => trim($row['jabatan'] ?? ''),
             'password' => Hash::make(Str::random(12)),
+            'must_change_password' => true,
             'is_active' => true,
         ]);
     }

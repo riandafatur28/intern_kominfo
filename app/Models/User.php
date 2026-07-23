@@ -2,6 +2,8 @@
 
 namespace App\Models;
 
+use App\Domains\Wfh\Models\WfhAttendance;
+use App\Domains\Wfh\Models\WfhReport;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -26,6 +28,7 @@ class User extends Authenticatable
         'signature_path',
         'password',
         'is_active',
+        'must_change_password',
     ];
 
     protected $hidden = [
@@ -33,10 +36,15 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    protected $attributes = [
+        'must_change_password' => false,
+    ];
+
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
         'is_active' => 'boolean',
+        'must_change_password' => 'boolean',
     ];
 
     public function team(): BelongsTo
@@ -44,13 +52,13 @@ class User extends Authenticatable
         return $this->belongsTo(Team::class);
     }
 
-    public function ledTeams(): HasMany
+    public function wfhReports(): HasMany
     {
-        return $this->hasMany(Team::class, 'leader_id');
+        return $this->hasMany(WfhReport::class);
     }
 
-    public function headedFields(): HasMany
+    public function wfhAttendances(): HasMany
     {
-        return $this->hasMany(Field::class, 'head_id');
+        return $this->hasMany(WfhAttendance::class);
     }
 }

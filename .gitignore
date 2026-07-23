@@ -25,3 +25,5 @@ tasks/
 .pi
 .claude
 .agents
+graphify-out
+docs
