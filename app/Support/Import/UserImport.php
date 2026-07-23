@@ -5,11 +5,11 @@ namespace App\Support\Import;
 use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
-use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
 use Spatie\Permission\Models\Role;
+
 class UserImport implements ToModel, WithHeadingRow, WithValidation
 {
     public array $results = [
@@ -83,7 +83,7 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             'phone' => trim($row['telepon'] ?? ''),
             'rank' => trim($row['pangkat_golongan'] ?? ''),
             'position' => trim($row['jabatan'] ?? ''),
-            'password' => Hash::make($defaultPassword),
+            'password' => $defaultPassword,
             'must_change_password' => true,
             'is_active' => true,
         ]);

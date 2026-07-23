@@ -36,10 +36,14 @@ class User extends Authenticatable
         'remember_token',
     ];
 
+    /**
+     * Model default is false so factory-created users (tests, seeds) are not
+     * forced to change password. Migration default is true — raw DB inserts
+     * (e.g. UserImport) must explicitly set must_change_password=true.
+     */
     protected $attributes = [
         'must_change_password' => false,
     ];
-
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
