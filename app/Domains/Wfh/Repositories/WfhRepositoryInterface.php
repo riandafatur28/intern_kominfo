@@ -25,9 +25,10 @@ interface WfhRepositoryInterface extends RepositoryInterface
     public function createReportWithRelations(array $reportData, array $activities, array $attendances = []): WfhReport;
 
     public function updateReportWithRelations(int $id, array $reportData, array $activities, array $attendances = []): bool;
+
     public function getTeamReportsForDate(int $teamId, string $date): Collection;
 
-    // Monitoring
+    public function getTeamReportData(int $teamId, string $date): array;
     public function getUsersWithoutAttendance(string $date, ?int $teamId = null): array;
 
     public function getUsersWithoutReport(string $date, ?int $teamId = null): array;

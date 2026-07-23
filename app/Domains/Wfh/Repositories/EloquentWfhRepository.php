@@ -76,7 +76,6 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         return WfhReport::with(['user.team.field', 'attendances', 'activities.links', 'supervisor.team'])
             ->find($id);
     }
-
     public function getTeamReportsForDate(int $teamId, string $date): Collection
     {
         return WfhReport::with(['user', 'activities.links'])
@@ -84,6 +83,47 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
             ->orderBy('status')
             ->get();
+    }
+
+    public function getTeamReportData(int $teamId, string $date): array
+    {
+        $members = User::where('team_id', $teamId)->where('is_active', true)->get();
+
+        $reports = WfhReport::with(['activities.links', 'attendances'])
+            ->where('report_date', $date)
+            ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
+            ->get()
+            ->keyBy('user_id');
+
+        $attendances = \App\Domains\Wfh\Models\WfhAttendance::where('date', $date)
+            ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
+            ->get()
+            ->groupBy('user_id');
+
+        return $members->map(function ($member) use ($reports, $attendances) {
+            $report = $reports->get($member->id);
+
+            $links = $report
+                ? $report->activities->flatMap->links->pluck('url')->filter()->values()
+                : collect();
+
+            $photos = [];
+            if ($memberAttendances = $attendances->get($member->id)) {
+                foreach ($memberAttendances as $att) {
+                    $photos[] = [
+                        'session' => $att->session,
+                        'photo_url' => $att->photo_path ? asset('storage/' . $att->photo_path) : null,
+                    ];
+                }
+            }
+
+            return [
+                'name' => strtoupper($member->name),
+                'nip' => $member->nip ?? '-',
+                'links' => $links->toArray(),
+                'photos' => $photos,
+            ];
+        })->toArray();
     }
 
     public function createReportWithRelations(array $reportData, array $activities, array $attendances = []): WfhReport
