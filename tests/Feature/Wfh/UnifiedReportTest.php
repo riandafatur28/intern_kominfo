@@ -2,7 +2,6 @@
 
 namespace Tests\Feature\Wfh;
 
-use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -92,5 +91,53 @@ class UnifiedReportTest extends TestCase
             ],
         ])
             ->assertStatus(201);
+    }
+
+    public function test_update_report_replaces_previous_photos(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('staf');
+        Sanctum::actingAs($user);
+
+        $response = $this->postJson('/api/wfh/reports', [
+            'report_date' => now()->toDateString(),
+            'attendances' => [
+                'pagi' => ['photo' => UploadedFile::fake()->image('pagi.jpg')],
+                'sore' => ['photo' => UploadedFile::fake()->image('sore.jpg')],
+            ],
+        ]);
+        $reportId = $response->json('data.id');
+
+        // Update with different set — should replace, not append
+        $this->putJson("/api/wfh/reports/{$reportId}", [
+            'report_date' => now()->toDateString(),
+            'attendances' => [
+                'siang' => ['photo' => UploadedFile::fake()->image('siang.jpg')],
+            ],
+        ])->assertStatus(200);
+
+        $report = $user->wfhReports()->with('attendances')->first();
+        $this->assertCount(1, $report->attendances);
+        $this->assertEquals('siang', $report->attendances->first()->session);
+    }
+
+    public function test_update_report_cannot_modify_others_report(): void
+    {
+        $owner = User::factory()->create();
+        $owner->assignRole('staf');
+        Sanctum::actingAs($owner);
+
+        $response = $this->postJson('/api/wfh/reports', [
+            'report_date' => now()->toDateString(),
+        ]);
+        $reportId = $response->json('data.id');
+
+        $intruder = User::factory()->create();
+        $intruder->assignRole('staf');
+        Sanctum::actingAs($intruder);
+
+        $this->putJson("/api/wfh/reports/{$reportId}", [
+            'report_date' => now()->toDateString(),
+        ])->assertStatus(403);
     }
 }

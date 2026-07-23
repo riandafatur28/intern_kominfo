@@ -108,6 +108,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
             $report->update($reportData);
 
+            $report->attendances()->delete();
             $this->syncAttendances($report, $attendances);
 
             $report->activities()->delete();
@@ -156,7 +157,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
                 'user_id' => $report->user_id,
                 'date' => $report->report_date->format('Y-m-d'),
                 'session' => $session,
-                'photo_path' => $data['photo_path'] ?? '',
+                'photo_path' => $data['photo_path'] ?? null,
                 'check_in_at' => now(),
             ]);
         }
