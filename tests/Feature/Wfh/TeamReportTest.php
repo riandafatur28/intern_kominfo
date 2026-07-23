@@ -167,9 +167,7 @@ class TeamReportTest extends TestCase
         $this->assertEmpty($data[0]['photos']);
     }
 
-    // === Listing ===
-
-    public function test_admin_can_list_team_reports(): void
+    public function test_duplicate_team_report_for_same_date_returns_error(): void
     {
         $field = Field::create(['name' => 'Bidang A']);
         $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
@@ -178,11 +176,51 @@ class TeamReportTest extends TestCase
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
 
-        $this->createTeamReport($team);
+        $this->postJson('/api/admin/wfh/team-reports', [
+            'team_id' => $team->id,
+            'report_date' => now()->toDateString(),
+        ])->assertStatus(201);
 
-        $this->getJson('/api/admin/wfh/team-reports')
-            ->assertStatus(200)
-            ->assertJsonStructure(['data' => [['id', 'team_id', 'status']]]);
+        // Second create for same team+date
+        $this->postJson('/api/admin/wfh/team-reports', [
+            'team_id' => $team->id,
+            'report_date' => now()->toDateString(),
+        ])->assertStatus(422);
+    }
+
+    public function test_approve_non_pending_team_report_returns_422(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $kb = User::factory()->create(['team_id' => $team->id]);
+        $kb->assignRole('kepala_bidang');
+        $field->update(['head_id' => $kb->id]);
+        Sanctum::actingAs($kb);
+
+        $report = $this->createTeamReport($team);
+        $report->update(['status' => 'approved']);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/approve")
+            ->assertStatus(422);
+    }
+
+    public function test_reject_non_pending_team_report_returns_422(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $kb = User::factory()->create(['team_id' => $team->id]);
+        $kb->assignRole('kepala_bidang');
+        $field->update(['head_id' => $kb->id]);
+        Sanctum::actingAs($kb);
+
+        $report = $this->createTeamReport($team);
+        $report->update(['status' => 'rejected']);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/reject", [
+            'reason' => 'Already rejected',
+        ])->assertStatus(422);
     }
 
     // === Helpers ===

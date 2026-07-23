@@ -28,9 +28,9 @@ class TeamReportController extends Controller
         $reports = WfhTeamReport::with(['team', 'creator', 'supervisor'])
             ->whereHas('team', fn ($q) => $q->where('field_id', $fieldId))
             ->orderByDesc('report_date')
-            ->get();
+            ->paginate(min($request->integer('per_page', 15), 100));
 
-        return response()->json(['data' => $reports]);
+        return response()->json($reports);
     }
 
     public function store(Request $request): JsonResponse
@@ -49,6 +49,14 @@ class TeamReportController extends Controller
 
         if (! $fieldId || $team->field_id !== $fieldId) {
             return response()->json(['message' => 'Tim tidak ditemukan dalam bidang Anda.'], 403);
+        }
+
+        $exists = WfhTeamReport::where('team_id', $validated['team_id'])
+            ->where('report_date', $validated['report_date'])
+            ->exists();
+
+        if ($exists) {
+            return response()->json(['message' => 'Laporan untuk tim dan tanggal ini sudah ada.'], 422);
         }
 
         $report = WfhTeamReport::create([

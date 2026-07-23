@@ -12,7 +12,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('team_id')->constrained('teams')->cascadeOnDelete();
             $table->date('report_date');
-            $table->string('status', 20)->default('draft'); // draft, pending, approved, rejected
+            $table->string('status', 20)->default('pending');
             $table->foreignId('created_by')->constrained('users')->cascadeOnDelete();
             $table->foreignId('supervisor_id')->nullable()->constrained('users')->nullOnDelete();
             $table->timestamp('maker_signed_at')->nullable();
