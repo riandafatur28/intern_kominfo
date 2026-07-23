@@ -2,10 +2,12 @@
 
 namespace Tests\Feature\Organization;
 
+use App\Models\Setting;
 use App\Models\User;
 use App\Support\Import\UserImport;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class UserImportTest extends TestCase
@@ -36,10 +38,32 @@ class UserImportTest extends TestCase
         $this->assertNotNull($user1);
         $this->assertEquals('staf', $import->roleAssignments['satu@test.com']);
         $this->assertTrue($user1->must_change_password);
+        $this->assertTrue(Hash::check(Setting::get('password_default_user', 'user1234'), $user1->password));
 
         $user2 = User::where('email', 'dua@test.com')->first();
         $this->assertNotNull($user2);
         $this->assertEquals('kepala_tim', $import->roleAssignments['dua@test.com']);
+        $this->assertTrue($user2->must_change_password);
+        $this->assertTrue(Hash::check(Setting::get('password_default_user', 'user1234'), $user2->password));
+    }
+
+    public function test_import_with_admin_role_uses_admin_default_password(): void
+    {
+        $csv = "nama,nip,email,role\n"
+            . "Admin Satu,0000000301,adminimport@test.com,admin\n";
+
+        file_put_contents('/tmp/test_import_admin.csv', $csv);
+
+        $import = new UserImport;
+        Excel::import($import, '/tmp/test_import_admin.csv');
+
+        $this->assertEquals(1, $import->results['imported']);
+
+        $user = User::where('email', 'adminimport@test.com')->first();
+        $this->assertNotNull($user);
+        $this->assertEquals('admin', $import->roleAssignments['adminimport@test.com']);
+        $this->assertTrue($user->must_change_password);
+        $this->assertTrue(Hash::check(Setting::get('password_default_admin', 'admin123'), $user->password));
     }
 
     public function test_import_with_invalid_role_triggers_validation_error(): void
