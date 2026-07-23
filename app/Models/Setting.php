@@ -24,8 +24,7 @@ class Setting extends Model
 
         $value = $setting->value;
         $decoded = is_string($value) ? json_decode($value, true) : $value;
-
-        self::$cache[$key] = $decoded ?? $value;
+        self::$cache[$key] = $decoded !== null ? $decoded : $value;
 
         return self::$cache[$key];
     }

@@ -88,6 +88,25 @@ class SettingTest extends TestCase
         ]);
     }
     
+    public function test_set_get_preserves_array_values(): void
+    {
+        $array = ['pagi', 'siang', 'sore'];
+        Setting::set('test_sessions', $array);
+        $this->assertSame($array, Setting::get('test_sessions'));
+    }
+    
+    public function test_set_get_preserves_integer_string(): void
+    {
+        Setting::set('test_answer', '0');
+        $this->assertSame('0', Setting::get('test_answer'));
+    }
+    
+    public function test_set_get_does_not_mutate_numeric_string_that_is_valid_json(): void
+    {
+        Setting::set('test_number', '42');
+        $this->assertSame('42', Setting::get('test_number'));
+     }
+    
     public function test_update_setting_validates_value_required(): void
     {
         $admin = User::factory()->create();
