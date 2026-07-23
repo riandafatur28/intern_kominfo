@@ -95,7 +95,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             ->get()
             ->keyBy('user_id');
 
-        $attendances = \App\Domains\Wfh\Models\WfhAttendance::where('date', $date)
+        $attendances = WfhAttendance::where('date', $date)
             ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
             ->get()
             ->groupBy('user_id');
