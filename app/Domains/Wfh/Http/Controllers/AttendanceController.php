@@ -3,6 +3,7 @@
 namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Http\Requests\CheckInRequest;
+use App\Models\Setting;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -28,11 +29,10 @@ class AttendanceController extends Controller
             return response()->json(['success' => false, 'message' => 'Absensi hanya dapat dilakukan pada hari ini.'], 422);
         }
 
-        // Validate allowed day (default: Friday only)
-        $allowedDays = config('wfh.allowed_days', [5]); // 1=Mon..7=Sun, 5=Friday
-        $dayOfWeek = now()->parse($date)->dayOfWeekIso; // 1=Mon..7=Sun
+        // Validate allowed day from Setting
+        $allowedDays = Setting::get('wfh_allowed_days', [1, 2, 3, 4, 5]); // 1=Mon..7=Sun
+        $dayOfWeek = now()->parse($date)->dayOfWeekIso;
 
-        // Friday in IsoWeek = 5
         if (! in_array($dayOfWeek, $allowedDays)) {
             return response()->json([
                 'success' => false,
