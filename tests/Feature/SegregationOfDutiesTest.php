@@ -34,9 +34,9 @@ class SegregationOfDutiesTest extends TestCase
     }
 
     /**
-     * WFH: report maker cannot approve their own report.
+     * WFH: report maker can approve own report (self-approve guard removed per Issue F).
      */
-    public function test_wfh_maker_cannot_approve_own_report(): void
+    public function test_wfh_maker_can_approve_own_report(): void
     {
         $team = Team::factory()->create();
         $maker = $this->createUserWithRole('kepala_bidang', $team);
@@ -49,14 +49,13 @@ class SegregationOfDutiesTest extends TestCase
         Sanctum::actingAs($maker);
 
         $this->postJson("/api/wfh/reports/{$report->id}/approve")
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
+            ->assertStatus(200);
     }
 
     /**
-     * WFH: report maker cannot reject their own report.
+     * WFH: report maker can reject own report (self-approve guard removed per Issue F).
      */
-    public function test_wfh_maker_cannot_reject_own_report(): void
+    public function test_wfh_maker_can_reject_own_report(): void
     {
         $team = Team::factory()->create();
         $maker = $this->createUserWithRole('kepala_bidang', $team);
@@ -71,9 +70,9 @@ class SegregationOfDutiesTest extends TestCase
         $this->postJson("/api/wfh/reports/{$report->id}/reject", [
             'reason' => 'Not good enough',
         ])
-            ->assertStatus(422)
-            ->assertJsonPath('success', false);
+            ->assertStatus(200);
     }
+
 
     /**
      * WFH: different supervisor CAN approve a report.

@@ -2,8 +2,6 @@
 
 namespace App\Domains\Wfh\Http\Requests;
 
-use App\Domains\Wfh\Models\WfhAttendance;
-use Closure;
 use Illuminate\Foundation\Http\FormRequest;
 
 class StoreReportRequest extends FormRequest
@@ -16,28 +14,35 @@ class StoreReportRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'wfh_attendance_id' => ['nullable', 'exists:wfh_attendances,id', function (string $attribute, mixed $value, Closure $fail) {
-                if ($value && WfhAttendance::where('id', $value)->where('user_id', auth()->id())->doesntExist()) {
-                    $fail('Absensi WFH tidak ditemukan untuk user ini.');
-                }
-            }],
             'report_date' => ['required', 'date'],
-            'activities' => ['required', 'array', 'min:1'],
-            'activities.*.start_time' => ['required', 'date_format:H:i'],
-            'activities.*.end_time' => ['required', 'date_format:H:i', 'after:activities.*.start_time'],
+            'activities' => ['sometimes', 'array'],
+            'activities.*.start_time' => ['required_with:activities.*.end_time', 'date_format:H:i'],
+            'activities.*.end_time' => ['required_with:activities.*.start_time', 'date_format:H:i', 'after:activities.*.start_time'],
             'activities.*.activity' => ['required', 'string'],
             'activities.*.links' => ['nullable', 'array'],
             'activities.*.links.*' => ['url'],
+            'attendances' => ['sometimes', 'array:pagi,siang,sore'],
+            'attendances.*.photo' => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
         ];
     }
 
-    public function messages(): array
+    public function withValidator($validator): void
     {
-        return [
-            'activities.required' => 'Minimal satu kegiatan harus diisi.',
-            'activities.min' => 'Minimal satu kegiatan harus diisi.',
-            'activities.*.end_time.after' => 'Waktu selesai harus setelah waktu mulai.',
-            'activities.*.links.*.url' => 'Link bukti kerja harus berupa URL yang valid.',
-        ];
+        $validator->after(function ($validator) {
+            if ($this->input('status') !== 'submit') {
+                return;
+            }
+
+            $hasPhoto = ! empty($this->file('attendances.pagi.photo'))
+                || ! empty($this->file('attendances.siang.photo'))
+                || ! empty($this->file('attendances.sore.photo'));
+
+            $activities = $this->input('activities');
+            $hasActivity = is_array($activities) && count($activities) > 0;
+
+            if (! $hasPhoto && ! $hasActivity) {
+                $validator->errors()->add('attendances', 'Setidaknya satu foto absensi atau satu kegiatan harus diisi.');
+            }
+        });
     }
 }

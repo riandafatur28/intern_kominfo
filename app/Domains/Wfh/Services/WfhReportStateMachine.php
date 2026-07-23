@@ -28,9 +28,6 @@ class WfhReportStateMachine
 
     public function approve(WfhReport $report, User $supervisor): WfhReport
     {
-        if ($report->user_id === $supervisor->id) {
-            throw new \DomainException('Pembuat laporan tidak dapat menyetujui laporannya sendiri.');
-        }
         if ($report->status !== 'pending') {
             throw new \DomainException('Hanya laporan dengan status pending yang dapat disetujui.');
         }
@@ -46,9 +43,6 @@ class WfhReportStateMachine
 
     public function reject(WfhReport $report, User $supervisor, string $reason): WfhReport
     {
-        if ($report->user_id === $supervisor->id) {
-            throw new \DomainException('Pembuat laporan tidak dapat menolak laporannya sendiri.');
-        }
         if ($report->status !== 'pending') {
             throw new \DomainException('Hanya laporan dengan status pending yang dapat ditolak.');
         }
@@ -60,6 +54,7 @@ class WfhReportStateMachine
 
         return $report->fresh();
     }
+
 
     public function revise(WfhReport $report): WfhReport
     {

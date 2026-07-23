@@ -17,6 +17,7 @@ class WfhAttendance extends Model
         'session',
         'photo_path',
         'check_in_at',
+        'report_id',
     ];
 
     protected $casts = [
@@ -27,5 +28,10 @@ class WfhAttendance extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function report(): BelongsTo
+    {
+        return $this->belongsTo(WfhReport::class);
     }
 }

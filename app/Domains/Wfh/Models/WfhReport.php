@@ -15,7 +15,6 @@ class WfhReport extends Model
 
     protected $fillable = [
         'user_id',
-        'wfh_attendance_id',
         'report_date',
         'status',
         'maker_signed_at',
@@ -36,9 +35,9 @@ class WfhReport extends Model
         return $this->belongsTo(User::class);
     }
 
-    public function attendance(): BelongsTo
+    public function attendances(): HasMany
     {
-        return $this->belongsTo(WfhAttendance::class, 'wfh_attendance_id');
+        return $this->hasMany(WfhAttendance::class, 'report_id');
     }
 
     public function supervisor(): BelongsTo

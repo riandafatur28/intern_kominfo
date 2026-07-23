@@ -75,14 +75,26 @@ class ReportController extends Controller
     {
         $this->authorize('wfh.report.create');
 
+        $user = $request->user();
+        $date = $request->input('report_date');
+
+        // Process attendance photos
+        $attendances = [];
+        foreach (['pagi', 'siang', 'sore'] as $session) {
+            if ($photo = $request->file("attendances.{$session}.photo")) {
+                $path = $photo->store("attendances/{$user->id}/{$date}", 'public');
+                $attendances[$session] = ['photo_path' => $path];
+            }
+        }
+
         $report = $this->wfhRepository->createReportWithRelations(
             reportData: [
-                'user_id' => $request->user()->id,
-                'wfh_attendance_id' => $request->input('wfh_attendance_id'),
-                'report_date' => $request->input('report_date'),
-                'status' => 'draft',
+                'user_id' => $user->id,
+                'report_date' => $date,
+                'status' => $request->input('status', 'draft'),
             ],
-            activities: $request->input('activities'),
+            activities: $request->input('activities', []),
+            attendances: $attendances,
         );
 
         return response()->json([
@@ -138,10 +150,22 @@ class ReportController extends Controller
             ], 422);
         }
 
+        $user = $request->user();
+        $date = $request->input('report_date', $report->report_date->format('Y-m-d'));
+
+        $attendances = [];
+        foreach (['pagi', 'siang', 'sore'] as $session) {
+            if ($photo = $request->file("attendances.{$session}.photo")) {
+                $path = $photo->store("attendances/{$user->id}/{$date}", 'public');
+                $attendances[$session] = ['photo_path' => $path];
+            }
+        }
+
         $this->wfhRepository->updateReportWithRelations(
             id: $id,
-            reportData: ['report_date' => $request->input('report_date')],
-            activities: $request->input('activities'),
+            reportData: ['report_date' => $date, 'status' => $request->input('status', $report->status)],
+            activities: $request->input('activities', []),
+            attendances: $attendances,
         );
 
         return response()->json([
@@ -150,6 +174,7 @@ class ReportController extends Controller
             'data' => new WfhReportResource($this->wfhRepository->findReportWithRelations($id)),
         ]);
     }
+
 
     public function destroy(int $id): JsonResponse
     {

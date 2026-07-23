@@ -40,7 +40,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
     public function paginateReportsForUser(int $userId, int $perPage = 15): LengthAwarePaginator
     {
         return WfhReport::where('user_id', $userId)
-            ->with(['activities.links', 'supervisor'])
+            ->with(['attendances', 'activities.links', 'supervisor'])
             ->orderByDesc('report_date')
             ->paginate($perPage);
     }
@@ -73,7 +73,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     public function findReportWithRelations(int $id): ?WfhReport
     {
-        return WfhReport::with(['user.team.field', 'attendance', 'activities.links', 'supervisor.team'])
+        return WfhReport::with(['user.team.field', 'attendances', 'activities.links', 'supervisor.team'])
             ->find($id);
     }
 
@@ -86,20 +86,21 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             ->get();
     }
 
-    public function createReportWithRelations(array $reportData, array $activities): WfhReport
+    public function createReportWithRelations(array $reportData, array $activities, array $attendances = []): WfhReport
     {
-        return DB::transaction(function () use ($reportData, $activities) {
+        return DB::transaction(function () use ($reportData, $activities, $attendances) {
             $report = WfhReport::create($reportData);
 
+            $this->syncAttendances($report, $attendances);
             $this->syncActivities($report, $activities);
 
-            return $report->fresh(['activities.links']);
+            return $report->fresh(['attendances', 'activities.links']);
         });
     }
 
-    public function updateReportWithRelations(int $id, array $reportData, array $activities): bool
+    public function updateReportWithRelations(int $id, array $reportData, array $activities, array $attendances = []): bool
     {
-        return DB::transaction(function () use ($id, $reportData, $activities) {
+        return DB::transaction(function () use ($id, $reportData, $activities, $attendances) {
             $report = WfhReport::find($id);
             if (! $report) {
                 return false;
@@ -107,13 +108,15 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
             $report->update($reportData);
 
-            // Delete existing activities + links, recreate
+            $this->syncAttendances($report, $attendances);
+
             $report->activities()->delete();
             $this->syncActivities($report, $activities);
 
             return true;
         });
     }
+
 
     // === Monitoring ===
 
@@ -145,6 +148,19 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     // === Private helpers ===
 
+
+    private function syncAttendances(WfhReport $report, array $attendances): void
+    {
+        foreach ($attendances as $session => $data) {
+            $report->attendances()->create([
+                'user_id' => $report->user_id,
+                'date' => $report->report_date->format('Y-m-d'),
+                'session' => $session,
+                'photo_path' => $data['photo_path'] ?? '',
+                'check_in_at' => now(),
+            ]);
+        }
+    }
     private function syncActivities(WfhReport $report, array $activities): void
     {
         foreach ($activities as $index => $activity) {

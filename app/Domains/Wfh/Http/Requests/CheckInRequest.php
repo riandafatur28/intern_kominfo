@@ -13,9 +13,11 @@ class CheckInRequest extends FormRequest
 
     public function rules(): array
     {
+        $sessions = \App\Models\Setting::get('wfh_sessions', ['pagi', 'siang', 'sore']);
+
         return [
             'photo' => ['required', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
-            'session' => ['nullable', 'string', 'in:pagi,sore'],
+            'session' => ['nullable', 'string', 'in:' . implode(',', $sessions)],
             'date' => ['nullable', 'date', 'after_or_equal:today', 'before_or_equal:today'],
         ];
     }

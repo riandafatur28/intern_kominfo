@@ -11,15 +11,23 @@ class WfhReportResource extends JsonResource
         $data = [
             'id' => $this->id,
             'user_id' => $this->user_id,
-            'wfh_attendance_id' => $this->wfh_attendance_id,
             'report_date' => $this->report_date?->format('Y-m-d'),
             'status' => $this->status,
+            'activity_count' => $this->whenLoaded('activities', fn () => $this->activities->count(), 0),
             'maker_signed_at' => $this->maker_signed_at,
             'supervisor_signed_at' => $this->supervisor_signed_at,
             'reject_reason' => $this->reject_reason,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
+
+        if ($this->relationLoaded('attendances')) {
+            $data['attendances'] = $this->attendances->map(fn ($att) => [
+                'session' => $att->session,
+                'checked_in' => ! is_null($att->check_in_at),
+                'photo_url' => $att->photo_path ? asset('storage/' . $att->photo_path) : null,
+            ]);
+        }
 
         if ($this->relationLoaded('user')) {
             $data['user'] = [
