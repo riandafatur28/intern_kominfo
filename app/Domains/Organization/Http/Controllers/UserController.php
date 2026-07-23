@@ -6,6 +6,7 @@ use App\Domains\Organization\Http\Requests\StoreUserRequest;
 use App\Domains\Organization\Http\Requests\UpdateUserRequest;
 use App\Domains\Organization\Http\Resources\UserResource;
 use App\Domains\Organization\Repositories\UserRepositoryInterface;
+use App\Models\Setting;
 use App\Support\Import\UserImport;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -46,8 +47,21 @@ class UserController extends Controller
     {
         $this->authorize('user.manage');
 
-        $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone', 'password']);
+        $data = $request->only(['name', 'nip', 'email', 'team_id', 'rank', 'position', 'phone']);
         $data['is_active'] = true;
+        $data['must_change_password'] = true;
+
+        // Inject default password from Setting if not provided
+        if ($password = $request->input('password')) {
+            $data['password'] = $password;
+        } else {
+            $roles = $request->input('roles', []);
+            $hasAdmin = in_array('admin', $roles);
+
+            $data['password'] = $hasAdmin
+                ? Setting::get('password_default_admin', 'admin123')
+                : Setting::get('password_default_user', 'user1234');
+        }
 
         $user = $this->userRepository->create($data);
 
@@ -145,8 +159,14 @@ class UserController extends Controller
         try {
             Excel::import($import, $request->file('file'));
 
-            // Assign staf role to all imported users that don't have a role yet
-            // (handled after import since ToModel doesn't support role assignment)
+            // Assign roles from imported role column
+            foreach ($import->roleAssignments as $email => $roleName) {
+                $user = User::where('email', $email)->first();
+                if ($user) {
+                    $user->assignRole($roleName);
+                }
+            }
+
             return response()->json([
                 'success' => true,
                 'message' => 'Import selesai.',
