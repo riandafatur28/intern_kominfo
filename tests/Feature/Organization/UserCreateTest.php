@@ -75,7 +75,7 @@ class UserCreateTest extends TestCase
             ->assertStatus(201);
 
         $user = User::where('email', 'custom@test.com')->first();
-        $this->assertNotNull($user);
+        $this->assertTrue($user->must_change_password);
         $this->assertTrue(Hash::check('MyCustomPass123', $user->password));
     }
 }
