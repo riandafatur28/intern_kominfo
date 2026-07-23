@@ -25,7 +25,7 @@ class StoreUserRequest extends FormRequest
             'rank' => ['nullable', 'string', 'max:255'],
             'position' => ['nullable', 'string', 'max:255'],
             'phone' => ['nullable', 'string', 'max:20'],
-            'password' => ['required', 'string', 'min:8', 'max:255'],
+            'password' => ['sometimes', 'nullable', 'string', 'min:8', 'max:255'],
             'roles' => ['required', 'array'],
             'roles.*' => ['string', Rule::in($roleNames)],
             'permissions' => ['nullable', 'array'],

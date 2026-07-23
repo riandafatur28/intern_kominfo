@@ -2,14 +2,14 @@
 
 namespace App\Support\Import;
 
+use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
-
+use Spatie\Permission\Models\Role;
 class UserImport implements ToModel, WithHeadingRow, WithValidation
 {
     public array $results = [
@@ -17,6 +17,8 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
         'skipped' => 0,
         'errors' => [],
     ];
+
+    public array $roleAssignments = [];
 
     private int $rowNumber = 1;
 
@@ -28,6 +30,7 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
         $email = trim($row['email'] ?? '');
         $name = trim($row['nama'] ?? '');
         $teamName = trim($row['tim'] ?? '');
+        $roleName = trim($row['role'] ?? '');
 
         // Skip if required fields missing
         if (empty($nip) || empty($email) || empty($name)) {
@@ -64,6 +67,14 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
 
         $this->results['imported']++;
 
+        // Determine default password from Setting based on role
+        $hasAdmin = $roleName === 'admin';
+        $defaultPassword = $hasAdmin
+            ? Setting::get('password_default_admin', 'admin123')
+            : Setting::get('password_default_user', 'user1234');
+
+        $this->roleAssignments[$email] = $roleName;
+
         return new User([
             'team_id' => $team?->id,
             'name' => $name,
@@ -72,7 +83,7 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             'phone' => trim($row['telepon'] ?? ''),
             'rank' => trim($row['pangkat_golongan'] ?? ''),
             'position' => trim($row['jabatan'] ?? ''),
-            'password' => Hash::make(Str::random(12)),
+            'password' => Hash::make($defaultPassword),
             'must_change_password' => true,
             'is_active' => true,
         ]);
@@ -80,10 +91,13 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
 
     public function rules(): array
     {
+        $roleNames = Role::pluck('name')->toArray();
+
         return [
             'nama' => 'required|string',
             'nip' => 'required|string',
             'email' => 'required|email',
+            'role' => ['required', 'string', \Illuminate\Validation\Rule::in($roleNames)],
         ];
     }
 }
