@@ -90,6 +90,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.reject',
             'wfh.monitoring.view',
             'wfh.report.export_pdf',
+            'wfh.team_report.approve',
             'change.initiation.view',
             'change.initiation.export_pdf',
             'change.implementation.view',

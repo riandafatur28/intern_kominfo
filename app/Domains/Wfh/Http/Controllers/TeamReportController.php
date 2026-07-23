@@ -1,0 +1,101 @@
+<?php
+
+namespace App\Domains\Wfh\Http\Controllers;
+
+use App\Domains\Wfh\Models\WfhTeamReport;
+use App\Domains\Wfh\Services\TeamReportStateMachine;
+use App\Models\Team;
+use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Routing\Controller;
+
+class TeamReportController extends Controller
+{
+    use AuthorizesRequests;
+
+    public function __construct(
+        private TeamReportStateMachine $stateMachine,
+    ) {}
+
+    public function index(Request $request): JsonResponse
+    {
+        $this->authorize('wfh.team_report.create');
+
+        $user = $request->user();
+        $fieldId = $user->team?->field?->id;
+
+        $reports = WfhTeamReport::with(['team', 'creator', 'supervisor'])
+            ->whereHas('team', fn ($q) => $q->where('field_id', $fieldId))
+            ->orderByDesc('report_date')
+            ->get();
+
+        return response()->json(['data' => $reports]);
+    }
+
+    public function store(Request $request): JsonResponse
+    {
+        $this->authorize('wfh.team_report.create');
+
+        $user = $request->user();
+        $fieldId = $user->team?->field?->id;
+
+        $validated = $request->validate([
+            'team_id' => ['required', 'exists:teams,id'],
+            'report_date' => ['required', 'date'],
+        ]);
+
+        $team = Team::find($validated['team_id']);
+
+        if (! $fieldId || $team->field_id !== $fieldId) {
+            return response()->json(['message' => 'Tim tidak ditemukan dalam bidang Anda.'], 403);
+        }
+
+        $report = WfhTeamReport::create([
+            'team_id' => $validated['team_id'],
+            'report_date' => $validated['report_date'],
+            'status' => 'pending',
+            'created_by' => $user->id,
+        ]);
+
+        return response()->json(['data' => $report], 201);
+    }
+
+    public function approve(Request $request, int $id): JsonResponse
+    {
+        $this->authorize('wfh.team_report.approve');
+
+        $report = WfhTeamReport::find($id);
+        if (! $report) {
+            return response()->json(['message' => 'Laporan tidak ditemukan.'], 404);
+        }
+
+        try {
+            $report = $this->stateMachine->approve($report);
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $report]);
+    }
+
+    public function reject(Request $request, int $id): JsonResponse
+    {
+        $this->authorize('wfh.team_report.approve');
+
+        $request->validate(['reason' => ['required', 'string']]);
+
+        $report = WfhTeamReport::find($id);
+        if (! $report) {
+            return response()->json(['message' => 'Laporan tidak ditemukan.'], 404);
+        }
+
+        try {
+            $report = $this->stateMachine->reject($report, $request->input('reason'));
+        } catch (\DomainException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        return response()->json(['data' => $report]);
+    }
+}

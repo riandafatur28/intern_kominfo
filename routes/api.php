@@ -14,7 +14,7 @@ use App\Domains\Wfh\Http\Controllers\AttendanceController;
 use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportController;
 use App\Domains\Wfh\Http\Controllers\ReportPdfController;
-use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
+use App\Domains\Wfh\Http\Controllers\TeamReportController;
 use App\Http\Controllers\QrVerificationController;
 use App\Http\Controllers\SettingController;
 use Illuminate\Support\Facades\Route;
@@ -92,6 +92,16 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
 
     Route::get('/admin/wfh/teams/{team}/pdf', [ReportPdfController::class, 'exportTeam'])
         ->middleware('permission:wfh.report.export_pdf');
+
+    Route::middleware('permission:wfh.team_report.create')->group(function () {
+        Route::get('/admin/wfh/team-reports', [TeamReportController::class, 'index']);
+        Route::post('/admin/wfh/team-reports', [TeamReportController::class, 'store']);
+    });
+
+    Route::middleware('permission:wfh.team_report.approve')->group(function () {
+        Route::post('/admin/wfh/team-reports/{id}/approve', [TeamReportController::class, 'approve']);
+        Route::post('/admin/wfh/team-reports/{id}/reject', [TeamReportController::class, 'reject']);
+    });
     // Change Management Module
     Route::get('/changes/initiations', [InitiationController::class, 'index'])
         ->middleware('permission:change.initiation.view');
