@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
+use App\Domains\ChangeManagement\Models\ChangeType;
 
 class SecurityHardeningTest extends TestCase
 {
@@ -112,22 +113,25 @@ class SecurityHardeningTest extends TestCase
         $field = Field::first();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/changes/initiations', [
-            'field_id' => $field->id,
-            'description' => 'Test change',
-            'reason' => 'Testing',
+        $response = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test change',
+                'reason' => 'Testing',
+            ],
+            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
         ]);
-        $initId = $response->json('data.id');
+        $pkgId = $response->json('data.initiation.id');
 
         // Admin (initiator) can view
-        $this->getJson("/api/changes/initiations/{$initId}")
+        $this->getJson("/api/changes/{$pkgId}")
             ->assertStatus(200);
 
-        // Staf (no approve permission) cannot view another user's initiation
+        // Staf (no approve permission) cannot view another user's package
         $staf = $this->createStaf();
         Sanctum::actingAs($staf);
 
-        $this->getJson("/api/changes/initiations/{$initId}")
+        $this->getJson("/api/changes/{$pkgId}")
             ->assertStatus(403);
     }
 
@@ -135,18 +139,38 @@ class SecurityHardeningTest extends TestCase
     {
         $admin = $this->createAdmin();
         $field = Field::first();
+        $changeType = ChangeType::create(['name' => 'Test Type']);
         Sanctum::actingAs($admin);
 
-        // Create + approve initiation
-        $initResponse = $this->postJson('/api/changes/initiations', [
-            'field_id' => $field->id,
-            'description' => 'Test change',
-            'reason' => 'Testing',
+        // Create package → submit → approve
+        $response = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test change',
+                'reason' => 'Testing',
+            ],
+            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
         ]);
-        $initId = $initResponse->json('data.id');
+        $pkgId = $response->json('data.initiation.id');
 
-        $this->postJson("/api/changes/initiations/{$initId}/submit")
-            ->assertStatus(200);
+        $this->postJson("/api/changes/{$pkgId}/submit", [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test change',
+                'reason' => 'Testing',
+                'needed_by_date' => '2026-09-01',
+            ],
+            'implementation' => [
+                'priority' => 'medium',
+                'impact' => 'low',
+                'change_type_ids' => [$changeType->id],
+                'test_plan' => 'Test plan',
+                'execution_date' => '2026-08-10',
+                'release_date' => '2026-08-15',
+                'implementation_result' => 'Done',
+                'testing_result' => 'Pass',
+            ],
+        ])->assertStatus(200);
 
         $supervisor = User::create([
             'team_id' => Team::first()->id,
@@ -159,27 +183,20 @@ class SecurityHardeningTest extends TestCase
         $supervisor->assignRole('admin');
         Sanctum::actingAs($supervisor);
 
-        $this->postJson("/api/changes/initiations/{$initId}/approve")
+        $this->postJson("/api/changes/{$pkgId}/approve")
             ->assertStatus(200);
 
-        // Create implementation as admin
+        // Admin (initiator) can view the package with completed implementation
         Sanctum::actingAs($admin);
-        $implResponse = $this->postJson("/api/changes/initiations/{$initId}/implementations", [
-            'priority' => 'medium',
-            'impact' => 'low',
-            'resources' => '2 org',
-        ]);
-        $implId = $implResponse->json('data.id');
-
-        // Admin (evaluator) can view
-        $this->getJson("/api/changes/implementations/{$implId}")
+        $this->getJson("/api/changes/{$pkgId}")
+            ->assertJsonPath('data.implementation.status', 'completed')
             ->assertStatus(200);
 
-        // Staf (no review permission) cannot view another user's implementation
+        // Staf (no review permission) cannot view another user's package
         $staf = $this->createStaf();
         Sanctum::actingAs($staf);
 
-        $this->getJson("/api/changes/implementations/{$implId}")
+        $this->getJson("/api/changes/{$pkgId}")
             ->assertStatus(403);
     }
 
@@ -189,43 +206,24 @@ class SecurityHardeningTest extends TestCase
         $field = Field::first();
         Sanctum::actingAs($admin);
 
-        // Create approved initiation + implementation
-        $initResponse = $this->postJson('/api/changes/initiations', [
-            'field_id' => $field->id,
-            'description' => 'Test',
-            'reason' => 'Testing',
+        // Create draft package
+        $response = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test',
+                'reason' => 'Testing',
+            ],
+            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
         ]);
-        $initId = $initResponse->json('data.id');
+        $pkgId = $response->json('data.initiation.id');
 
-        $this->postJson("/api/changes/initiations/{$initId}/submit")->assertStatus(200);
-
-        $supervisor = User::create([
-            'team_id' => Team::first()->id,
-            'name' => 'Supervisor',
-            'nip' => '0000000003',
-            'email' => 'sup@test.com',
-            'password' => Hash::make('password'),
-            'is_active' => true,
-        ]);
-        $supervisor->assignRole('admin');
-        Sanctum::actingAs($supervisor);
-        $this->postJson("/api/changes/initiations/{$initId}/approve")->assertStatus(200);
-
-        Sanctum::actingAs($admin);
-        $implResponse = $this->postJson("/api/changes/initiations/{$initId}/implementations", [
-            'priority' => 'medium',
-            'impact' => 'low',
-            'resources' => '2 org',
-        ]);
-        $implId = $implResponse->json('data.id');
-
-        // Upload 11 fake files — should fail validation
+        // Upload 11 fake files — should fail validation (max:10)
         $files = [];
         for ($i = 0; $i < 11; $i++) {
             $files[$i] = UploadedFile::fake()->image("file{$i}.png", 100, 100);
         }
 
-        $this->postJson("/api/changes/implementations/{$implId}/attachments", ['files' => $files])
+        $this->postJson("/api/changes/{$pkgId}/attachments", ['files' => $files])
             ->assertStatus(422);
     }
 }

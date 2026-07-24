@@ -1101,463 +1101,91 @@ components:
           report_date: "2025-07-11"
           status: terverifikasi
           message: Dokumen telah ditandatangani secara elektronik.
-    # ── Change Management ───────────────────────────────────────────
-    StoreInitiationRequest:
+    # ── Change Package ─────────────────────────────────────────────
+    ChangePackageDraftRequest:
       type: object
-      required: [field_id, description, reason]
+      required: [initiation]
       properties:
-        field_id:
-          type: integer
-          example: 1
-        needed_by_date:
-          type: string
-          format: date
-          nullable: true
-          example: "2025-08-15"
-        description:
-          type: string
-          example: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-        reason:
-          type: string
-          example: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
-      example:
-        field_id: 1
-        needed_by_date: "2025-08-15"
-        description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-        reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
-    InitiationResource:
-      type: object
-      required: [id, field_id, initiator_id, doc_number, status]
-      properties:
-        id:
-          type: integer
-          example: 8
-        field_id:
-          type: integer
-          example: 1
-        initiator_id:
-          type: integer
-          example: 1
-        reviewer_id:
-          type: integer
-          nullable: true
-          example: 5
-        doc_number:
-          type: string
-          example: CHG-2025-008
-        initiation_date:
-          type: string
-          format: date
-          nullable: true
-          example: "2025-07-14"
-        needed_by_date:
-          type: string
-          format: date
-          nullable: true
-          example: "2025-08-15"
-        description:
-          type: string
-          example: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-        reason:
-          type: string
-          example: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
-        status:
-          type: string
-          enum: [draft, pending, approved, rejected]
-          example: pending
-        review_status:
-          type: string
-          nullable: true
-          example: null
-        reviewed_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: null
-        review_reason:
-          type: string
-          nullable: true
-          example: null
-        initiator_signed_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2025-07-14T10:30:00.000000Z"
-        created_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2025-07-14T10:00:00.000000Z"
-        field:
+        initiation:
+          type: object
+          required: [field_id, description, reason]
+          properties:
+            field_id: { type: integer, example: 1 }
+            needed_by_date: { type: string, format: date, nullable: true, example: "2025-08-15" }
+            description: { type: string, example: "Migrasi server aplikasi dari on-premise ke cloud kominfo" }
+            reason: { type: string, example: "Server on-premise saat ini sudah tidak memadai." }
+        implementation:
           type: object
           properties:
-            id:
-              type: integer
-              example: 1
-            name:
-              type: string
-              example: Bidang Teknologi Informasi
-        initiator:
-          $ref: "#/components/schemas/ReportUserNested"
-        implementations:
-          type: array
-          items:
-            $ref: "#/components/schemas/ImplementationResource"
-      example:
-        id: 8
-        field_id: 1
-        initiator_id: 1
-        reviewer_id: 5
-        doc_number: CHG-2025-008
-        initiation_date: "2025-07-14"
-        needed_by_date: "2025-08-15"
-        description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-        reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
-        status: pending
-        review_status: null
-        reviewed_at: null
-        review_reason: null
-        initiator_signed_at: "2025-07-14T10:30:00.000000Z"
-        created_at: "2025-07-14T10:00:00.000000Z"
-        field:
-          id: 1
-          name: Bidang Teknologi Informasi
-        initiator:
-          id: 1
-          name: Budi Santoso
-          nip: "199001012023011001"
-          position: Staf Pelaksana
-          rank: Pengatur Muda
-          signature_path: signatures/1-signature.png
-        implementations: []
-    InitiationListResponse:
+            priority: { type: string, enum: [low, medium, high, critical], nullable: true, example: high }
+            impact: { type: string, enum: [low, medium, high], nullable: true, example: high }
+            change_type_ids: { type: array, nullable: true, items: { type: integer }, example: [1, 3] }
+            test_plan: { type: string, nullable: true, example: "Smoke test semua endpoint API." }
+            execution_date: { type: string, format: date, nullable: true, example: "2025-08-01" }
+            release_date: { type: string, format: date, nullable: true, example: "2025-08-05" }
+            implementation_result: { type: string, nullable: true }
+            testing_result: { type: string, nullable: true }
+            evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 15 }
+            production_impact: { type: string, nullable: true }
+            required_effort: { type: string, nullable: true }
+            cost_needed: { type: boolean, nullable: true }
+            cost_amount: { type: number, format: double, nullable: true }
+            resources: { type: string, nullable: true }
+    ChangePackageSubmitRequest:
+      type: object
+      required: [initiation, implementation]
+      properties:
+        initiation:
+          type: object
+          required: [field_id, description, reason, needed_by_date]
+          properties:
+            field_id: { type: integer, example: 1 }
+            description: { type: string, example: "Migrasi server aplikasi dari on-premise ke cloud kominfo" }
+            reason: { type: string, example: "Server on-premise saat ini sudah tidak memadai." }
+            needed_by_date: { type: string, format: date, example: "2025-08-15" }
+        implementation:
+          type: object
+          required: [priority, impact, change_type_ids, test_plan, execution_date, release_date, implementation_result, testing_result]
+          properties:
+            priority: { type: string, enum: [low, medium, high, critical], example: high }
+            impact: { type: string, enum: [low, medium, high], example: high }
+            change_type_ids: { type: array, minItems: 1, items: { type: integer }, example: [1, 3] }
+            test_plan: { type: string, example: "Smoke test semua endpoint API." }
+            execution_date: { type: string, format: date, example: "2025-08-01" }
+            release_date: { type: string, format: date, example: "2025-08-05" }
+            implementation_result: { type: string, example: "Migrasi berhasil." }
+            testing_result: { type: string, example: "Semua pengujian lulus." }
+            evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 15 }
+    ChangePackageResource:
+      type: object
+      properties:
+        initiation: { $ref: "#/components/schemas/InitiationResource" }
+        implementation: { $ref: "#/components/schemas/ImplementationResource", nullable: true }
+    ChangePackageListResponse:
       type: object
       required: [success, data, meta]
       properties:
-        success:
-          type: boolean
-          example: true
-        data:
-          type: array
-          items:
-            $ref: "#/components/schemas/InitiationResource"
-        meta:
-          $ref: "#/components/schemas/PaginationMeta"
+        success: { type: boolean, example: true }
+        data: { type: array, items: { $ref: "#/components/schemas/ChangePackageResource" } }
+        meta: { $ref: "#/components/schemas/PaginationMeta" }
       example:
         success: true
         data:
-          - id: 8
-            field_id: 1
-            initiator_id: 1
-            reviewer_id: 5
-            doc_number: CHG-2025-008
-            initiation_date: "2025-07-14"
-            needed_by_date: "2025-08-15"
-            description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-            reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
-            status: pending
-            review_status: null
-            reviewed_at: null
-            review_reason: null
-            initiator_signed_at: "2025-07-14T10:30:00.000000Z"
-            created_at: "2025-07-14T10:00:00.000000Z"
-            field:
+          - initiation:
               id: 1
-              name: Bidang Teknologi Informasi
-            initiator:
+              field_id: 1
+              status: draft
+            implementation:
               id: 1
-              name: Budi Santoso
-              nip: "199001012023011001"
-              position: Staf Pelaksana
-              rank: Pengatur Muda
-              signature_path: signatures/1-signature.png
-            implementations: []
+              status: draft
         meta:
           current_page: 1
           last_page: 1
-          total: 3
-    StoreImplementationRequest:
+          total: 1
+    DecidePackageRequest:
       type: object
       properties:
-        priority:
-          type: string
-          enum: [low, medium, high, critical]
-          nullable: true
-          example: high
-        impact:
-          type: string
-          enum: [low, medium, high]
-          nullable: true
-          example: high
-        production_impact:
-          type: string
-          nullable: true
-          example: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-        required_effort:
-          type: string
-          nullable: true
-          example: "3 orang x 5 hari kerja"
-        cost_needed:
-          type: boolean
-          nullable: true
-          example: true
-        cost_amount:
-          type: number
-          format: double
-          nullable: true
-          example: 15000000
-        resources:
-          type: string
-          nullable: true
-          example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-        test_plan:
-          type: string
-          nullable: true
-          example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-        change_type_ids:
-          type: array
-          nullable: true
-          items:
-            type: integer
-          example: [1, 3]
-        implementation_result:
-          type: string
-          nullable: true
-          example: null
-        testing_result:
-          type: string
-          nullable: true
-          example: null
-        evaluator_id:
-          type: integer
-          nullable: true
-          description: |
-            ID of the evaluator (defaults to the creator if omitted).
-            Evaluator must be an active user in the same field (bidang).
-          example: 15
-      example:
-        priority: high
-        impact: high
-        production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-        required_effort: "3 orang x 5 hari kerja"
-        cost_needed: true
-        cost_amount: 15000000
-        resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-        test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-        change_type_ids: [1, 3]
-    ImplementationResource:
-      type: object
-      required: [id, change_initiation_id, status]
-      properties:
-        id:
-          type: integer
-          example: 4
-        change_initiation_id:
-          type: integer
-          example: 8
-        priority:
-          type: string
-          nullable: true
-          example: high
-        impact:
-          type: string
-          nullable: true
-          example: high
-        production_impact:
-          type: string
-          nullable: true
-          example: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-        required_effort:
-          type: string
-          nullable: true
-          example: "3 orang x 5 hari kerja"
-        cost_needed:
-          type: boolean
-          nullable: true
-          example: true
-        cost_amount:
-          type: number
-          format: double
-          nullable: true
-          example: 15000000
-        resources:
-          type: string
-          nullable: true
-          example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-        test_plan:
-          type: string
-          nullable: true
-          example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-        evaluator_id:
-          type: integer
-          nullable: true
-          example: 5
-        evaluator_signed_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: "2025-07-14T11:00:00.000000Z"
-        review_status:
-          type: string
-          nullable: true
-          example: null
-        review_response:
-          type: string
-          nullable: true
-          example: null
-        execution_date:
-          type: string
-          format: date
-          nullable: true
-          example: null
-        reviewer_id:
-          type: integer
-          nullable: true
-          example: null
-        reviewer_signed_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: null
-        implementation_result:
-          type: string
-          nullable: true
-          example: null
-        testing_result:
-          type: string
-          nullable: true
-          example: null
-        release_date:
-          type: string
-          format: date
-          nullable: true
-          example: null
-        responsible_id:
-          type: integer
-          nullable: true
-          example: null
-        responsible_signed_at:
-          type: string
-          format: date-time
-          nullable: true
-          example: null
-        status:
-          type: string
-          enum: [draft, submitted, completed, rejected, revision]
-          example: submitted
-        change_types:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-                example: 1
-              name:
-                type: string
-                example: Perubahan Infrastruktur
-        attachments:
-          type: array
-          items:
-            type: object
-            properties:
-              id:
-                type: integer
-                example: 15
-              path:
-                type: string
-                example: implementations/4/diagram-arsitektur.png
-              url:
-                type: string
-                format: uri
-                example: http://localhost/storage/implementations/4/diagram-arsitektur.png
-              sort_order:
-                type: integer
-                example: 1
-      example:
-        id: 4
-        change_initiation_id: 8
-        priority: high
-        impact: high
-        production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-        required_effort: "3 orang x 5 hari kerja"
-        cost_needed: true
-        cost_amount: 15000000
-        resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-        test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-        evaluator_id: 5
-        evaluator_signed_at: "2025-07-14T11:00:00.000000Z"
-        review_status: null
-        review_response: null
-        execution_date: null
-        reviewer_id: null
-        reviewer_signed_at: null
-        implementation_result: null
-        testing_result: null
-        release_date: null
-        responsible_id: null
-        responsible_signed_at: null
-        status: submitted
-        change_types:
-          - id: 1
-            name: Perubahan Infrastruktur
-          - id: 3
-            name: Perubahan Data
-        attachments:
-          - id: 15
-            path: implementations/4/diagram-arsitektur.png
-            url: http://localhost/storage/implementations/4/diagram-arsitektur.png
-            sort_order: 1
-    ReviewImplementationRequest:
-      type: object
-      required: [review_status]
-      properties:
-        review_status:
-          type: string
-          enum: [diterima, ditolak, revisi]
-          example: diterima
-        review_response:
-          type: string
-          nullable: true
-          example: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
-        execution_date:
-          type: string
-          format: date
-          nullable: true
-          description: Required when review_status is "diterima".
-          example: "2025-08-01"
-        release_date:
-          type: string
-          format: date
-          nullable: true
-          description: Required when review_status is "diterima". Must be on or after execution_date.
-          example: "2025-08-05"
-        implementation_result:
-          type: string
-          nullable: true
-          description: Required when review_status is "diterima".
-          example: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
-        testing_result:
-          type: string
-          nullable: true
-          description: Required when review_status is "diterima".
-          example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
-      example:
-        review_status: diterima
-        review_response: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
-        execution_date: "2025-08-01"
-        release_date: "2025-08-05"
-        implementation_result: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
-        testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
-    RejectInitiationRequest:
-      type: object
-      required: [reason]
-      properties:
-        reason:
-          type: string
-          example: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
-      example:
-        reason: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
+        reason: { type: string, nullable: true, example: "Dokumen tidak lengkap." }
     # ── RBAC Management ────────────────────────────────────────────
     RoleResource:
       type: object
@@ -1869,23 +1497,6 @@ components:
       schema:
         type: integer
       description: WFH Report ID
-      example: 23
-    InitiationIdPath:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: integer
-      description: Change Initiation ID
-      example: 8
-    ImplementationIdPath:
-      name: id
-      in: path
-      required: true
-      schema:
-        type: integer
-      description: Change Implementation ID
-      example: 4
 security:
   - bearerAuth: []
 tags:
@@ -1907,10 +1518,6 @@ tags:
     description: Admin monitoring of WFH attendance and reports
   - name: WFH Team Reports
     description: Team-level WFH report creation and supervisor approval
-  - name: Change Initiation
-    description: Change initiation workflow (draft → pending → approved/rejected)
-  - name: Change Implementation
-    description: Change implementation, review, and attachments
   - name: Verification
     description: Public QR token document verification
 paths:
@@ -2242,21 +1849,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SignatureUploadResponse"
-              example:
-                success: true
-                message: Tanda tangan berhasil diunggah.
-                data:
-                  signature_path: signatures/1-signature.png
-                  signature_url: http://localhost/storage/signatures/1-signature.png
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
+    PackageIdPath:
+      name: id
+      in: path
+      required: true
+      description: Change Package (parent initiation) ID
+      schema:
+        type: integer
                 message: Unauthenticated.
         "422":
           description: Validation error
@@ -2279,10 +1878,8 @@ paths:
           schema:
             type: integer
             default: 15
-            maximum: 100
-          example: 15
-      responses:
-        "200":
+  - name: Change Package
+    description: Change package workflow (create draft → submit → approve/reject, PDF export)
           description: Paginated user list
           content:
             application/json:
@@ -4065,680 +3662,185 @@ paths:
               example:
                 success: false
                 message: Token verifikasi tidak ditemukan.
-  # ── Change Initiation ────────────────────────────────────────────
-  /api/changes/initiations:
+  # ── Change Package ──────────────────────────────────────────────
+  /api/changes:
     get:
-      tags: [Change Initiation]
-      summary: List change initiations (paginated)
-      operationId: listInitiations
+      tags: [Change Package]
+      summary: List packages (paginated, team-scoped)
+      operationId: listPackages
       parameters:
         - name: per_page
           in: query
-          schema:
-            type: integer
-            default: 15
-            maximum: 100
-          example: 15
+          schema: { type: integer, default: 15, maximum: 100 }
         - name: status
           in: query
-          schema:
-            type: string
-            enum: [draft, pending, approved, rejected]
-          example: pending
-        - name: field_id
-          in: query
-          schema:
-            type: integer
-          example: 1
+          schema: { type: string, enum: [draft, pending, approved, rejected] }
       responses:
         "200":
-          description: Paginated initiation list
+          description: Paginated package list
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/InitiationListResponse"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Missing permission change.initiation.view
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
+                $ref: "#/components/schemas/ChangePackageListResponse"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
     post:
-      tags: [Change Initiation]
-      summary: Create a change initiation
-      operationId: createInitiation
+      tags: [Change Package]
+      summary: Create draft package (initiation + implementation 1:1)
+      operationId: createPackage
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/StoreInitiationRequest"
+              $ref: "#/components/schemas/ChangePackageDraftRequest"
             example:
-              field_id: 1
-              needed_by_date: "2025-08-15"
-              description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-              reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
+              initiation:
+                field_id: 1
+                description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
+                reason: "Server on-premise saat ini sudah tidak memadai."
+              implementation:
+                priority: high
+                impact: high
       responses:
         "201":
-          description: Initiation created
+          description: Package created
           content:
             application/json:
               schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Inisiasi perubahan berhasil dibuat.
-                  data:
-                    $ref: "#/components/schemas/InitiationResource"
-              example:
-                success: true
-                message: Inisiasi perubahan berhasil dibuat.
-                data:
-                  id: 8
-                  field_id: 1
-                  initiator_id: 1
-                  reviewer_id: null
-                  doc_number: CHG-2025-008
-                  initiation_date: "2025-07-14"
-                  needed_by_date: "2025-08-15"
-                  description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-                  reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime."
-                  status: draft
-                  review_status: null
-                  reviewed_at: null
-                  review_reason: null
-                  initiator_signed_at: null
-                  created_at: "2025-07-14T10:00:00.000000Z"
-                  field:
-                    id: 1
-                    name: Bidang Teknologi Informasi
-                  initiator:
-                    id: 1
-                    name: Budi Santoso
-                    nip: "199001012023011001"
-                    position: Staf Pelaksana
-                    rank: Pengatur Muda
-                    signature_path: signatures/1-signature.png
-                  implementations: []
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Missing permission change.initiation.create
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "422":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "The description field is required."
-  /api/changes/initiations/{id}:
+                $ref: "#/components/schemas/ChangePackageResource"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /api/changes/{id}:
     get:
-      tags: [Change Initiation]
-      summary: Get initiation by ID
-      operationId: getInitiationById
+      tags: [Change Package]
+      summary: Show single package
+      operationId: showPackage
       parameters:
-        - $ref: "#/components/parameters/InitiationIdPath"
+        - $ref: "#/components/parameters/PackageIdPath"
       responses:
         "200":
-          description: Initiation data
+          description: Package detail
           content:
             application/json:
               schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    $ref: "#/components/schemas/InitiationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Not initiator and missing permission change.initiation.approve
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Initiation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Inisiasi tidak ditemukan.
-  /api/changes/initiations/{id}/submit:
-    post:
-      tags: [Change Initiation]
-      summary: Submit initiation for approval
-      operationId: submitInitiation
-      parameters:
-        - $ref: "#/components/parameters/InitiationIdPath"
-      responses:
-        "200":
-          description: Initiation submitted
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Inisiasi berhasil disubmit untuk persetujuan.
-                  data:
-                    $ref: "#/components/schemas/InitiationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Not the initiator or missing permission
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Initiation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Inisiasi tidak ditemukan.
-        "422":
-          description: Initiation not in draft status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Inisiasi dengan status approved tidak dapat disubmit."
-  /api/changes/initiations/{id}/approve:
-    post:
-      tags: [Change Initiation]
-      summary: Approve a change initiation
-      operationId: approveInitiation
-      parameters:
-        - $ref: "#/components/parameters/InitiationIdPath"
-      responses:
-        "200":
-          description: Initiation approved
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Inisiasi berhasil disetujui.
-                  data:
-                    $ref: "#/components/schemas/InitiationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Missing permission change.initiation.approve
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Initiation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Inisiasi tidak ditemukan.
-        "422":
-          description: Cannot self-approve or initiation not pending
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Tidak dapat menyetujui inisiasi sendiri."
-  /api/changes/initiations/{id}/reject:
-    post:
-      tags: [Change Initiation]
-      summary: Reject a change initiation
-      operationId: rejectInitiation
-      parameters:
-        - $ref: "#/components/parameters/InitiationIdPath"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RejectInitiationRequest"
-            example:
-              reason: "Justifikasi kebutuhan migrasi kurang kuat, mohon dilengkapi data trafik dan downtime historis."
-      responses:
-        "200":
-          description: Initiation rejected
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Inisiasi ditolak.
-                  data:
-                    $ref: "#/components/schemas/InitiationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Missing permission change.initiation.reject
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Initiation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Inisiasi tidak ditemukan.
-        "422":
-          description: Cannot self-reject or initiation not pending
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Tidak dapat menolak inisiasi sendiri."
-  /api/changes/initiations/{id}/revise:
-    post:
-      tags: [Change Initiation]
-      summary: Return rejected initiation to draft for revision
-      operationId: reviseInitiation
-      parameters:
-        - $ref: "#/components/parameters/InitiationIdPath"
-      responses:
-        "200":
-          description: Initiation returned to draft
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Inisiasi dikembalikan ke draft untuk revisi.
-                  data:
-                    $ref: "#/components/schemas/InitiationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Not the initiator or missing permission
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Initiation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Inisiasi tidak ditemukan.
-        "422":
-          description: Initiation not rejected
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Inisiasi dengan status draft tidak dapat direvisi."
-  /api/changes/initiations/{id}/implementations:
-    post:
-      tags: [Change Implementation]
-      summary: Create an implementation under an initiation
-      operationId: createImplementation
-      parameters:
-        - $ref: "#/components/parameters/InitiationIdPath"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/StoreImplementationRequest"
-            example:
-              priority: high
-              impact: high
-              production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-              required_effort: "3 orang x 5 hari kerja"
-              cost_needed: true
-              cost_amount: 15000000
-              resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-              test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-              change_type_ids: [1, 3]
-      responses:
-        "201":
-          description: Implementation created
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Implementasi perubahan berhasil dibuat.
-                  data:
-                    $ref: "#/components/schemas/ImplementationResource"
-              example:
-                success: true
-                message: Implementasi perubahan berhasil dibuat.
-                data:
-                  id: 4
-                  change_initiation_id: 8
-                  priority: high
-                  impact: high
-                  production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-                  required_effort: "3 orang x 5 hari kerja"
-                  cost_needed: true
-                  cost_amount: 15000000
-                  resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-                  test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-                  evaluator_id: null
-                  evaluator_signed_at: null
-                  review_status: null
-                  review_response: null
-                  execution_date: null
-                  reviewer_id: null
-                  reviewer_signed_at: null
-                  implementation_result: null
-                  testing_result: null
-                  release_date: null
-                  responsible_id: null
-                  responsible_signed_at: null
-                  status: draft
-                  change_types:
-                    - id: 1
-                      name: Perubahan Infrastruktur
-                    - id: 3
-                      name: Perubahan Data
-                  attachments: []
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Missing permission change.implementation.create
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Initiation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Inisiasi tidak ditemukan.
-        "422":
-          description: Initiation not approved or validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Inisiasi belum disetujui, tidak dapat membuat implementasi."
-  /api/changes/implementations/{id}:
-    get:
-      tags: [Change Implementation]
-      summary: Get implementation by ID
-      operationId: getImplementationById
-      parameters:
-        - $ref: "#/components/parameters/ImplementationIdPath"
-      responses:
-        "200":
-          description: Implementation data
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    $ref: "#/components/schemas/ImplementationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Not evaluator and missing permission change.implementation.review
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Implementation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Implementasi tidak ditemukan.
+                $ref: "#/components/schemas/ChangePackageResource"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
     put:
-      tags: [Change Implementation]
-      summary: Update implementation
-      operationId: updateImplementation
+      tags: [Change Package]
+      summary: Update draft package (owner only, draft status)
+      operationId: updatePackage
       parameters:
-        - $ref: "#/components/parameters/ImplementationIdPath"
+        - $ref: "#/components/parameters/PackageIdPath"
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/StoreImplementationRequest"
-            example:
-              priority: critical
-              impact: high
-              production_impact: "Aplikasi akan tidak dapat diakses selama 3 jam pada saat migrasi data."
-              required_effort: "4 orang x 5 hari kerja"
-              cost_needed: true
-              cost_amount: 18000000
-              resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps, backup server"
-              test_plan: "Smoke test semua endpoint API, load test dengan 200 concurrent users, uji rollback ke server lama."
-              change_type_ids: [1, 3]
+              $ref: "#/components/schemas/ChangePackageDraftRequest"
       responses:
         "200":
-          description: Implementation updated
+          description: Package updated
           content:
             application/json:
               schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Implementasi perubahan berhasil diperbarui.
-                  data:
-                    $ref: "#/components/schemas/ImplementationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Not evaluator or missing permission change.implementation.update
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Implementation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Implementasi tidak ditemukan.
-        "422":
-          description: Not in draft/revision status or validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Implementasi dengan status completed tidak dapat diperbarui."
-  /api/changes/implementations/{id}/attachments:
-    post:
-      tags: [Change Implementation]
-      summary: Upload attachment files to an implementation
-      operationId: uploadImplementationAttachments
+                $ref: "#/components/schemas/ChangePackageResource"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+    delete:
+      tags: [Change Package]
+      summary: Delete draft package (owner only, soft-delete)
+      operationId: deletePackage
       parameters:
-        - $ref: "#/components/parameters/ImplementationIdPath"
+        - $ref: "#/components/parameters/PackageIdPath"
+      responses:
+        "200":
+          description: Package deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+  /api/changes/{id}/submit:
+    post:
+      tags: [Change Package]
+      summary: Submit package for approval (owner only, validates all fields)
+      operationId: submitPackage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePackageSubmitRequest"
+      parameters:
+        - $ref: "#/components/parameters/PackageIdPath"
+      responses:
+        "200":
+          description: Package submitted, status pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangePackageResource"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /api/changes/{id}/approve:
+    post:
+      tags: [Change Package]
+      summary: Approve package (team scope, not self, sets reviewer+responsible)
+      operationId: approvePackage
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecidePackageRequest"
+      parameters:
+        - $ref: "#/components/parameters/PackageIdPath"
+      responses:
+        "200":
+          description: Package approved, implementation completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangePackageResource"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /api/changes/{id}/reject:
+    post:
+      tags: [Change Package]
+      summary: Reject package (team scope, not self, terminal)
+      operationId: rejectPackage
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecidePackageRequest"
+      parameters:
+        - $ref: "#/components/parameters/PackageIdPath"
+      responses:
+        "200":
+          description: Package rejected (terminal)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangePackageResource"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /api/changes/{id}/attachments:
+    post:
+      tags: [Change Package]
+      summary: Upload attachments (draft only)
+      operationId: uploadPackageAttachments
+      parameters:
+        - $ref: "#/components/parameters/PackageIdPath"
       requestBody:
         required: true
         content:
@@ -4749,287 +3851,27 @@ paths:
               properties:
                 files:
                   type: array
-                  maxItems: 10
                   items:
                     type: string
                     format: binary
-                  description: JPG/JPEG/PNG images, max 5MB each, max 2000x2000px
+                  maxItems: 10
       responses:
         "200":
           description: Attachments uploaded
           content:
             application/json:
               schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Lampiran berhasil diunggah.
-                  data:
-                    $ref: "#/components/schemas/ImplementationResource"
-              example:
-                success: true
-                message: Lampiran berhasil diunggah.
-                data:
-                  id: 4
-                  change_initiation_id: 8
-                  priority: high
-                  impact: high
-                  production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-                  required_effort: "3 orang x 5 hari kerja"
-                  cost_needed: true
-                  cost_amount: 15000000
-                  resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-                  test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-                  evaluator_id: 5
-                  evaluator_signed_at: "2025-07-14T11:00:00.000000Z"
-                  review_status: null
-                  review_response: null
-                  execution_date: null
-                  reviewer_id: null
-                  reviewer_signed_at: null
-                  implementation_result: null
-                  testing_result: null
-                  release_date: null
-                  responsible_id: null
-                  responsible_signed_at: null
-                  status: draft
-                  change_types:
-                    - id: 1
-                      name: Perubahan Infrastruktur
-                    - id: 3
-                      name: Perubahan Data
-                  attachments:
-                    - id: 15
-                      path: implementations/4/diagram-arsitektur.png
-                      url: http://localhost/storage/implementations/4/diagram-arsitektur.png
-                      sort_order: 1
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Not evaluator or missing permission change.implementation.update
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Implementation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Implementasi tidak ditemukan.
-        "422":
-          description: Validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "The files may not have more than 10 items."
-  /api/changes/implementations/{id}/submit:
-    post:
-      tags: [Change Implementation]
-      summary: Submit implementation for review
-      operationId: submitImplementation
-      parameters:
-        - $ref: "#/components/parameters/ImplementationIdPath"
-      responses:
-        "200":
-          description: Implementation submitted
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Implementasi berhasil disubmit untuk review.
-                  data:
-                    $ref: "#/components/schemas/ImplementationResource"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Not evaluator or missing permission change.implementation.submit
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Implementation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Implementasi tidak ditemukan.
-        "422":
-          description: Not in draft/revision status
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Implementasi dengan status completed tidak dapat disubmit."
-  /api/changes/implementations/{id}/review:
-    post:
-      tags: [Change Implementation]
-      summary: Review an implementation (accept, reject, or revise)
-      operationId: reviewImplementation
-      parameters:
-        - $ref: "#/components/parameters/ImplementationIdPath"
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ReviewImplementationRequest"
-            example:
-              review_status: diterima
-              review_response: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
-              execution_date: "2025-08-01"
-              release_date: "2025-08-05"
-              implementation_result: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
-              testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
-      responses:
-        "200":
-          description: Review completed
-          content:
-            application/json:
-              schema:
-                type: object
-                required: [success, message, data]
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: "Review berhasil: diterima."
-                  data:
-                    $ref: "#/components/schemas/ImplementationResource"
-              example:
-                success: true
-                message: "Review berhasil: diterima."
-                data:
-                  id: 4
-                  change_initiation_id: 8
-                  priority: high
-                  impact: high
-                  production_impact: "Aplikasi akan tidak dapat diakses selama 2 jam pada saat migrasi data."
-                  required_effort: "3 orang x 5 hari kerja"
-                  cost_needed: true
-                  cost_amount: 15000000
-                  resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
-                  test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
-                  evaluator_id: 5
-                  evaluator_signed_at: "2025-07-14T11:00:00.000000Z"
-                  review_status: diterima
-                  review_response: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
-                  execution_date: "2025-08-01"
-                  reviewer_id: 5
-                  reviewer_signed_at: "2025-07-14T14:00:00.000000Z"
-                  implementation_result: "Migrasi server berhasil dilakukan, semua data telah dipindahkan ke cloud."
-                  testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error."
-                  release_date: "2025-08-05"
-                  responsible_id: null
-                  responsible_signed_at: null
-                  status: completed
-                  change_types:
-                    - id: 1
-                      name: Perubahan Infrastruktur
-                    - id: 3
-                      name: Perubahan Data
-                  attachments:
-                    - id: 15
-                      path: implementations/4/diagram-arsitektur.png
-                      url: http://localhost/storage/implementations/4/diagram-arsitektur.png
-                      sort_order: 1
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Missing permission change.implementation.review
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "404":
-          description: Implementation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Implementasi tidak ditemukan.
-        "422":
-          description: Not in submitted status or validation error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Implementasi dengan status draft tidak dapat direview."
-
-  # ── Change Management PDF Export ──────────────────────────────────
-  /api/changes/initiations/{id}/pdf:
+                $ref: "#/components/schemas/SuccessResponse"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "422": { $ref: "#/components/responses/ValidationError" }
+  /api/changes/{id}/pdf/initiation:
     get:
-      tags: [Change Initiation]
-      summary: Export initiation as PDF
+      tags: [Change Package]
+      summary: Export initiation PDF (must be approved)
       operationId: exportInitiationPdf
-      security:
-        - bearerAuth: []
-      description: |
-        Generates a PDF of an approved change initiation (Form Inisiasi Perubahan).
-        Contains initiator signature and reviewer (kepala tim) signature.
-        Requires `change.initiation.export_pdf` permission.
-        Initiation must be in `approved` status.
       parameters:
-        - $ref: "#/components/parameters/InitiationIdPath"
+        - $ref: "#/components/parameters/PackageIdPath"
       responses:
         "200":
           description: PDF binary
@@ -5038,44 +3880,22 @@ paths:
               schema:
                 type: string
                 format: binary
-        "403":
-          description: Missing permission
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Initiation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Inisiasi tidak ditemukan.
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422":
-          description: Initiation not yet approved
+          description: Package not yet approved
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: PDF hanya dapat di-generate untuk inisiasi yang sudah disetujui.
-  /api/changes/implementations/{id}/pdf:
+  /api/changes/{id}/pdf/implementation:
     get:
-      tags: [Change Implementation]
-      summary: Export implementation as PDF
+      tags: [Change Package]
+      summary: Export implementation PDF (package approved, impl completed)
       operationId: exportImplementationPdf
-      security:
-        - bearerAuth: []
-      description: |
-        Generates a PDF of a completed change implementation (Form Implementasi Perubahan).
-        Contains evaluator, reviewer (kepala tim), and responsible (kepala tim) signatures.
-        Requires `change.implementation.export_pdf` permission.
-        Implementation must be in `completed` status.
       parameters:
-        - $ref: "#/components/parameters/ImplementationIdPath"
+        - $ref: "#/components/parameters/PackageIdPath"
       responses:
         "200":
           description: PDF binary
@@ -5084,27 +3904,12 @@ paths:
               schema:
                 type: string
                 format: binary
-        "403":
-          description: Missing permission
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Implementation not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Implementasi tidak ditemukan.
+        "401": { $ref: "#/components/responses/Unauthenticated" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
         "422":
-          description: Implementation not yet completed
+          description: Implementation not completed
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: PDF hanya dapat di-generate untuk implementasi yang sudah selesai (diterima).

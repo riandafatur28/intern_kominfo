@@ -133,51 +133,28 @@ class SmokeTest extends TestCase
         $field = Field::first();
         Sanctum::actingAs($admin);
 
-        $response = $this->postJson('/api/changes/initiations', [
-            'field_id' => $field->id,
-            'description' => 'Test change',
-            'reason' => 'Testing',
+        $response = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test change',
+                'reason' => 'Testing',
+            ],
+            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
         ]);
-
         $response->assertStatus(201)->assertJsonPath('success', true);
-        $initId = $response->json('data.id');
+        $pkgId = $response->json('data.initiation.id');
 
-        $this->postJson("/api/changes/initiations/{$initId}/submit")
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', 'pending');
+        $typeId = \App\Domains\ChangeManagement\Models\ChangeType::create(['name' => 'Aplikasi'])->id;
 
+        $this->postJson("/api/changes/{$pkgId}/submit", [
+            'initiation' => ['field_id' => $field->id, 'description' => 'Test change', 'reason' => 'Testing', 'needed_by_date' => '2026-08-01'],
+            'implementation' => ['priority' => 'medium', 'impact' => 'low', 'change_type_ids' => [$typeId], 'test_plan' => 'plan', 'execution_date' => '2026-08-10', 'release_date' => '2026-08-15', 'implementation_result' => 'Done', 'testing_result' => 'Pass'],
+        ])->assertStatus(200)->assertJsonPath('data.initiation.status', 'pending');
         $supervisor = $this->createSupervisor();
         Sanctum::actingAs($supervisor);
-
-        $this->postJson("/api/changes/initiations/{$initId}/approve")
+        $this->postJson("/api/changes/{$pkgId}/approve")
             ->assertStatus(200)
-            ->assertJsonPath('data.status', 'approved');
-
-        Sanctum::actingAs($admin);
-
-        $implResponse = $this->postJson("/api/changes/initiations/{$initId}/implementations", [
-            'priority' => 'medium',
-            'impact' => 'low',
-            'resources' => '2 org',
-        ]);
-
-        $implResponse->assertStatus(201);
-        $implId = $implResponse->json('data.id');
-
-        $this->postJson("/api/changes/implementations/{$implId}/submit")
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', 'submitted');
-
-        $this->postJson("/api/changes/implementations/{$implId}/review", [
-            'review_status' => 'diterima',
-            'execution_date' => '2026-07-15',
-            'release_date' => '2026-07-16',
-            'implementation_result' => 'Implementasi selesai',
-            'testing_result' => 'Pengujian lulus',
-        ])
-            ->assertStatus(200)
-            ->assertJsonPath('data.status', 'completed')
-            ->assertJsonPath('data.review_status', 'diterima');
+            ->assertJsonPath('data.initiation.status', 'approved');
     }
 
     public function test_permission_boundary(): void
