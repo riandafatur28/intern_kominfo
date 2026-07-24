@@ -187,7 +187,7 @@ class ReportController extends Controller
             ], 404);
         }
 
-        if ($report->user_id !== request()->user()->id) {
+        if ($report->user_id !== request()->user()->id && ! request()->user()->hasRole('admin')) {
             return response()->json([
                 'success' => false,
                 'message' => 'Tidak dapat menghapus laporan orang lain.',
