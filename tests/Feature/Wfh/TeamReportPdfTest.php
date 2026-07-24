@@ -86,6 +86,21 @@ class TeamReportPdfTest extends TestCase
         $this->assertNull($captured['signatureSupervisorPath']);
     }
 
+    public function test_team_pdf_with_invalid_team_report_id_hides_kb_signature(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $admin = User::factory()->create(['team_id' => $team->id]);
+        $admin->assignRole('admin');
+        Sanctum::actingAs($admin);
+
+        $captured = $this->capturePdfViewData($team, 99999);
+
+        $this->assertFalse($captured['isApproved']);
+        $this->assertNull($captured['signatureSupervisorPath']);
+    }
+
     /**
      * @return array<string, mixed>
      */
