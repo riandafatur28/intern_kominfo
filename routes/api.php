@@ -3,9 +3,7 @@
 
 use App\Domains\Auth\Http\Controllers\AuthController;
 use App\Domains\ChangeManagement\Http\Controllers\ChangeManagementPdfController;
-use App\Domains\ChangeManagement\Http\Controllers\ImplementationController;
-use App\Domains\ChangeManagement\Http\Controllers\ImplementationReviewController;
-use App\Domains\ChangeManagement\Http\Controllers\InitiationController;
+use App\Domains\ChangeManagement\Http\Controllers\ChangePackageController;
 use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
 use App\Domains\Organization\Http\Controllers\RoleController;
@@ -102,38 +100,27 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         Route::post('/admin/wfh/team-reports/{id}/approve', [TeamReportController::class, 'approve']);
         Route::post('/admin/wfh/team-reports/{id}/reject', [TeamReportController::class, 'reject']);
     });
-    // Change Management Module
-    Route::get('/changes/initiations', [InitiationController::class, 'index'])
+    // Change Management — Package flow
+    Route::get('/changes', [ChangePackageController::class, 'index'])
         ->middleware('permission:change.initiation.view');
-    Route::post('/changes/initiations', [InitiationController::class, 'store'])
+    Route::post('/changes', [ChangePackageController::class, 'store'])
         ->middleware('permission:change.initiation.create');
-    Route::get('/changes/initiations/{id}', [InitiationController::class, 'show'])
+    Route::get('/changes/{id}', [ChangePackageController::class, 'show'])
         ->middleware('permission:change.initiation.view');
-    Route::post('/changes/initiations/{id}/submit', [InitiationController::class, 'submit'])
+    Route::put('/changes/{id}', [ChangePackageController::class, 'update'])
+        ->middleware('permission:change.initiation.update');
+    Route::delete('/changes/{id}', [ChangePackageController::class, 'destroy'])
+        ->middleware('permission:change.initiation.update');
+    Route::post('/changes/{id}/submit', [ChangePackageController::class, 'submit'])
         ->middleware('permission:change.initiation.submit');
-    Route::post('/changes/initiations/{id}/approve', [InitiationController::class, 'approve'])
+    Route::post('/changes/{id}/approve', [ChangePackageController::class, 'approve'])
         ->middleware('permission:change.initiation.approve');
-    Route::post('/changes/initiations/{id}/reject', [InitiationController::class, 'reject'])
+    Route::post('/changes/{id}/reject', [ChangePackageController::class, 'reject'])
         ->middleware('permission:change.initiation.reject');
-    Route::post('/changes/initiations/{id}/revise', [InitiationController::class, 'revise'])
-        ->middleware('permission:change.initiation.submit');
-
-    Route::post('/changes/initiations/{id}/implementations', [ImplementationController::class, 'store'])
-        ->middleware('permission:change.implementation.create');
-    Route::get('/changes/implementations/{id}', [ImplementationController::class, 'show'])
-        ->middleware('permission:change.implementation.view');
-    Route::put('/changes/implementations/{id}', [ImplementationController::class, 'update'])
+    Route::post('/changes/{id}/attachments', [ChangePackageController::class, 'uploadAttachments'])
         ->middleware('permission:change.implementation.update');
-    Route::post('/changes/implementations/{id}/attachments', [ImplementationController::class, 'uploadAttachments'])
-        ->middleware('permission:change.implementation.update');
-    Route::post('/changes/implementations/{id}/submit', [ImplementationController::class, 'submit'])
-        ->middleware('permission:change.implementation.submit');
-    Route::post('/changes/implementations/{id}/review', [ImplementationReviewController::class, 'review'])
-        ->middleware('permission:change.implementation.review');
-
-    // Change Management PDF Export
-    Route::get('/changes/initiations/{id}/pdf', [ChangeManagementPdfController::class, 'exportInitiation'])
+    Route::get('/changes/{id}/pdf/initiation', [ChangeManagementPdfController::class, 'exportInitiation'])
         ->middleware('permission:change.initiation.export_pdf');
-    Route::get('/changes/implementations/{id}/pdf', [ChangeManagementPdfController::class, 'exportImplementation'])
+    Route::get('/changes/{id}/pdf/implementation', [ChangeManagementPdfController::class, 'exportImplementationFromPackage'])
         ->middleware('permission:change.implementation.export_pdf');
 });

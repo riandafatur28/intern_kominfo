@@ -152,6 +152,22 @@ class ChangeManagementPdfController extends Controller
         ]);
     }
 
+    public function exportImplementationFromPackage(int $packageId): Response|JsonResponse
+    {
+        $this->authorize('change.implementation.export_pdf');
+
+        $package = $this->repo->findPackage($packageId);
+
+        if (! $package || ! $package->implementation) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Implementasi tidak ditemukan.',
+            ], 404);
+        }
+
+        return $this->exportImplementation($package->implementation->id);
+    }
+
     private function resolveSignature(?string $path): string
     {
         if ($path) {
