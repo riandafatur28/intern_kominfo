@@ -8,6 +8,7 @@ use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterfac
 use App\Models\Field;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Str;
 use InvalidArgumentException;
 use Tests\TestCase;
 
@@ -21,7 +22,6 @@ class ChangeInitiationStateMachineTest extends TestCase
 
     private Field $field;
 
-    private static int $counter = 0;
 
     protected function setUp(): void
     {
@@ -33,12 +33,10 @@ class ChangeInitiationStateMachineTest extends TestCase
 
     private function baseInitiation(): array
     {
-        self::$counter++;
-
         return [
             'field_id' => $this->field->id,
             'initiator_id' => $this->initiator->id,
-            'doc_number' => sprintf('T/%03d/9/1.1/114/%s', self::$counter, date('Y')),
+            'doc_number' => 'T/'.Str::uuid()->toString().'/9/1.1/114/'.date('Y'),
             'initiation_date' => now()->toDateString(),
             'description' => 'Test change package',
             'reason' => 'Testing state machine',

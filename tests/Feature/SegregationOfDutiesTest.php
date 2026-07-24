@@ -2,8 +2,8 @@
 
 namespace Tests\Feature;
 
-use App\Domains\ChangeManagement\Models\ChangeInitiation;
 use App\Domains\ChangeManagement\Models\ChangeImplementation;
+use App\Domains\ChangeManagement\Models\ChangeInitiation;
 use App\Domains\Wfh\Models\WfhReport;
 use App\Models\Field;
 use App\Models\Team;
@@ -26,6 +26,23 @@ class SegregationOfDutiesTest extends TestCase
         $user->assignRole($role);
 
         return $user;
+    }
+
+    /**
+     * Build a package in pending state directly (bypassing the API) for authz tests.
+     */
+    private function createPendingPackage(User $initiator): ChangeInitiation
+    {
+        $initiation = ChangeInitiation::factory()->create(['initiator_id' => $initiator->id]);
+        ChangeImplementation::create([
+            'change_initiation_id' => $initiation->id,
+            'status' => 'draft',
+            'priority' => 'medium',
+            'impact' => 'low',
+        ]);
+        $initiation->update(['status' => 'pending']);
+
+        return $initiation->fresh();
     }
 
     protected function setUp(): void
@@ -74,7 +91,6 @@ class SegregationOfDutiesTest extends TestCase
             ->assertStatus(200);
     }
 
-
     /**
      * WFH: different supervisor CAN approve a report.
      */
@@ -104,17 +120,7 @@ class SegregationOfDutiesTest extends TestCase
     public function test_initiator_cannot_approve_own_initiation(): void
     {
         $initiator = $this->createUserWithRole('kepala_tim');
-
-        $initiation = ChangeInitiation::factory()->create([
-            'initiator_id' => $initiator->id,
-        ]);
-        ChangeImplementation::create([
-            'change_initiation_id' => $initiation->id,
-            'status' => 'draft',
-            'priority' => 'medium',
-            'impact' => 'low',
-        ]);
-        $initiation->update(['status' => 'pending']);
+        $initiation = $this->createPendingPackage($initiator);
 
         Sanctum::actingAs($initiator);
 
@@ -129,17 +135,7 @@ class SegregationOfDutiesTest extends TestCase
     public function test_initiator_cannot_reject_own_initiation(): void
     {
         $initiator = $this->createUserWithRole('kepala_tim');
-
-        $initiation = ChangeInitiation::factory()->create([
-            'initiator_id' => $initiator->id,
-        ]);
-        ChangeImplementation::create([
-            'change_initiation_id' => $initiation->id,
-            'status' => 'draft',
-            'priority' => 'medium',
-            'impact' => 'low',
-        ]);
-        $initiation->update(['status' => 'pending']);
+        $initiation = $this->createPendingPackage($initiator);
 
         Sanctum::actingAs($initiator);
 
@@ -158,17 +154,7 @@ class SegregationOfDutiesTest extends TestCase
         $team = Team::factory()->create();
         $initiator = $this->createUserWithRole('staf', $team);
         $reviewer = $this->createUserWithRole('kepala_tim', $team);
-
-        $initiation = ChangeInitiation::factory()->create([
-            'initiator_id' => $initiator->id,
-        ]);
-        ChangeImplementation::create([
-            'change_initiation_id' => $initiation->id,
-            'status' => 'draft',
-            'priority' => 'medium',
-            'impact' => 'low',
-        ]);
-        $initiation->update(['status' => 'pending']);
+        $initiation = $this->createPendingPackage($initiator);
 
         Sanctum::actingAs($reviewer);
 

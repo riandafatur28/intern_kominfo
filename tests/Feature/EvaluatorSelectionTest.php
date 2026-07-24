@@ -42,6 +42,8 @@ class EvaluatorSelectionTest extends TestCase
         ]);
 
         $response->assertStatus(201);
+        // ponytail: new package flow does NOT auto-default evaluator_id to the creator
+        // (unlike the old serial flow). FE must send evaluator_id explicitly when needed.
         $this->assertNull($response->json('data.implementation.evaluator_id'));
     }
 
@@ -96,6 +98,53 @@ class EvaluatorSelectionTest extends TestCase
                 'reason' => 'Testing',
             ],
             'implementation' => [
+                'evaluator_id' => $otherFieldUser->id,
+            ],
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['implementation.evaluator_id']);
+    }
+
+    public function test_submit_rejects_evaluator_from_different_field(): void
+    {
+        $fieldA = Field::create(['name' => 'Bidang A']);
+        $teamA = Team::create(['field_id' => $fieldA->id, 'name' => 'Tim A']);
+        $fieldB = Field::create(['name' => 'Bidang B']);
+        $teamB = Team::create(['field_id' => $fieldB->id, 'name' => 'Tim B']);
+
+        $creator = User::factory()->create(['team_id' => $teamA->id]);
+        $creator->assignRole('staf');
+        $otherFieldUser = User::factory()->create(['team_id' => $teamB->id]);
+
+        Sanctum::actingAs($creator);
+
+        // Create a minimal draft first
+        $pkg = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $fieldA->id,
+                'description' => 'Test',
+                'reason' => 'Testing',
+            ],
+            'implementation' => ['priority' => 'low', 'impact' => 'low'],
+        ])->json('data.initiation');
+
+        // Submit with a cross-field evaluator → should fail validation
+        $this->postJson("/api/changes/{$pkg['id']}/submit", [
+            'initiation' => [
+                'field_id' => $fieldA->id,
+                'description' => 'Test',
+                'reason' => 'Testing',
+                'needed_by_date' => '2026-09-01',
+            ],
+            'implementation' => [
+                'priority' => 'medium',
+                'impact' => 'low',
+                'change_type_ids' => [],
+                'test_plan' => 'plan',
+                'execution_date' => '2026-09-10',
+                'release_date' => '2026-09-15',
+                'implementation_result' => 'Done',
+                'testing_result' => 'Pass',
                 'evaluator_id' => $otherFieldUser->id,
             ],
         ])
