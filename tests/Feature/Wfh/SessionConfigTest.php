@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -20,6 +21,16 @@ class SessionConfigTest extends TestCase
         parent::setUp();
         $this->artisan('db:seed', ['--class' => 'RolePermissionSeeder']);
         $this->artisan('db:seed', ['--class' => 'SettingsSeeder']);
+
+        // Freeze to a weekday (Monday) so day-of-week restrictions
+        // don't flake based on when the test is run.
+        Carbon::setTestNow(Carbon::parse('2026-07-20 10:00:00', 'Asia/Jakarta'));
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
     }
 
     public function test_checkin_accepts_default_sessions_from_setting(): void
