@@ -50,20 +50,34 @@ class TeamEndpointTest extends TestCase
     {
         Sanctum::actingAs($this->user);
 
-        $fieldA = Field::factory()->create();
-        $fieldB = Field::factory()->create();
+        $engineering = Field::factory()->create();
+        $operations = Field::factory()->create();
 
-        Team::factory(2)->create(['field_id' => $fieldA->id]);
-        Team::factory(3)->create(['field_id' => $fieldB->id]);
+        Team::factory(2)->create(['field_id' => $engineering->id]);
+        Team::factory(3)->create(['field_id' => $operations->id]);
 
-        $response = $this->getJson('/api/teams?field_id=' . $fieldA->id);
+        $response = $this->getJson('/api/teams?field_id='.$engineering->id);
 
         $response->assertOk()
             ->assertJsonCount(2, 'data');
 
         foreach ($response->json('data') as $team) {
-            $this->assertEquals($fieldA->id, $team['field_id']);
+            $this->assertEquals($engineering->id, $team['field_id']);
         }
+    }
+
+    public function test_excludes_soft_deleted_teams(): void
+    {
+        Sanctum::actingAs($this->user);
+
+        $active = Team::factory()->create();
+        Team::factory()->create(['name' => 'Deleted Team'])->delete();
+
+        $response = $this->getJson('/api/teams');
+
+        $response->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $active->id);
     }
 
     public function test_returns_empty_when_no_teams(): void

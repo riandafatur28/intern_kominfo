@@ -3,22 +3,22 @@
 namespace App\Domains\Organization\Http\Controllers;
 
 use App\Domains\Organization\Http\Resources\TeamResource;
-use App\Models\Team;
+use App\Domains\Organization\Repositories\TeamRepositoryInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
 
 class TeamController extends Controller
 {
+    public function __construct(
+        private TeamRepositoryInterface $teamRepository,
+    ) {}
+
     public function index(Request $request): JsonResponse
     {
-        $query = Team::query();
+        $fieldId = $request->filled('field_id') ? $request->integer('field_id') : null;
 
-        if ($request->filled('field_id')) {
-            $query->where('field_id', $request->integer('field_id'));
-        }
-
-        $teams = $query->get(['id', 'name', 'leader_id', 'field_id']);
+        $teams = $this->teamRepository->listForField($fieldId);
 
         return response()->json([
             'success' => true,

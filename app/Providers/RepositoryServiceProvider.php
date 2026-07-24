@@ -4,7 +4,9 @@ namespace App\Providers;
 
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use App\Domains\ChangeManagement\Repositories\EloquentChangeManagementRepository;
+use App\Domains\Organization\Repositories\EloquentTeamRepository;
 use App\Domains\Organization\Repositories\EloquentUserRepository;
+use App\Domains\Organization\Repositories\TeamRepositoryInterface;
 use App\Domains\Organization\Repositories\UserRepositoryInterface;
 use App\Domains\Wfh\Repositories\EloquentWfhRepository;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
@@ -24,6 +26,11 @@ class RepositoryServiceProvider extends ServiceProvider
         $this->app->bind(
             UserRepositoryInterface::class,
             EloquentUserRepository::class,
+        );
+
+        $this->app->bind(
+            TeamRepositoryInterface::class,
+            EloquentTeamRepository::class,
         );
 
         $this->app->bind(
