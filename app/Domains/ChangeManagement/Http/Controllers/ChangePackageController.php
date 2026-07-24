@@ -2,6 +2,7 @@
 
 namespace App\Domains\ChangeManagement\Http\Controllers;
 
+use App\Domains\ChangeManagement\Models\ChangeInitiation;
 use App\Domains\ChangeManagement\Http\Requests\DecideChangePackageRequest;
 use App\Domains\ChangeManagement\Http\Requests\StoreChangePackageRequest;
 use App\Domains\ChangeManagement\Http\Requests\SubmitChangePackageRequest;
@@ -10,6 +11,7 @@ use App\Domains\ChangeManagement\Http\Requests\UploadChangePackageAttachmentsReq
 use App\Domains\ChangeManagement\Http\Resources\ChangePackageResource;
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use App\Domains\ChangeManagement\Services\DocNumberGenerator;
+use App\Models\User;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,9 +84,7 @@ class ChangePackageController extends Controller
             ], 404);
         }
 
-        // non-admin/non-KT: own only
-        if ($package->initiator_id !== $request->user()->id
-            && ! $request->user()->hasAnyRole(['admin', 'kepala_tim', 'kepala_bidang'])) {
+        if (! $this->actorCanAccessPackage($request->user(), $package)) {
             return response()->json([
                 'success' => false,
                 'message' => 'Anda tidak memiliki akses ke paket ini.',
@@ -199,6 +199,13 @@ class ChangePackageController extends Controller
                 'message' => 'Hanya paket draft yang dapat disubmit.',
             ], 422);
         }
+        // Persist the submit payload (staf fills all business fields) before transition.
+        $this->repo->updatePackage(
+            id: $id,
+            initiation: $request->input('initiation', []),
+            implementation: $request->input('implementation', []),
+            typeIds: $request->input('implementation.change_type_ids', []),
+        );
 
         $this->repo->transitionPackage($id, 'pending', [
             'initiator_signed_at' => now(),
@@ -239,17 +246,11 @@ class ChangePackageController extends Controller
             ], 422);
         }
 
-        // Team scope: KT can only approve own team (admin break-glass exempt)
-        if (! $request->user()->hasRole('admin')) {
-            $approverTeamId = $request->user()->team_id;
-            $initiatorTeamId = $package->initiator?->team_id;
-
-            if ($approverTeamId === null || $approverTeamId !== $initiatorTeamId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda tidak memiliki akses ke paket ini.',
-                ], 403);
-            }
+        if (! $this->actorCanAccessPackage($request->user(), $package)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses ke paket ini.',
+            ], 403);
         }
 
         $now = now();
@@ -300,16 +301,11 @@ class ChangePackageController extends Controller
             ], 422);
         }
 
-        if (! $request->user()->hasRole('admin')) {
-            $approverTeamId = $request->user()->team_id;
-            $initiatorTeamId = $package->initiator?->team_id;
-
-            if ($approverTeamId === null || $approverTeamId !== $initiatorTeamId) {
-                return response()->json([
-                    'success' => false,
-                    'message' => 'Anda tidak memiliki akses ke paket ini.',
-                ], 403);
-            }
+        if (! $this->actorCanAccessPackage($request->user(), $package)) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Anda tidak memiliki akses ke paket ini.',
+            ], 403);
         }
 
         $userId = $request->user()->id;
@@ -370,5 +366,23 @@ class ChangePackageController extends Controller
             'message' => 'Lampiran berhasil diunggah.',
             'data' => $package->implementation->fresh('attachments')->attachments,
         ]);
+    }
+
+    /**
+     * Single source of truth for package visibility. Mirrors paginatePackages scope:
+     * admin = all, kepala_tim/kepala_bidang = same team, staf = own.
+     */
+    private function actorCanAccessPackage(User $actor, ChangeInitiation $package): bool
+    {
+        if ($actor->hasRole('admin')) {
+            return true;
+        }
+
+        if ($actor->hasAnyRole(['kepala_tim', 'kepala_bidang'])) {
+            return $actor->team_id !== null
+                && $actor->team_id === $package->initiator?->team_id;
+        }
+
+        return $package->initiator_id === $actor->id;
     }
 }

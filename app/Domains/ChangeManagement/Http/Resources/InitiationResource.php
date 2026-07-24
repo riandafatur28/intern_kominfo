@@ -41,9 +41,6 @@ class InitiationResource extends JsonResource
             ];
         }
 
-        if ($this->relationLoaded('implementations')) {
-            $data['implementations'] = ImplementationResource::collection($this->implementations);
-        }
 
         return $data;
     }

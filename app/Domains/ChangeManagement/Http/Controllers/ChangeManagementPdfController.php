@@ -20,43 +20,43 @@ class ChangeManagementPdfController extends Controller
         private QrCodeService $qrCodeService,
     ) {}
 
-    public function exportInitiation(int $id): Response|JsonResponse
+    public function exportInitiation(int $packageId): Response|JsonResponse
     {
         $this->authorize('change.initiation.export_pdf');
 
-        $initiation = $this->repo->findInitiationWithRelations($id);
+        $package = $this->repo->findPackage($packageId);
 
-        if (! $initiation) {
+        if (! $package) {
             return response()->json([
                 'success' => false,
-                'message' => 'Inisiasi tidak ditemukan.',
+                'message' => 'Paket perubahan tidak ditemukan.',
             ], 404);
         }
 
-        if ($initiation->status !== 'approved') {
+        if ($package->status !== 'approved') {
             return response()->json([
                 'success' => false,
-                'message' => 'PDF hanya dapat di-generate untuk inisiasi yang sudah disetujui.',
+                'message' => 'PDF hanya dapat di-generate untuk paket yang sudah disetujui.',
             ], 422);
         }
 
-        $initiator = $initiation->initiator;
-        $reviewer = $initiation->reviewer;
-        $field = $initiation->field;
+        $initiator = $package->initiator;
+        $reviewer = $package->reviewer;
+        $field = $package->field;
 
         $initiatorSig = $this->resolveSignature($initiator?->signature_path);
         $reviewerSig = $this->resolveSignature($reviewer?->signature_path);
 
-        $verifyUrl = $this->qrCodeService->generateVerificationUrl($initiation->verification_token);
+        $verifyUrl = $this->qrCodeService->generateVerificationUrl($package->verification_token);
         $qrSvg = $this->qrCodeService->generate($verifyUrl);
 
         $data = [
-            'docNumber' => $initiation->doc_number,
-            'tanggal' => $initiation->initiation_date->isoFormat('D MMMM Y'),
+            'docNumber' => $package->doc_number,
+            'tanggal' => $package->initiation_date->isoFormat('D MMMM Y'),
             'bidang' => $field?->name ?? '-',
-            'neededByDate' => $initiation->needed_by_date?->isoFormat('D MMMM Y') ?? '-',
-            'description' => $initiation->description,
-            'reason' => $initiation->reason,
+            'neededByDate' => $package->needed_by_date?->isoFormat('D MMMM Y') ?? '-',
+            'description' => $package->description,
+            'reason' => $package->reason,
             'initiatorName' => strtoupper($initiator?->name ?? '-'),
             'initiatorNip' => $initiator?->nip ?? '-',
             'initiatorPosition' => $initiator?->position ?? '-',
@@ -70,7 +70,7 @@ class ChangeManagementPdfController extends Controller
 
         $pdf = $this->pdfRenderer->render('pdf.change-initiation', $data);
 
-        $filename = "Initiation-{$initiation->id}-{$initiation->initiation_date->format('Y-m-d')}.pdf";
+        $filename = "Initiation-{$package->id}-{$package->initiation_date->format('Y-m-d')}.pdf";
 
         return response($pdf, 200, [
             'Content-Type' => 'application/pdf',
@@ -78,18 +78,20 @@ class ChangeManagementPdfController extends Controller
         ]);
     }
 
-    public function exportImplementation(int $id): Response|JsonResponse
+    public function exportImplementation(int $packageId): Response|JsonResponse
     {
         $this->authorize('change.implementation.export_pdf');
 
-        $impl = $this->repo->findImplementationWithRelations($id);
+        $package = $this->repo->findPackage($packageId);
 
-        if (! $impl) {
+        if (! $package || ! $package->implementation) {
             return response()->json([
                 'success' => false,
                 'message' => 'Implementasi tidak ditemukan.',
             ], 404);
         }
+
+        $impl = $package->implementation;
 
         if ($impl->status !== 'completed') {
             return response()->json([
@@ -98,21 +100,20 @@ class ChangeManagementPdfController extends Controller
             ], 422);
         }
 
-        $initiation = $impl->initiation;
         $evaluator = $impl->evaluator;
         $reviewer = $impl->reviewer;
         $responsible = $impl->responsible;
-        $field = $initiation?->field;
+        $field = $package->field;
 
         $evaluatorSig = $this->resolveSignature($evaluator?->signature_path);
         $reviewerSig = $this->resolveSignature($reviewer?->signature_path);
         $responsibleSig = $this->resolveSignature($responsible?->signature_path);
 
         $data = [
-            'docNumber' => $initiation?->doc_number ?? '-',
-            'tanggal' => $initiation?->initiation_date?->isoFormat('D MMMM Y') ?? '-',
+            'docNumber' => $package->doc_number ?? '-',
+            'tanggal' => $package->initiation_date?->isoFormat('D MMMM Y') ?? '-',
             'bidang' => $field?->name ?? '-',
-            'description' => $initiation?->description ?? '-',
+            'description' => $package->description ?? '-',
             'priority' => $impl->priority ?? '-',
             'impact' => $impl->impact ?? '-',
             'productionImpact' => $impl->production_impact ?? '-',
@@ -152,31 +153,15 @@ class ChangeManagementPdfController extends Controller
         ]);
     }
 
-    public function exportImplementationFromPackage(int $packageId): Response|JsonResponse
-    {
-        $this->authorize('change.implementation.export_pdf');
-
-        $package = $this->repo->findPackage($packageId);
-
-        if (! $package || ! $package->implementation) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Implementasi tidak ditemukan.',
-            ], 404);
-        }
-
-        return $this->exportImplementation($package->implementation->id);
-    }
-
     private function resolveSignature(?string $path): string
     {
         if ($path) {
             $full = public_path('storage/'.$path);
             if (file_exists($full)) {
-                return $full;
+                return 'data:image/png;base64,'.base64_encode((string) file_get_contents($full));
             }
         }
 
-        return public_path('storage/signatures/test-sig-1.png');
+        return '';
     }
 }

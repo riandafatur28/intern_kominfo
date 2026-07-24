@@ -121,6 +121,6 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         ->middleware('permission:change.implementation.update');
     Route::get('/changes/{id}/pdf/initiation', [ChangeManagementPdfController::class, 'exportInitiation'])
         ->middleware('permission:change.initiation.export_pdf');
-    Route::get('/changes/{id}/pdf/implementation', [ChangeManagementPdfController::class, 'exportImplementationFromPackage'])
+    Route::get('/changes/{id}/pdf/implementation', [ChangeManagementPdfController::class, 'exportImplementation'])
         ->middleware('permission:change.implementation.export_pdf');
 });
