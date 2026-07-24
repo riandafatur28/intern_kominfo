@@ -173,13 +173,11 @@
                     <div class="signature-nip">NIP. {{ $makerNip }}</div>
                 </td>
                 <td>
-                    <div class="signature-role">Atasan Langsung</div>
                     <div class="signature-box">
-                        <img src="{{ $signatureSupervisorPath }}" alt="signature">
+                        @if ($isApproved && $signatureSupervisorPath)
+                            <img src="{{ $signatureSupervisorPath }}" alt="signature">
+                        @endif
                     </div>
-                    <div class="signature-name">{{ $supervisorName }}</div>
-                    <div class="signature-nip">NIP. {{ $supervisorNip }}</div>
-                </td>
             </tr>
         </table>
     </div>

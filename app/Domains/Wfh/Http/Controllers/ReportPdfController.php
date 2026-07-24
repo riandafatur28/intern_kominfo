@@ -2,6 +2,7 @@
 
 namespace App\Domains\Wfh\Http\Controllers;
 
+use App\Domains\Wfh\Models\WfhTeamReport;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Team;
 use App\Support\Pdf\PdfRendererService;
@@ -133,6 +134,13 @@ class ReportPdfController extends Controller
         $field = $team->field;
         $head = $field?->head;
 
+        // Check team report status if team_report_id provided
+        $isApproved = false;
+        if ($teamReportId = $request->input('team_report_id')) {
+            $teamReport = WfhTeamReport::find($teamReportId);
+            $isApproved = $teamReport && $teamReport->status === 'approved';
+        }
+
         // Build staff data: name, nip, links
         $staff = $reports->map(function ($report) {
             $links = $report->activities->flatMap->links->pluck('url')->filter()->values();
@@ -144,7 +152,7 @@ class ReportPdfController extends Controller
             ];
         })->values()->toArray();
 
-        // Admin (maker) signature
+        // Admin (maker) signature — always shown
         $makerSig = $admin->signature_path
             ? public_path('storage/'.$admin->signature_path)
             : null;
@@ -152,12 +160,12 @@ class ReportPdfController extends Controller
             $makerSig = public_path('storage/signatures/test-sig-1.png');
         }
 
-        // KB (atasan langsung) signature
+        // KB (atasan langsung) signature — only when team report is approved
         $supervisorSig = null;
-        if ($head?->signature_path) {
+        if ($isApproved && $head?->signature_path) {
             $supervisorSig = public_path('storage/'.$head->signature_path);
         }
-        if (! $supervisorSig || ! file_exists($supervisorSig)) {
+        if ($isApproved && (! $supervisorSig || ! file_exists($supervisorSig))) {
             $supervisorSig = public_path('storage/signatures/test-sig-2.png');
         }
 
@@ -168,6 +176,7 @@ class ReportPdfController extends Controller
             'unitKerja' => $field?->name ?? '-',
             'tanggalPelaksanaan' => $tanggal,
             'staff' => $staff,
+            'isApproved' => $isApproved,
             'signatureMakerPath' => $makerSig,
             'signatureSupervisorPath' => $supervisorSig,
             'makerName' => strtoupper($admin->name),
