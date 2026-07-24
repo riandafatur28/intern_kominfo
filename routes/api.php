@@ -8,6 +8,7 @@ use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
 use App\Domains\Organization\Http\Controllers\RoleController;
 use App\Domains\Organization\Http\Controllers\UserController;
+use App\Domains\Organization\Http\Controllers\TeamController;
 use App\Domains\Wfh\Http\Controllers\AttendanceController;
 use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportController;
@@ -33,6 +34,9 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/signature', [ProfileController::class, 'uploadSignature']);
 
+
+    // Teams (dropdown options)
+    Route::get('/teams', [TeamController::class, 'index']);
     // Admin User Management
     Route::middleware('permission:user.manage')->group(function () {
         Route::get('/admin/users', [UserController::class, 'index']);
