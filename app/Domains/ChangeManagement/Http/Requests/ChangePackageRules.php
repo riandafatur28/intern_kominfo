@@ -9,66 +9,57 @@ class ChangePackageRules
 {
     public static function initiationDraft(): array
     {
-        return [
-            'initiation' => ['required', 'array'],
-            'initiation.field_id' => ['required', 'exists:fields,id'],
-            'initiation.needed_by_date' => ['nullable', 'date'],
-            'initiation.description' => ['required', 'string'],
-            'initiation.reason' => ['required', 'string'],
-        ];
+        return self::initiationRules(submit: false);
     }
 
     public static function initiationSubmit(): array
     {
+        return self::initiationRules(submit: true);
+    }
+
+    public static function implementationDraft(): array
+    {
+        return self::implementationRules(submit: false);
+    }
+
+    public static function implementationSubmit(): array
+    {
+        return self::implementationRules(submit: true);
+    }
+
+    private static function initiationRules(bool $submit): array
+    {
         return [
             'initiation' => ['required', 'array'],
             'initiation.field_id' => ['required', 'exists:fields,id'],
-            'initiation.needed_by_date' => ['required', 'date'],
+            'initiation.needed_by_date' => [$submit ? 'required' : 'nullable', 'date'],
             'initiation.description' => ['required', 'string'],
             'initiation.reason' => ['required', 'string'],
         ];
     }
 
-    public static function implementationDraft(): array
+    private static function implementationRules(bool $submit): array
     {
-        return [
-            'implementation' => ['nullable', 'array'],
-            'implementation.priority' => ['nullable', 'string', 'in:low,medium,high,critical'],
-            'implementation.impact' => ['nullable', 'string', 'in:low,medium,high'],
-            'implementation.production_impact' => ['nullable', 'string'],
-            'implementation.required_effort' => ['nullable', 'string'],
-            'implementation.cost_needed' => ['nullable', 'boolean'],
-            'implementation.cost_amount' => ['nullable', 'numeric', 'required_if:implementation.cost_needed,1,true,on,yes'],
-            'implementation.resources' => ['nullable', 'string'],
-            'implementation.test_plan' => ['nullable', 'string'],
-            'implementation.change_type_ids' => ['nullable', 'array'],
-            'implementation.change_type_ids.*' => ['exists:change_types,id'],
-            'implementation.execution_date' => ['nullable', 'date'],
-            'implementation.release_date' => ['nullable', 'date', 'after_or_equal:implementation.execution_date'],
-            'implementation.implementation_result' => ['nullable', 'string'],
-            'implementation.testing_result' => ['nullable', 'string'],
-            'implementation.evaluator_id' => self::evaluatorRule(),
-        ];
-    }
+        $presence = $submit ? 'required' : 'nullable';
 
-    public static function implementationSubmit(): array
-    {
         return [
-            'implementation' => ['required', 'array'],
-            'implementation.priority' => ['required', 'string', 'in:low,medium,high,critical'],
-            'implementation.impact' => ['required', 'string', 'in:low,medium,high'],
+            'implementation' => [$presence, 'array'],
+            'implementation.priority' => [$presence, 'string', 'in:low,medium,high,critical'],
+            'implementation.impact' => [$presence, 'string', 'in:low,medium,high'],
             'implementation.production_impact' => ['nullable', 'string'],
             'implementation.required_effort' => ['nullable', 'string'],
             'implementation.cost_needed' => ['nullable', 'boolean'],
             'implementation.cost_amount' => ['nullable', 'numeric', 'required_if:implementation.cost_needed,1,true,on,yes'],
             'implementation.resources' => ['nullable', 'string'],
-            'implementation.test_plan' => ['required', 'string'],
-            'implementation.change_type_ids' => ['required', 'array', 'min:1'],
+            'implementation.test_plan' => [$presence, 'string'],
+            'implementation.change_type_ids' => $submit
+                ? ['required', 'array', 'min:1']
+                : ['nullable', 'array'],
             'implementation.change_type_ids.*' => ['exists:change_types,id'],
-            'implementation.execution_date' => ['required', 'date'],
-            'implementation.release_date' => ['required', 'date', 'after_or_equal:implementation.execution_date'],
-            'implementation.implementation_result' => ['required', 'string'],
-            'implementation.testing_result' => ['required', 'string'],
+            'implementation.execution_date' => [$presence, 'date'],
+            'implementation.release_date' => [$presence, 'date', 'after_or_equal:implementation.execution_date'],
+            'implementation.implementation_result' => [$presence, 'string'],
+            'implementation.testing_result' => [$presence, 'string'],
             'implementation.evaluator_id' => self::evaluatorRule(),
         ];
     }

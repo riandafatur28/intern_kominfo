@@ -21,6 +21,26 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
         'rejected' => 'rejected',
     ];
 
+    /** Relations loaded for a full package read (show / after-write return). */
+    private const PACKAGE_RELATIONS = [
+        'field',
+        'initiator.team',
+        'reviewer',
+        'implementation.evaluator',
+        'implementation.reviewer',
+        'implementation.responsible',
+        'implementation.changeTypes',
+        'implementation.attachments',
+    ];
+
+    /** Relations loaded for a list row (summary, no attachment rows). */
+    private const PACKAGE_LIST_RELATIONS = [
+        'field',
+        'initiator.team',
+        'reviewer',
+        'implementation.changeTypes',
+    ];
+
     public function __construct(ChangeInitiation $model)
     {
         parent::__construct($model);
@@ -45,7 +65,7 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
                 $impl->changeTypes()->sync($typeIds);
             }
 
-            return $this->findPackage($parent->id);
+            return $parent->load(self::PACKAGE_RELATIONS);
         });
     }
 
@@ -70,7 +90,7 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
                 $impl->update($implementation);
             }
 
-            if ($typeIds !== []) {
+            if (! empty($typeIds)) {
                 $impl->changeTypes()->sync($typeIds);
             }
 
@@ -80,27 +100,12 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
 
     public function findPackage(int $id): ?ChangeInitiation
     {
-        return ChangeInitiation::with([
-            'field',
-            'initiator.team',
-            'reviewer',
-            'implementation.evaluator',
-            'implementation.reviewer',
-            'implementation.responsible',
-            'implementation.changeTypes',
-            'implementation.attachments',
-        ])->find($id);
+        return ChangeInitiation::with(self::PACKAGE_RELATIONS)->find($id);
     }
 
     public function paginatePackages(int $perPage, array $filters, ?User $actor): LengthAwarePaginator
     {
-        $query = ChangeInitiation::with([
-            'field',
-            'initiator.team',
-            'reviewer',
-            'implementation.changeTypes',
-            'implementation.attachments',
-        ]);
+        $query = ChangeInitiation::with(self::PACKAGE_LIST_RELATIONS);
 
         if (isset($filters['status'])) {
             $query->where('status', $filters['status']);
@@ -110,15 +115,12 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
             $query->where('field_id', $filters['field_id']);
         }
 
-        if ($actor) {
-            if ($actor->hasRole('admin')) {
-                // all
-            } elseif ($actor->hasAnyRole(['kepala_tim', 'kepala_bidang'])) {
-                if ($actor->team_id === null) {
-                    $query->whereRaw('1 = 0');
-                } else {
-                    $query->whereHas('initiator', fn ($q) => $q->where('team_id', $actor->team_id));
-                }
+        if ($actor && ! $actor->hasRole('admin')) {
+            if ($actor->hasAnyRole(['kepala_tim', 'kepala_bidang'])) {
+                // Team scope; null team sees nothing (deny-by-default).
+                $actor->team_id === null
+                    ? $query->whereRaw('false')
+                    : $query->whereHas('initiator', fn ($q) => $q->where('team_id', $actor->team_id));
             } else {
                 // staf / default: own packages only
                 $query->where('initiator_id', $actor->id);
@@ -180,6 +182,9 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
 
     public function findInitiationWithRelations(int $id): ?ChangeInitiation
     {
+        // ponytail: cutover debt — loads both legacy `implementations` (plural, for
+        // InitiationResource) and new `implementation` (singular). Drop the plural
+        // block in Phase 2/7 when old InitiationController + InitiationResource go.
         return ChangeInitiation::with([
             'field', 'initiator.team', 'reviewer',
             'implementations.evaluator', 'implementations.reviewer', 'implementations.responsible',
