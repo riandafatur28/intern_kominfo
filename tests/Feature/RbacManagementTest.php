@@ -151,8 +151,11 @@ class RbacManagementTest extends TestCase
             'roles' => ['staf', 'kepala_tim'],
         ]);
 
-        $response->assertStatus(201)
-            ->assertJsonPath('data.roles', ['staf', 'kepala_tim']);
+        $response->assertStatus(201);
+
+        // Roles are a set, not an ordered list — Spatie returns pivot order
+        // which is non-deterministic across runs (flaky when asserted as array).
+        $this->assertEqualsCanonicalizing(['staf', 'kepala_tim'], $response->json('data.roles'));
 
         $user = User::where('email', 'multi@test.com')->first();
         $this->assertTrue($user->hasRole('staf'));
