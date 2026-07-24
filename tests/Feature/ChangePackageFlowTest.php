@@ -179,6 +179,52 @@ class ChangePackageFlowTest extends TestCase
         $this->postJson("/api/changes/{$pkg['id']}/approve")->assertStatus(422);
     }
 
+    public function test_submit_persists_implementation_and_initiation_body(): void
+    {
+        // RED: prove the submit body is actually persisted, not just validated+discarded.
+        Sanctum::actingAs($this->staf);
+        // Start from a MINIMAL draft — no business fields stored yet.
+        $pkg = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $this->field->id,
+                'description' => 'Initial',
+                'reason' => 'Initial reason',
+            ],
+            'implementation' => ['priority' => 'low', 'impact' => 'low'],
+        ])->json('data.initiation');
+
+        $response = $this->postJson("/api/changes/{$pkg['id']}/submit", [
+            'initiation' => [
+                'field_id' => $this->field->id,
+                'description' => 'Final desc',
+                'reason' => 'Final reason',
+                'needed_by_date' => '2026-09-01',
+            ],
+            'implementation' => [
+                'priority' => 'high',
+                'impact' => 'medium',
+                'change_type_ids' => [$this->typeA->id],
+                'test_plan' => 'Real test plan',
+                'execution_date' => '2026-09-10',
+                'release_date' => '2026-09-15',
+                'implementation_result' => 'Real result',
+                'testing_result' => 'Real test outcome',
+            ],
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('data.initiation.status', 'pending')
+            ->assertJsonPath('data.initiation.description', 'Final desc')
+            ->assertJsonPath('data.initiation.reason', 'Final reason')
+            ->assertJsonPath('data.initiation.needed_by_date', '2026-09-01')
+            ->assertJsonPath('data.implementation.priority', 'high')
+            ->assertJsonPath('data.implementation.test_plan', 'Real test plan')
+            ->assertJsonPath('data.implementation.execution_date', '2026-09-10')
+            ->assertJsonPath('data.implementation.implementation_result', 'Real result')
+            ->assertJsonPath('data.implementation.testing_result', 'Real test outcome');
+        $this->assertContains($this->typeA->id, $response->json('data.implementation.change_types.*.id'));
+    }
+
     public function test_cross_team_kepala_tim_cannot_approve(): void
     {
         [$initId] = $this->createSubmittedPackage();
