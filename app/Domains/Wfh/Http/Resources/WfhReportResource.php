@@ -16,7 +16,7 @@ class WfhReportResource extends JsonResource
             'activity_count' => $this->whenLoaded('activities', fn () => $this->activities->count(), 0),
             'maker_signed_at' => $this->maker_signed_at,
             'supervisor_signed_at' => $this->supervisor_signed_at,
-            'reject_reason' => $this->reject_reason,
+            'verification_token' => $this->verification_token,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

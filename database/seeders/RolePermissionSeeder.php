@@ -126,6 +126,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.create',
             'wfh.report.update',
             'wfh.report.submit',
+            'wfh.report.delete',
             'wfh.report.export_pdf',
             'change.initiation.view',
             'change.initiation.create',
