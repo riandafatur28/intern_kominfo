@@ -21,6 +21,14 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
         'rejected' => 'rejected',
     ];
 
+    /** @var array<string, list<string>> */
+    private const ALLOWED_TRANSITIONS = [
+        'draft' => ['pending'],
+        'pending' => ['approved', 'rejected'],
+        'approved' => [],
+        'rejected' => [],
+    ];
+
     /** Relations loaded for a full package read (show / after-write return). */
     private const PACKAGE_RELATIONS = [
         'field',
@@ -138,6 +146,15 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
 
         DB::transaction(function () use ($id, $parentStatus, $parentExtra, $childExtra) {
             $parent = ChangeInitiation::findOrFail($id);
+
+            $current = $parent->status;
+            $allowed = self::ALLOWED_TRANSITIONS[$current] ?? [];
+            if (! in_array($parentStatus, $allowed, true)) {
+                throw new InvalidArgumentException(
+                    "Cannot transition package from '{$current}' to '{$parentStatus}'"
+                );
+            }
+
             $parent->update(array_merge($parentExtra, ['status' => $parentStatus]));
 
             $impl = $parent->implementation;

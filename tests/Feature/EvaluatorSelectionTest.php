@@ -2,7 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Domains\ChangeManagement\Models\ChangeInitiation;
 use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
@@ -20,22 +19,6 @@ class EvaluatorSelectionTest extends TestCase
         $this->artisan('db:seed', ['--class' => 'RolePermissionSeeder']);
     }
 
-    private function createApprovedInitiation(User $initiator, Field $field): ChangeInitiation
-    {
-        $initiation = ChangeInitiation::create([
-            'field_id' => $field->id,
-            'initiator_id' => $initiator->id,
-            'doc_number' => 'TEST-001',
-            'initiation_date' => now()->toDateString(),
-            'description' => 'Test change',
-            'reason' => 'Testing',
-            'status' => 'approved',
-            'review_status' => 'approved',
-        ]);
-
-        return $initiation;
-    }
-
     public function test_implementation_defaults_evaluator_to_self_when_not_provided(): void
     {
         $field = Field::create(['name' => 'Bidang A']);
@@ -44,17 +27,22 @@ class EvaluatorSelectionTest extends TestCase
         $creator = User::factory()->create(['team_id' => $team->id]);
         $creator->assignRole('staf');
 
-        $initiation = $this->createApprovedInitiation($creator, $field);
-
         Sanctum::actingAs($creator);
 
-        $response = $this->postJson("/api/changes/initiations/{$initiation->id}/implementations", [
-            'priority' => 'medium',
-            'impact' => 'low',
+        $response = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test change',
+                'reason' => 'Testing',
+            ],
+            'implementation' => [
+                'priority' => 'medium',
+                'impact' => 'low',
+            ],
         ]);
 
         $response->assertStatus(201);
-        $this->assertEquals($creator->id, $response->json('data.evaluator_id'));
+        $this->assertNull($response->json('data.implementation.evaluator_id'));
     }
 
     public function test_implementation_accepts_evaluator_from_same_field(): void
@@ -68,17 +56,23 @@ class EvaluatorSelectionTest extends TestCase
         $evaluator = User::factory()->create(['team_id' => $team->id]);
         $evaluator->assignRole('staf');
 
-        $initiation = $this->createApprovedInitiation($creator, $field);
-
         Sanctum::actingAs($creator);
 
-        $response = $this->postJson("/api/changes/initiations/{$initiation->id}/implementations", [
-            'priority' => 'medium',
-            'evaluator_id' => $evaluator->id,
+        $response = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test change',
+                'reason' => 'Testing',
+            ],
+            'implementation' => [
+                'priority' => 'medium',
+                'impact' => 'low',
+                'evaluator_id' => $evaluator->id,
+            ],
         ]);
 
         $response->assertStatus(201);
-        $this->assertEquals($evaluator->id, $response->json('data.evaluator_id'));
+        $this->assertEquals($evaluator->id, $response->json('data.implementation.evaluator_id'));
     }
 
     public function test_implementation_rejects_evaluator_from_different_field(): void
@@ -93,14 +87,19 @@ class EvaluatorSelectionTest extends TestCase
 
         $otherFieldUser = User::factory()->create(['team_id' => $teamB->id]);
 
-        $initiation = $this->createApprovedInitiation($creator, $fieldA);
-
         Sanctum::actingAs($creator);
 
-        $this->postJson("/api/changes/initiations/{$initiation->id}/implementations", [
-            'evaluator_id' => $otherFieldUser->id,
+        $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $fieldA->id,
+                'description' => 'Test change',
+                'reason' => 'Testing',
+            ],
+            'implementation' => [
+                'evaluator_id' => $otherFieldUser->id,
+            ],
         ])
             ->assertStatus(422)
-            ->assertJsonValidationErrors(['evaluator_id']);
+            ->assertJsonValidationErrors(['implementation.evaluator_id']);
     }
 }

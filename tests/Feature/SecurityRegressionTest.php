@@ -41,7 +41,7 @@ class SecurityRegressionTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->getJson('/api/changes/initiations')
+        $this->getJson('/api/changes')
             ->assertStatus(403);
     }
 
@@ -61,7 +61,7 @@ class SecurityRegressionTest extends TestCase
 
         Sanctum::actingAs($user);
 
-        $this->getJson("/api/changes/initiations/{$initiation->id}")
+        $this->getJson("/api/changes/{$initiation->id}")
             ->assertStatus(403);
     }
 
@@ -75,29 +75,27 @@ class SecurityRegressionTest extends TestCase
         $creator = $this->createUserWithRole('staf', $team);
         $other = $this->createUserWithRole('staf', $team);
 
-        $initiation = ChangeInitiation::factory()->create([
-            'field_id' => $field->id,
-            'initiator_id' => $creator->id,
-            'status' => 'approved',
-        ]);
-
         Sanctum::actingAs($creator);
 
-        $implResponse = $this->postJson("/api/changes/initiations/{$initiation->id}/implementations", [
-            'priority' => 'medium',
-            'impact' => 'low',
-            'resources' => '2 org',
-        ])
-            ->assertStatus(201);
+        $response = $this->postJson('/api/changes', [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Test description',
+                'reason' => 'Test reason',
+            ],
+        ])->assertStatus(201);
 
-        $implId = $implResponse->json('data.id');
+        $packageId = $response->json('data.initiation.id');
 
         Sanctum::actingAs($other);
 
-        $this->putJson("/api/changes/implementations/{$implId}", [
-            'priority' => 'high',
-        ])
-            ->assertStatus(403);
+        $this->putJson("/api/changes/{$packageId}", [
+            'initiation' => [
+                'field_id' => $field->id,
+                'description' => 'Updated description',
+                'reason' => 'Updated reason',
+            ],
+        ])->assertStatus(403);
     }
 
     /**
