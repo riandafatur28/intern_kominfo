@@ -14,6 +14,7 @@ use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\QueryException;
+use InvalidArgumentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Validator;
 use Tests\TestCase;
@@ -223,6 +224,37 @@ class ChangePackageFoundationTest extends TestCase
 
         $adminPage = $this->repo->paginatePackages(15, [], $this->admin);
         $this->assertEquals(2, $adminPage->total());
+    }
+
+    public function test_paginate_packages_cross_team_kepala_tim_sees_zero(): void
+    {
+        $this->createDraftPackage();
+
+        $crossTeamKt = User::factory()->create(['team_id' => $this->outsider->team_id]);
+        $crossTeamKt->assignRole('kepala_tim');
+
+        $page = $this->repo->paginatePackages(15, [], $crossTeamKt);
+        $this->assertEquals(0, $page->total());
+    }
+
+    public function test_paginate_packages_kepala_tim_without_team_sees_zero(): void
+    {
+        $this->createDraftPackage();
+
+        $orphanKt = User::factory()->create(['team_id' => null]);
+        $orphanKt->assignRole('kepala_tim');
+
+        $page = $this->repo->paginatePackages(15, [], $orphanKt);
+        $this->assertEquals(0, $page->total());
+    }
+
+    public function test_transition_package_throws_on_invalid_status(): void
+    {
+        $package = $this->createDraftPackage();
+
+        $this->expectException(InvalidArgumentException::class);
+
+        $this->repo->transitionPackage($package->id, 'bogus');
     }
 
     public function test_store_change_package_request_draft_rules_are_loose(): void
