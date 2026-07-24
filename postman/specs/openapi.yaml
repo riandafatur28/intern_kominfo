@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 3.0.0
+  version: 4.0.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,9 +9,15 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+    **v4.0.0 — Breaking change (Change Package):** the serial two-step change
+    flow (`/changes/initiations/*` + `/changes/implementations/*`) is removed.
+    It is replaced by a single nested package flow at `/changes/*` where the
+    staf fills all form fields (initiation + implementation) and the kepala_tim
+    only approves or rejects. See the `Change Package` tag for the 11 new routes.
+
     The `kepala_bidang` role (field head) approves WFH reports as "atasan langsung".
-    The `kepala_tim` role (team leader) approves change initiations and reviews implementations.
-    Admin is scoped to their own field (bidang).
+    The `kepala_tim` role (team leader) approves/rejects change packages.
 servers:
   - url: http://localhost
     description: Local development server
@@ -1161,6 +1167,85 @@ components:
       properties:
         initiation: { $ref: "#/components/schemas/InitiationResource" }
         implementation: { $ref: "#/components/schemas/ImplementationResource", nullable: true }
+    InitiationResource:
+      type: object
+      required: [id, field_id, initiator_id, doc_number, status]
+      properties:
+        id: { type: integer, example: 8 }
+        field_id: { type: integer, example: 1 }
+        initiator_id: { type: integer, example: 1 }
+        reviewer_id: { type: integer, nullable: true, example: 5 }
+        doc_number: { type: string, example: "001/9/1.1/114/2025" }
+        initiation_date: { type: string, format: date, nullable: true, example: "2025-07-14" }
+        needed_by_date: { type: string, format: date, nullable: true, example: "2025-08-15" }
+        description: { type: string }
+        reason: { type: string }
+        status: { type: string, enum: [draft, pending, approved, rejected], example: pending }
+        review_status: { type: string, nullable: true }
+        reviewed_at: { type: string, format: date-time, nullable: true }
+        review_reason: { type: string, nullable: true }
+        initiator_signed_at: { type: string, format: date-time, nullable: true }
+        verification_token: { type: string, nullable: true }
+        created_at: { type: string, format: date-time, nullable: true }
+        field:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            name: { type: string }
+        initiator:
+          type: object
+          nullable: true
+          properties:
+            id: { type: integer }
+            name: { type: string }
+            nip: { type: string }
+            position: { type: string, nullable: true }
+            rank: { type: string, nullable: true }
+            signature_path: { type: string, nullable: true }
+    ImplementationResource:
+      type: object
+      required: [id, change_initiation_id, status]
+      properties:
+        id: { type: integer, example: 4 }
+        change_initiation_id: { type: integer, example: 8 }
+        priority: { type: string, enum: [low, medium, high, critical], nullable: true }
+        impact: { type: string, enum: [low, medium, high], nullable: true }
+        production_impact: { type: string, nullable: true }
+        required_effort: { type: string, nullable: true }
+        cost_needed: { type: boolean, nullable: true }
+        cost_amount: { type: number, format: double, nullable: true }
+        resources: { type: string, nullable: true }
+        test_plan: { type: string, nullable: true }
+        evaluator_id: { type: integer, nullable: true }
+        evaluator_signed_at: { type: string, format: date-time, nullable: true }
+        review_status: { type: string, nullable: true }
+        review_response: { type: string, nullable: true }
+        execution_date: { type: string, format: date, nullable: true }
+        reviewer_id: { type: integer, nullable: true }
+        reviewer_signed_at: { type: string, format: date-time, nullable: true }
+        implementation_result: { type: string, nullable: true }
+        testing_result: { type: string, nullable: true }
+        release_date: { type: string, format: date, nullable: true }
+        responsible_id: { type: integer, nullable: true }
+        responsible_signed_at: { type: string, format: date-time, nullable: true }
+        status: { type: string, enum: [draft, submitted, completed, rejected], example: submitted }
+        change_types:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              name: { type: string }
+        attachments:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: integer }
+              path: { type: string }
+              url: { type: string, format: uri }
+              sort_order: { type: integer }
     ChangePackageListResponse:
       type: object
       required: [success, data, meta]
@@ -1481,6 +1566,43 @@ components:
         path:
           type: string
           example: "http://localhost/api/admin/wfh/team-reports"
+  responses:
+    Unauthenticated:
+      description: Unauthenticated — bearer token missing or invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Unauthenticated.
+    Forbidden:
+      description: Forbidden — authenticated but lacks the required permission or ownership
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: This action is unauthorized.
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: Resource tidak ditemukan.
+    ValidationError:
+      description: Validation error (422)
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: "The description field is required."
   parameters:
     UserIdPath:
       name: user
@@ -1497,6 +1619,13 @@ components:
       schema:
         type: integer
       description: WFH Report ID
+    PackageIdPath:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+      description: Change Package (parent initiation) ID
 security:
   - bearerAuth: []
 tags:
@@ -1518,6 +1647,8 @@ tags:
     description: Admin monitoring of WFH attendance and reports
   - name: WFH Team Reports
     description: Team-level WFH report creation and supervisor approval
+  - name: Change Package
+    description: Change package workflow (create draft → submit → approve/reject, PDF export)
   - name: Verification
     description: Public QR token document verification
 paths:
@@ -1849,14 +1980,8 @@ paths:
           content:
             application/json:
               schema:
-    PackageIdPath:
-      name: id
-      in: path
-      required: true
-      description: Change Package (parent initiation) ID
-      schema:
-        type: integer
-                message: Unauthenticated.
+                $ref: "#/components/schemas/SuccessResponse"
+        "401": { $ref: "#/components/responses/Unauthenticated" }
         "422":
           description: Validation error
           content:
@@ -1878,8 +2003,8 @@ paths:
           schema:
             type: integer
             default: 15
-  - name: Change Package
-    description: Change package workflow (create draft → submit → approve/reject, PDF export)
+      responses:
+        "200":
           description: Paginated user list
           content:
             application/json:
@@ -3770,7 +3895,7 @@ paths:
   /api/changes/{id}/submit:
     post:
       tags: [Change Package]
-      summary: Submit package for approval (owner only, validates all fields)
+      summary: Submit package for approval (owner only; persists all form fields then transitions to pending)
       operationId: submitPackage
       requestBody:
         required: true
