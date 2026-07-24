@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ChangeInitiation extends Model
@@ -53,6 +54,12 @@ class ChangeInitiation extends Model
         return $this->belongsTo(User::class, 'reviewer_id');
     }
 
+    public function implementation(): HasOne
+    {
+        return $this->hasOne(ChangeImplementation::class);
+    }
+
+    /** @deprecated package is 1:1; use implementation() */
     public function implementations(): HasMany
     {
         return $this->hasMany(ChangeImplementation::class);
