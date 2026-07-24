@@ -4,7 +4,7 @@ namespace App\Domains\ChangeManagement\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
 
-class UploadAttachmentsRequest extends FormRequest
+class UploadChangePackageAttachmentsRequest extends FormRequest
 {
     public function authorize(): bool
     {
@@ -15,7 +15,7 @@ class UploadAttachmentsRequest extends FormRequest
     {
         return [
             'files' => ['required', 'array', 'max:10'],
-            'files.*' => ['image', 'mimes:jpg,jpeg,png', 'max:5120', 'dimensions:max_width=2000,max_height=2000'],
+            'files.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:10240'],
         ];
     }
 }
