@@ -343,8 +343,12 @@ components:
         rank: Penata Muda
         position: Programmer
         phone: "081234567890"
-        password: rahasiaBudi123
         roles: [staf]
+      description: |
+        Password is OPTIONAL. If omitted, the system injects a default from Settings:
+          - role 'admin' → Setting::get('password_default_admin')
+          - any other role → Setting::get('password_default_user')
+        The created user always has must_change_password=true.
     UpdateUserRequest:
       type: object
       properties:
@@ -1659,11 +1663,11 @@ components:
           example: 1
         key:
           type: string
-          example: default_password.staf
+          example: password_default_user
         value:
           type: string
           description: Stored as text; may be JSON-encoded for structured values.
-          example: "Rahasia123!"
+          example: "user1234"
         created_at:
           type: string
           format: date-time
@@ -2837,8 +2841,10 @@ paths:
                     additionalProperties: true
                     description: Arbitrary key→value pairs.
                     example:
-                      default_password.staf: "Rahasia123!"
-                      default_password.kepala_tim: "KtRahasia123!"
+                      password_default_admin: "admin123"
+                      password_default_user: "user1234"
+                      wfh_allowed_days: [1, 2, 3, 4, 5]
+                      wfh_sessions: ["pagi", "siang", "sore"]
         "401":
           description: Unauthenticated
           content:
@@ -2874,7 +2880,7 @@ paths:
           schema:
             type: string
           description: Setting key (must already exist).
-          example: default_password.staf
+          example: password_default_user
       requestBody:
         required: true
         content:
@@ -2896,14 +2902,14 @@ paths:
                     properties:
                       key:
                         type: string
-                        example: default_password.staf
+                        example: password_default_user
                       value:
                         description: Updated value (decoded if JSON-encodable).
-                        example: "RahasiaBaru123!"
+                        example: "BaruUser123!"
               example:
                 data:
-                  key: default_password.staf
-                  value: "RahasiaBaru123!"
+                  key: password_default_user
+                  value: "BaruUser123!"
         "401":
           description: Unauthenticated
           content:
