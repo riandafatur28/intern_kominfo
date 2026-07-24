@@ -1116,27 +1116,43 @@ components:
           type: object
           required: [field_id, description, reason]
           properties:
-            field_id: { type: integer, example: 1 }
-            needed_by_date: { type: string, format: date, nullable: true, example: "2025-08-15" }
-            description: { type: string, example: "Migrasi server aplikasi dari on-premise ke cloud kominfo" }
-            reason: { type: string, example: "Server on-premise saat ini sudah tidak memadai." }
+            field_id: { type: integer, example: 3 }
+            needed_by_date: { type: string, format: date, nullable: true, example: "2025-12-15" }
+            description: { type: string, example: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo" }
+            reason: { type: string, example: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu." }
         implementation:
           type: object
           properties:
             priority: { type: string, enum: [low, medium, high, critical], nullable: true, example: high }
             impact: { type: string, enum: [low, medium, high], nullable: true, example: high }
             change_type_ids: { type: array, nullable: true, items: { type: integer }, example: [1, 3] }
-            test_plan: { type: string, nullable: true, example: "Smoke test semua endpoint API." }
-            execution_date: { type: string, format: date, nullable: true, example: "2025-08-01" }
-            release_date: { type: string, format: date, nullable: true, example: "2025-08-05" }
-            implementation_result: { type: string, nullable: true }
-            testing_result: { type: string, nullable: true }
-            evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 15 }
-            production_impact: { type: string, nullable: true }
-            required_effort: { type: string, nullable: true }
-            cost_needed: { type: boolean, nullable: true }
-            cost_amount: { type: number, format: double, nullable: true }
-            resources: { type: string, nullable: true }
+            test_plan: { type: string, nullable: true, example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama." }
+            execution_date: { type: string, format: date, nullable: true, example: "2025-11-10" }
+            release_date: { type: string, format: date, nullable: true, example: "2025-11-15" }
+            implementation_result: { type: string, nullable: true, example: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud." }
+            testing_result: { type: string, nullable: true, example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit." }
+            evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 27 }
+            production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
+            required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
+            cost_needed: { type: boolean, nullable: true, example: true }
+            cost_amount: { type: number, format: double, nullable: true, example: 15000000 }
+            resources: { type: string, nullable: true, example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps" }
+      example:
+        initiation:
+          field_id: 3
+          needed_by_date: "2025-12-15"
+          description: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo"
+          reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu."
+        implementation:
+          priority: high
+          impact: high
+          change_type_ids: [1, 3]
+          test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+          production_impact: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data."
+          required_effort: "3 orang x 5 hari kerja"
+          cost_needed: true
+          cost_amount: 15000000
+          resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
     ChangePackageSubmitRequest:
       type: object
       required: [initiation, implementation]
@@ -1145,10 +1161,10 @@ components:
           type: object
           required: [field_id, description, reason, needed_by_date]
           properties:
-            field_id: { type: integer, example: 1 }
-            description: { type: string, example: "Migrasi server aplikasi dari on-premise ke cloud kominfo" }
-            reason: { type: string, example: "Server on-premise saat ini sudah tidak memadai." }
-            needed_by_date: { type: string, format: date, example: "2025-08-15" }
+            field_id: { type: integer, example: 3 }
+            description: { type: string, example: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo" }
+            reason: { type: string, example: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu." }
+            needed_by_date: { type: string, format: date, example: "2025-12-15" }
         implementation:
           type: object
           required: [priority, impact, change_type_ids, test_plan, execution_date, release_date, implementation_result, testing_result]
@@ -1156,96 +1172,174 @@ components:
             priority: { type: string, enum: [low, medium, high, critical], example: high }
             impact: { type: string, enum: [low, medium, high], example: high }
             change_type_ids: { type: array, minItems: 1, items: { type: integer }, example: [1, 3] }
-            test_plan: { type: string, example: "Smoke test semua endpoint API." }
-            execution_date: { type: string, format: date, example: "2025-08-01" }
-            release_date: { type: string, format: date, example: "2025-08-05" }
-            implementation_result: { type: string, example: "Migrasi berhasil." }
-            testing_result: { type: string, example: "Semua pengujian lulus." }
-            evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 15 }
+            test_plan: { type: string, example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama." }
+            execution_date: { type: string, format: date, example: "2025-11-10" }
+            release_date: { type: string, format: date, example: "2025-11-15" }
+            implementation_result: { type: string, example: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud." }
+            testing_result: { type: string, example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit." }
+            evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 27 }
+      example:
+        initiation:
+          field_id: 3
+          description: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo"
+          reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu."
+          needed_by_date: "2025-12-15"
+        implementation:
+          priority: high
+          impact: high
+          change_type_ids: [1, 3]
+          test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+          execution_date: "2025-11-10"
+          release_date: "2025-11-15"
+          implementation_result: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud."
+          testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit."
+          evaluator_id: 27
     ChangePackageResource:
       type: object
       properties:
         initiation: { $ref: "#/components/schemas/InitiationResource" }
         implementation: { $ref: "#/components/schemas/ImplementationResource", nullable: true }
+      example:
+        initiation:
+          id: 12
+          field_id: 3
+          initiator_id: 8
+          reviewer_id: 5
+          doc_number: "001/9/1.1/114/2025"
+          initiation_date: "2025-07-14"
+          needed_by_date: "2025-12-15"
+          description: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo"
+          reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu."
+          status: approved
+          review_status: approved
+          reviewed_at: "2025-07-18T09:15:00.000000Z"
+          review_reason: null
+          initiator_signed_at: "2025-07-14T10:30:00.000000Z"
+          verification_token: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+          created_at: "2025-07-14T10:00:00.000000Z"
+          field:
+            id: 3
+            name: "Bidang Aplikasi Informatika"
+          initiator:
+            id: 8
+            name: "Budi Santoso"
+            nip: "199001012023011001"
+            position: "Staf Pelaksana"
+            rank: "Penata Muda"
+            signature_path: "signatures/8-signature.png"
+        implementation:
+          id: 9
+          change_initiation_id: 12
+          priority: high
+          impact: high
+          production_impact: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data."
+          required_effort: "3 orang x 5 hari kerja"
+          cost_needed: true
+          cost_amount: "15000000.00"
+          resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
+          test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+          evaluator_id: 27
+          evaluator_signed_at: "2025-07-14T11:00:00.000000Z"
+          review_status: diterima
+          review_response: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan."
+          execution_date: "2025-11-10"
+          reviewer_id: 5
+          reviewer_signed_at: "2025-07-18T09:15:00.000000Z"
+          implementation_result: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud."
+          testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit."
+          release_date: "2025-11-15"
+          responsible_id: 5
+          responsible_signed_at: "2025-07-18T09:15:00.000000Z"
+          status: completed
+          change_types:
+            - id: 1
+              name: "Perubahan Infrastruktur"
+            - id: 3
+              name: "Perubahan Data"
+          attachments:
+            - id: 15
+              path: "change-attachments/diagram-arsitektur.png"
+              url: "http://localhost/storage/change-attachments/diagram-arsitektur.png"
+              sort_order: 1
     InitiationResource:
       type: object
       required: [id, field_id, initiator_id, doc_number, status]
       properties:
-        id: { type: integer, example: 8 }
-        field_id: { type: integer, example: 1 }
-        initiator_id: { type: integer, example: 1 }
+        id: { type: integer, example: 12 }
+        field_id: { type: integer, example: 3 }
+        initiator_id: { type: integer, example: 8 }
         reviewer_id: { type: integer, nullable: true, example: 5 }
         doc_number: { type: string, example: "001/9/1.1/114/2025" }
         initiation_date: { type: string, format: date, nullable: true, example: "2025-07-14" }
-        needed_by_date: { type: string, format: date, nullable: true, example: "2025-08-15" }
-        description: { type: string }
-        reason: { type: string }
+        needed_by_date: { type: string, format: date, nullable: true, example: "2025-12-15" }
+        description: { type: string, example: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo" }
+        reason: { type: string, example: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu." }
         status: { type: string, enum: [draft, pending, approved, rejected], example: pending }
-        review_status: { type: string, nullable: true }
-        reviewed_at: { type: string, format: date-time, nullable: true }
-        review_reason: { type: string, nullable: true }
-        initiator_signed_at: { type: string, format: date-time, nullable: true }
-        verification_token: { type: string, nullable: true }
-        created_at: { type: string, format: date-time, nullable: true }
+        review_status: { type: string, nullable: true, example: null }
+        reviewed_at: { type: string, format: date-time, nullable: true, example: null }
+        review_reason: { type: string, nullable: true, example: null }
+        initiator_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-14T10:30:00.000000Z" }
+        verification_token: { type: string, nullable: true, example: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2" }
+        created_at: { type: string, format: date-time, nullable: true, example: "2025-07-14T10:00:00.000000Z" }
         field:
           type: object
           nullable: true
           properties:
-            id: { type: integer }
-            name: { type: string }
+            id: { type: integer, example: 3 }
+            name: { type: string, example: "Bidang Aplikasi Informatika" }
         initiator:
           type: object
           nullable: true
           properties:
-            id: { type: integer }
-            name: { type: string }
-            nip: { type: string }
-            position: { type: string, nullable: true }
-            rank: { type: string, nullable: true }
-            signature_path: { type: string, nullable: true }
+            id: { type: integer, example: 8 }
+            name: { type: string, example: "Budi Santoso" }
+            nip: { type: string, example: "199001012023011001" }
+            position: { type: string, nullable: true, example: "Staf Pelaksana" }
+            rank: { type: string, nullable: true, example: "Penata Muda" }
+            signature_path: { type: string, nullable: true, example: "signatures/8-signature.png" }
     ImplementationResource:
       type: object
       required: [id, change_initiation_id, status]
       properties:
-        id: { type: integer, example: 4 }
-        change_initiation_id: { type: integer, example: 8 }
-        priority: { type: string, enum: [low, medium, high, critical], nullable: true }
-        impact: { type: string, enum: [low, medium, high], nullable: true }
-        production_impact: { type: string, nullable: true }
-        required_effort: { type: string, nullable: true }
-        cost_needed: { type: boolean, nullable: true }
-        cost_amount: { type: number, format: double, nullable: true }
-        resources: { type: string, nullable: true }
-        test_plan: { type: string, nullable: true }
-        evaluator_id: { type: integer, nullable: true }
-        evaluator_signed_at: { type: string, format: date-time, nullable: true }
-        review_status: { type: string, nullable: true }
-        review_response: { type: string, nullable: true }
-        execution_date: { type: string, format: date, nullable: true }
-        reviewer_id: { type: integer, nullable: true }
-        reviewer_signed_at: { type: string, format: date-time, nullable: true }
-        implementation_result: { type: string, nullable: true }
-        testing_result: { type: string, nullable: true }
-        release_date: { type: string, format: date, nullable: true }
-        responsible_id: { type: integer, nullable: true }
-        responsible_signed_at: { type: string, format: date-time, nullable: true }
+        id: { type: integer, example: 9 }
+        change_initiation_id: { type: integer, example: 12 }
+        priority: { type: string, enum: [low, medium, high, critical], nullable: true, example: high }
+        impact: { type: string, enum: [low, medium, high], nullable: true, example: high }
+        production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
+        required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
+        cost_needed: { type: boolean, nullable: true, example: true }
+        cost_amount: { type: number, format: double, nullable: true, example: 15000000 }
+        resources: { type: string, nullable: true, example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps" }
+        test_plan: { type: string, nullable: true, example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama." }
+        evaluator_id: { type: integer, nullable: true, example: 27 }
+        evaluator_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-14T11:00:00.000000Z" }
+        review_status: { type: string, nullable: true, example: diterima }
+        review_response: { type: string, nullable: true, example: "Rencana implementasi sudah baik, disetujui untuk dilanjutkan." }
+        execution_date: { type: string, format: date, nullable: true, example: "2025-11-10" }
+        reviewer_id: { type: integer, nullable: true, example: 5 }
+        reviewer_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-18T09:15:00.000000Z" }
+        implementation_result: { type: string, nullable: true, example: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud." }
+        testing_result: { type: string, nullable: true, example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit." }
+        release_date: { type: string, format: date, nullable: true, example: "2025-11-15" }
+        responsible_id: { type: integer, nullable: true, example: 5 }
+        responsible_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-18T09:15:00.000000Z" }
         status: { type: string, enum: [draft, submitted, completed, rejected], example: submitted }
         change_types:
           type: array
           items:
             type: object
             properties:
-              id: { type: integer }
-              name: { type: string }
+              id: { type: integer, example: 1 }
+              name: { type: string, example: "Perubahan Infrastruktur" }
         attachments:
           type: array
           items:
             type: object
             properties:
-              id: { type: integer }
-              path: { type: string }
-              url: { type: string, format: uri }
-              sort_order: { type: integer }
+              id: { type: integer, example: 15 }
+              path: { type: string, example: "change-attachments/diagram-arsitektur.png" }
+              url: { type: string, format: uri, example: "http://localhost/storage/change-attachments/diagram-arsitektur.png" }
+              sort_order: { type: integer, example: 1 }
     ChangePackageListResponse:
       type: object
       required: [success, data, meta]
@@ -1257,20 +1351,48 @@ components:
         success: true
         data:
           - initiation:
-              id: 1
-              field_id: 1
-              status: draft
+              id: 12
+              field_id: 3
+              initiator_id: 8
+              doc_number: "001/9/1.1/114/2025"
+              initiation_date: "2025-07-14"
+              needed_by_date: "2025-12-15"
+              description: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo"
+              reason: "Server on-premise sudah tidak memadai untuk menangani lonjakan trafik."
+              status: pending
+              initiator_signed_at: "2025-07-14T10:30:00.000000Z"
+              created_at: "2025-07-14T10:00:00.000000Z"
+              field:
+                id: 3
+                name: "Bidang Aplikasi Informatika"
+              initiator:
+                id: 8
+                name: "Budi Santoso"
+                nip: "199001012023011001"
+                position: "Staf Pelaksana"
+                rank: "Penata Muda"
+                signature_path: "signatures/8-signature.png"
             implementation:
-              id: 1
-              status: draft
+              id: 9
+              change_initiation_id: 12
+              priority: high
+              impact: high
+              test_plan: "Smoke test semua endpoint API."
+              status: submitted
+              change_types:
+                - id: 1
+                  name: "Perubahan Infrastruktur"
         meta:
           current_page: 1
-          last_page: 1
-          total: 1
+          last_page: 3
+          per_page: 15
+          total: 42
     DecidePackageRequest:
       type: object
       properties:
-        reason: { type: string, nullable: true, example: "Dokumen tidak lengkap." }
+        reason: { type: string, nullable: true, example: "Dokumen tidak lengkap, mohon dilengkapi estimasi biaya dan jadwal migrasi." }
+      example:
+        reason: "Dokumen tidak lengkap, mohon dilengkapi estimasi biaya dan jadwal migrasi."
     # ── RBAC Management ────────────────────────────────────────────
     RoleResource:
       type: object
@@ -1626,6 +1748,7 @@ components:
       schema:
         type: integer
       description: Change Package (parent initiation) ID
+      example: 12
 security:
   - bearerAuth: []
 tags:
@@ -3821,12 +3944,20 @@ paths:
               $ref: "#/components/schemas/ChangePackageDraftRequest"
             example:
               initiation:
-                field_id: 1
-                description: "Migrasi server aplikasi dari on-premise ke cloud kominfo"
-                reason: "Server on-premise saat ini sudah tidak memadai."
+                field_id: 3
+                needed_by_date: "2025-12-15"
+                description: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo"
+                reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu."
               implementation:
                 priority: high
                 impact: high
+                change_type_ids: [1, 3]
+                test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
+                production_impact: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data."
+                required_effort: "3 orang x 5 hari kerja"
+                cost_needed: true
+                cost_amount: 15000000
+                resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
       responses:
         "201":
           description: Package created
