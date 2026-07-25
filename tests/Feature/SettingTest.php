@@ -74,56 +74,56 @@ class SettingTest extends TestCase
         $this->assertEquals('default_value', Setting::get('non_existent', 'default_value'));
         $this->assertNull(Setting::get('another_non_existent'));
     }
-    
+
     public function test_set_creates_new_setting_when_key_not_exists(): void
     {
         $this->assertNull(Setting::get('brand_new_key'));
-    
+
         Setting::set('brand_new_key', 'fresh_value');
-    
+
         $this->assertEquals('fresh_value', Setting::get('brand_new_key'));
         $this->assertDatabaseHas('settings', [
             'key' => 'brand_new_key',
             'value' => 'fresh_value',
         ]);
     }
-    
+
     public function test_set_get_preserves_array_values(): void
     {
         $array = ['pagi', 'siang', 'sore'];
         Setting::set('test_sessions', $array);
         $this->assertSame($array, Setting::get('test_sessions'));
     }
-    
+
     public function test_set_get_preserves_integer_string(): void
     {
         Setting::set('test_answer', '0');
         $this->assertSame('0', Setting::get('test_answer'));
     }
-    
+
     public function test_set_get_does_not_mutate_numeric_string_that_is_valid_json(): void
     {
         Setting::set('test_number', '42');
         $this->assertSame('42', Setting::get('test_number'));
-     }
-    
+    }
+
     public function test_update_setting_validates_value_required(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
-    
+
         $this->putJson('/api/admin/settings/wfh_allowed_days', [])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['value']);
     }
-    
+
     public function test_admin_can_list_settings_with_exact_seeded_values(): void
     {
         $admin = User::factory()->create();
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
-    
+
         $this->getJson('/api/admin/settings')
             ->assertStatus(200)
             ->assertJson([

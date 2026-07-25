@@ -2,11 +2,12 @@
 
 namespace App\Domains\ChangeManagement\Http\Resources;
 
+use App\Domains\ChangeManagement\Models\ChangeInitiation;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class ChangePackageResource extends JsonResource
 {
-    /** @var \App\Domains\ChangeManagement\Models\ChangeInitiation */
+    /** @var ChangeInitiation */
     public $resource;
 
     public function toArray($request): array

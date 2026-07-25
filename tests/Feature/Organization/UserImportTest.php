@@ -5,9 +5,10 @@ namespace Tests\Feature\Organization;
 use App\Models\Setting;
 use App\Models\User;
 use App\Support\Import\UserImport;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Maatwebsite\Excel\Facades\Excel;
-use Illuminate\Foundation\Testing\RefreshDatabase;
+use Maatwebsite\Excel\Validators\ValidationException;
 use Tests\TestCase;
 
 class UserImportTest extends TestCase
@@ -24,8 +25,8 @@ class UserImportTest extends TestCase
     public function test_import_with_role_column_creates_users_with_role(): void
     {
         $csv = "nama,nip,email,role\n"
-            . "User Satu,0000000201,satu@test.com,staf\n"
-            . "User Dua,0000000202,dua@test.com,kepala_tim\n";
+            ."User Satu,0000000201,satu@test.com,staf\n"
+            ."User Dua,0000000202,dua@test.com,kepala_tim\n";
 
         file_put_contents('/tmp/test_import.csv', $csv);
 
@@ -50,7 +51,7 @@ class UserImportTest extends TestCase
     public function test_import_with_admin_role_uses_admin_default_password(): void
     {
         $csv = "nama,nip,email,role\n"
-            . "Admin Satu,0000000301,adminimport@test.com,admin\n";
+            ."Admin Satu,0000000301,adminimport@test.com,admin\n";
 
         file_put_contents('/tmp/test_import_admin.csv', $csv);
 
@@ -69,7 +70,7 @@ class UserImportTest extends TestCase
     public function test_import_with_invalid_role_triggers_validation_error(): void
     {
         $csv = "nama,nip,email,role\n"
-            . "User Bad,0000000203,bad@test.com,superhero\n";
+            ."User Bad,0000000203,bad@test.com,superhero\n";
 
         file_put_contents('/tmp/test_import_invalid.csv', $csv);
 
@@ -78,7 +79,7 @@ class UserImportTest extends TestCase
         try {
             Excel::import($import, '/tmp/test_import_invalid.csv');
             $this->fail('Expected validation exception was not thrown.');
-        } catch (\Maatwebsite\Excel\Validators\ValidationException $e) {
+        } catch (ValidationException $e) {
             $this->assertNotEmpty($e->errors());
         }
     }

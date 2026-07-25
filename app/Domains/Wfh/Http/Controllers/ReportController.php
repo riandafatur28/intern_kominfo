@@ -175,7 +175,6 @@ class ReportController extends Controller
         ]);
     }
 
-
     public function destroy(int $id): JsonResponse
     {
         $report = $this->wfhRepository->findReportWithRelations($id);

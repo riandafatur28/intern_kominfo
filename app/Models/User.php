@@ -44,6 +44,7 @@ class User extends Authenticatable
     protected $attributes = [
         'must_change_password' => false,
     ];
+
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',

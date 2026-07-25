@@ -5,6 +5,7 @@ namespace App\Support\Import;
 use App\Models\Setting;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Concerns\ToModel;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 use Maatwebsite\Excel\Concerns\WithValidation;
@@ -97,7 +98,7 @@ class UserImport implements ToModel, WithHeadingRow, WithValidation
             'nama' => 'required|string',
             'nip' => 'required|string',
             'email' => 'required|email',
-            'role' => ['required', 'string', \Illuminate\Validation\Rule::in($roleNames)],
+            'role' => ['required', 'string', Rule::in($roleNames)],
         ];
     }
 }

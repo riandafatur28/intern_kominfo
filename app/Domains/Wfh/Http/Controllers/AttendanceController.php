@@ -3,8 +3,8 @@
 namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Http\Requests\CheckInRequest;
-use App\Models\Setting;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
+use App\Models\Setting;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Routing\Controller;

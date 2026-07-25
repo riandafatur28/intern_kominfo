@@ -2,13 +2,13 @@
 
 namespace App\Domains\ChangeManagement\Http\Controllers;
 
-use App\Domains\ChangeManagement\Models\ChangeInitiation;
 use App\Domains\ChangeManagement\Http\Requests\DecideChangePackageRequest;
 use App\Domains\ChangeManagement\Http\Requests\StoreChangePackageRequest;
 use App\Domains\ChangeManagement\Http\Requests\SubmitChangePackageRequest;
 use App\Domains\ChangeManagement\Http\Requests\UpdateChangePackageRequest;
 use App\Domains\ChangeManagement\Http\Requests\UploadChangePackageAttachmentsRequest;
 use App\Domains\ChangeManagement\Http\Resources\ChangePackageResource;
+use App\Domains\ChangeManagement\Models\ChangeInitiation;
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use App\Domains\ChangeManagement\Services\DocNumberGenerator;
 use App\Models\User;

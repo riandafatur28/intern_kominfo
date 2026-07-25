@@ -41,7 +41,6 @@ class InitiationResource extends JsonResource
             ];
         }
 
-
         return $data;
     }
 }

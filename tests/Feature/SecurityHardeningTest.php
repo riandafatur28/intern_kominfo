@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domains\ChangeManagement\Models\ChangeType;
 use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
@@ -11,7 +12,6 @@ use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
-use App\Domains\ChangeManagement\Models\ChangeType;
 
 class SecurityHardeningTest extends TestCase
 {
