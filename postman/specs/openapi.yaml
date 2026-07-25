@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 4.0.0
+  version: 4.1.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -18,6 +18,10 @@ info:
 
     The `kepala_bidang` role (field head) approves WFH reports as "atasan langsung".
     The `kepala_tim` role (team leader) approves/rejects change packages.
+
+    **v4.1.0 — Additions:**
+    - `GET /api/teams?field_id={id}` — flat team dropdown endpoint, open to any
+      authenticated user. Used by admin/staf forms to pick teams by name.
 servers:
   - url: http://localhost
     description: Local development server
@@ -522,6 +526,58 @@ components:
         field:
           id: 1
           name: Bidang Teknologi Informasi
+    # Flat team record used by GET /teams dropdown endpoint
+    TeamResource:
+      type: object
+      required: [id, name, leader_id, field_id]
+      properties:
+        id:
+          type: integer
+          example: 3
+        name:
+          type: string
+          example: Tim Aplikasi Informatika
+        leader_id:
+          type: integer
+          nullable: true
+          description: ID user kepala tim. Null jika belum ditunjuk.
+          example: 12
+        field_id:
+          type: integer
+          nullable: true
+          description: ID bidang tempat tim berada. Null jika belum ditetapkan.
+          example: 1
+      example:
+        id: 3
+        name: Tim Aplikasi Informatika
+        leader_id: 12
+        field_id: 1
+    TeamListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamResource"
+      example:
+        success: true
+        data:
+          - id: 3
+            name: Tim Aplikasi Informatika
+            leader_id: 12
+            field_id: 1
+          - id: 4
+            name: Tim Jaringan dan Infrastruktur
+            leader_id: 18
+            field_id: 2
+          - id: 5
+            name: Tim Keamanan Siber
+            leader_id: 9
+            field_id: 1
     UserListResponse:
       type: object
       required: [success, data, meta]
@@ -2659,6 +2715,82 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  # ── Teams (dropdown) ─────────────────────────────────────────────
+  /api/teams:
+    get:
+      tags: [Organization]
+      summary: List teams for dropdown selection
+      operationId: listTeams
+      security:
+        - bearerAuth: []
+      description: |
+        Returns a flat list of teams, optionally filtered by bidang (field).
+        Use this endpoint to populate `<select>` dropdowns in admin/staf
+        forms so users pick from options instead of typing team IDs.
+
+        Visible to any authenticated user (no permission gate).
+        Soft-deleted teams are excluded automatically.
+      parameters:
+        - name: field_id
+          in: query
+          description: Optional bidang filter. Only teams in this field are returned.
+          required: false
+          schema:
+            type: integer
+            example: 1
+      responses:
+        "200":
+          description: Team list (empty array if no teams match)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamListResponse"
+              examples:
+                allTeams:
+                  summary: All teams (no filter)
+                  value:
+                    success: true
+                    data:
+                      - id: 3
+                        name: Tim Aplikasi Informatika
+                        leader_id: 12
+                        field_id: 1
+                      - id: 4
+                        name: Tim Jaringan dan Infrastruktur
+                        leader_id: 18
+                        field_id: 2
+                      - id: 5
+                        name: Tim Keamanan Siber
+                        leader_id: 9
+                        field_id: 1
+                filteredByField:
+                  summary: Filtered by field_id=1 (Bidang Aplikasi Informatika)
+                  value:
+                    success: true
+                    data:
+                      - id: 3
+                        name: Tim Aplikasi Informatika
+                        leader_id: 12
+                        field_id: 1
+                      - id: 5
+                        name: Tim Keamanan Siber
+                        leader_id: 9
+                        field_id: 1
+                empty:
+                  summary: No teams found
+                  value:
+                    success: true
+                    data: []
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
 
   # ── Settings ──────────────────────────────────────────────────────
   /api/admin/settings:
