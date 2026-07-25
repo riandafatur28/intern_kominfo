@@ -84,7 +84,9 @@ class ReportApprovalController extends Controller
         }
 
         $guard = $this->ensureSameField($request, $report);
-        if ($guard) { return $guard; }
+        if ($guard) {
+            return $guard;
+        }
 
         try {
             $report = $this->stateMachine->approve($report, $request->user());
@@ -120,7 +122,9 @@ class ReportApprovalController extends Controller
         }
 
         $guard = $this->ensureSameField($request, $report);
-        if ($guard) { return $guard; }
+        if ($guard) {
+            return $guard;
+        }
 
         try {
             $report = $this->stateMachine->reject($report, $request->user(), $request->input('reason'));
