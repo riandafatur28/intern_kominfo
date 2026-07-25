@@ -114,6 +114,56 @@ class SegregationOfDutiesTest extends TestCase
             ->assertJsonPath('data.status', 'approved');
     }
 
+    // === WFH cross-field guard (Phase 2) ===
+
+    public function test_cross_field_approve_individual_report_returns_403(): void
+    {
+        $fieldA = Field::factory()->create();
+        $teamA = Team::factory()->create(['field_id' => $fieldA->id]);
+        $fieldB = Field::factory()->create(['name' => 'Bidang B']);
+        $teamB = Team::factory()->create(['field_id' => $fieldB->id]);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $fieldA->update(['head_id' => $kb->id]);
+
+        $staf = User::factory()->create(['team_id' => $teamB->id]);
+        $report = WfhReport::factory()->create([
+            'user_id' => $staf->id,
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($kb);
+
+        $this->postJson("/api/wfh/reports/{$report->id}/approve")
+            ->assertStatus(403);
+    }
+
+    public function test_cross_field_reject_individual_report_returns_403(): void
+    {
+        $fieldA = Field::factory()->create();
+        $teamA = Team::factory()->create(['field_id' => $fieldA->id]);
+        $fieldB = Field::factory()->create(['name' => 'Bidang B']);
+        $teamB = Team::factory()->create(['field_id' => $fieldB->id]);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $fieldA->update(['head_id' => $kb->id]);
+
+        $staf = User::factory()->create(['team_id' => $teamB->id]);
+        $report = WfhReport::factory()->create([
+            'user_id' => $staf->id,
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($kb);
+
+        $this->postJson("/api/wfh/reports/{$report->id}/reject", [
+            'reason' => 'Alasan',
+        ])
+            ->assertStatus(403);
+    }
+
     /**
      * Change: initiation initiator cannot approve their own initiation.
      */

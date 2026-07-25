@@ -64,6 +64,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.team_report.view',
             'wfh.team_report.create',
             'wfh.team_report.approve',
+            'wfh.team_report.reject',
         ];
 
         foreach ($permissions as $perm) {
@@ -93,6 +94,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.export_pdf',
             'wfh.team_report.view',
             'wfh.team_report.approve',
+            'wfh.team_report.reject',
             'change.initiation.view',
             'change.initiation.export_pdf',
             'change.implementation.view',

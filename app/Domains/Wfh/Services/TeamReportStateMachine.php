@@ -3,10 +3,11 @@
 namespace App\Domains\Wfh\Services;
 
 use App\Domains\Wfh\Models\WfhTeamReport;
+use App\Models\User;
 
 class TeamReportStateMachine
 {
-    public function approve(WfhTeamReport $report): WfhTeamReport
+    public function approve(WfhTeamReport $report, User $actor): WfhTeamReport
     {
         if ($report->status !== 'pending') {
             throw new \DomainException('Hanya laporan dengan status pending yang dapat disetujui.');
@@ -21,7 +22,7 @@ class TeamReportStateMachine
         return $report->fresh();
     }
 
-    public function reject(WfhTeamReport $report, string $reason): WfhTeamReport
+    public function reject(WfhTeamReport $report, User $actor, string $reason): WfhTeamReport
     {
         if ($report->status !== 'pending') {
             throw new \DomainException('Hanya laporan dengan status pending yang dapat ditolak.');
