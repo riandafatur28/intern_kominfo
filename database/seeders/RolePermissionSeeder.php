@@ -61,6 +61,7 @@ class RolePermissionSeeder extends Seeder
             'setting.manage',
 
             // WFH Team Reports (Phase 4)
+            'wfh.team_report.view',
             'wfh.team_report.create',
             'wfh.team_report.approve',
         ];
@@ -90,6 +91,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.reject',
             'wfh.monitoring.view',
             'wfh.report.export_pdf',
+            'wfh.team_report.view',
             'wfh.team_report.approve',
             'change.initiation.view',
             'change.initiation.export_pdf',
@@ -104,6 +106,7 @@ class RolePermissionSeeder extends Seeder
             'wfh.report.update',
             'wfh.report.submit',
             'wfh.monitoring.view',
+            'wfh.team_report.view',
             'wfh.report.export_pdf',
             'change.initiation.view',
             'change.initiation.create',

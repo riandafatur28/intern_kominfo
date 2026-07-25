@@ -225,6 +225,68 @@ class TeamReportTest extends TestCase
         ])->assertStatus(422);
     }
 
+    // === List (TDD Phase 1) ===
+
+    public function test_kb_can_list_team_reports(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $kb = User::factory()->create(['team_id' => $team->id]);
+        $kb->assignRole('kepala_bidang');
+        $field->update(['head_id' => $kb->id]);
+
+        $this->createTeamReport($team);
+        Sanctum::actingAs($kb);
+
+        $this->getJson('/api/admin/wfh/team-reports')
+            ->assertStatus(200);
+    }
+
+    public function test_non_kb_cannot_list_team_reports(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $staf = User::factory()->create(['team_id' => $team->id]);
+        $staf->assignRole('staf');
+        Sanctum::actingAs($staf);
+
+        $this->getJson('/api/admin/wfh/team-reports')
+            ->assertStatus(403);
+    }
+
+    public function test_kepala_tim_can_list_own_team_reports(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $teamA = Team::create(['field_id' => $field->id, 'name' => 'Tim A', 'leader_id' => null]);
+        $teamB = Team::create(['field_id' => $field->id, 'name' => 'Tim B', 'leader_id' => null]);
+
+        $kt = User::factory()->create(['team_id' => $teamA->id]);
+        $kt->assignRole('kepala_tim');
+        $teamA->update(['leader_id' => $kt->id]);
+
+        $this->createTeamReport($teamA);
+        $this->createTeamReport($teamB);
+        Sanctum::actingAs($kt);
+
+        $response = $this->getJson('/api/admin/wfh/team-reports')
+            ->assertStatus(200);
+
+        $teamIds = collect($response->json('data'))->pluck('team_id')->unique();
+        $this->assertEquals([$teamA->id], $teamIds->all(), 'KT hanya boleh lihat team-report tim sendiri');
+    }
+
+    public function test_user_without_field_returns_422(): void
+    {
+        $user = User::factory()->create(['team_id' => null]);
+        $user->assignRole('kepala_tim');
+        Sanctum::actingAs($user);
+
+        $this->getJson('/api/admin/wfh/team-reports')
+            ->assertStatus(422)
+            ->assertJsonPath('message', 'User tidak terhubung dengan bidang manapun.');
+    }
+
     // === Helpers ===
 
     private function createTeamReport(Team $team): mixed

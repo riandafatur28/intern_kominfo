@@ -95,10 +95,10 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     Route::get('/admin/wfh/teams/{team}/pdf', [ReportPdfController::class, 'exportTeam'])
         ->middleware('permission:wfh.report.export_pdf');
 
-    Route::middleware('permission:wfh.team_report.create')->group(function () {
-        Route::get('/admin/wfh/team-reports', [TeamReportController::class, 'index']);
-        Route::post('/admin/wfh/team-reports', [TeamReportController::class, 'store']);
-    });
+    Route::get('/admin/wfh/team-reports', [TeamReportController::class, 'index'])
+        ->middleware('permission:wfh.team_report.view');
+    Route::post('/admin/wfh/team-reports', [TeamReportController::class, 'store'])
+        ->middleware('permission:wfh.team_report.create');
 
     Route::middleware('permission:wfh.team_report.approve')->group(function () {
         Route::post('/admin/wfh/team-reports/{id}/approve', [TeamReportController::class, 'approve']);

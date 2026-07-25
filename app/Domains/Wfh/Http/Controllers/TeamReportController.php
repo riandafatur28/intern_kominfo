@@ -4,6 +4,7 @@ namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Models\WfhTeamReport;
 use App\Domains\Wfh\Services\TeamReportStateMachine;
+use App\Models\Field;
 use App\Models\Team;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -20,15 +21,41 @@ class TeamReportController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $this->authorize('wfh.team_report.create');
+        $this->authorize('wfh.team_report.view');
 
         $user = $request->user();
+        $perPage = min($request->integer('per_page', 15), 100);
+
+        // Admin sees all team reports
+        if ($user->hasRole('admin')) {
+            $reports = WfhTeamReport::with(['team', 'creator', 'supervisor'])
+                ->orderByDesc('report_date')
+                ->paginate($perPage);
+
+            return response()->json($reports);
+        }
+
         $fieldId = $user->team?->field?->id;
+        if (! $fieldId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'User tidak terhubung dengan bidang manapun.',
+            ], 422);
+        }
+
+        $isFieldHead = Field::where('id', $fieldId)->where('head_id', $user->id)->exists();
 
         $reports = WfhTeamReport::with(['team', 'creator', 'supervisor'])
-            ->whereHas('team', fn ($q) => $q->where('field_id', $fieldId))
+            ->whereHas('team', function ($q) use ($fieldId, $user, $isFieldHead) {
+                $q->where('field_id', $fieldId);
+
+                // Field head sees all teams in the field; others (KT, staf) see own team only
+                if (! $isFieldHead) {
+                    $q->where('id', $user->team_id);
+                }
+            })
             ->orderByDesc('report_date')
-            ->paginate(min($request->integer('per_page', 15), 100));
+            ->paginate($perPage);
 
         return response()->json($reports);
     }
