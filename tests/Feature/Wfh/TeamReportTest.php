@@ -105,6 +105,23 @@ class TeamReportTest extends TestCase
             ->assertJsonPath('data.status', 'approved');
     }
 
+    public function test_admin_cross_field_team_report_approve_returns_403(): void
+    {
+        $fieldA = Field::create(['name' => 'Bidang A']);
+        $teamA = Team::create(['field_id' => $fieldA->id, 'name' => 'Tim A']);
+        $fieldB = Field::create(['name' => 'Bidang B']);
+        $teamB = Team::create(['field_id' => $fieldB->id, 'name' => 'Tim B']);
+
+        $admin = User::factory()->create(['team_id' => $teamA->id]);
+        $admin->assignRole('admin');
+
+        $report = $this->createTeamReport($teamB);
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/approve")
+            ->assertStatus(403);
+    }
+
     public function test_kb_can_reject_team_report(): void
     {
         $field = Field::create(['name' => 'Bidang A']);

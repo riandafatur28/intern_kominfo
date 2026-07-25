@@ -164,6 +164,66 @@ class SegregationOfDutiesTest extends TestCase
             ->assertStatus(403);
     }
 
+    // === Admin cross-field guard (no break-glass) ===
+
+    public function test_admin_cross_field_approve_individual_report_returns_403(): void
+    {
+        $fieldA = Field::factory()->create();
+        $teamA = Team::factory()->create(['field_id' => $fieldA->id]);
+        $fieldB = Field::factory()->create(['name' => 'Bidang B']);
+        $teamB = Team::factory()->create(['field_id' => $fieldB->id]);
+
+        $admin = User::factory()->create(['team_id' => $teamA->id]);
+        $admin->assignRole('admin');
+        $fieldA->update(['head_id' => $admin->id]);
+
+        $report = WfhReport::factory()->create([
+            'user_id' => User::factory()->create(['team_id' => $teamB->id])->id,
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/wfh/reports/{$report->id}/approve")
+            ->assertStatus(403);
+    }
+
+    public function test_admin_cross_field_reject_individual_report_returns_403(): void
+    {
+        $fieldA = Field::factory()->create();
+        $teamA = Team::factory()->create(['field_id' => $fieldA->id]);
+        $fieldB = Field::factory()->create(['name' => 'Bidang B']);
+        $teamB = Team::factory()->create(['field_id' => $fieldB->id]);
+
+        $admin = User::factory()->create(['team_id' => $teamA->id]);
+        $admin->assignRole('admin');
+
+        $report = WfhReport::factory()->create([
+            'user_id' => User::factory()->create(['team_id' => $teamB->id])->id,
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/wfh/reports/{$report->id}/reject", [
+            'reason' => 'Bukan bidang saya',
+        ])
+            ->assertStatus(403);
+    }
+
+    public function test_admin_without_team_cannot_approve_individual_report(): void
+    {
+        $admin = User::factory()->create(['team_id' => null]);
+        $admin->assignRole('admin');
+
+        $report = WfhReport::factory()->create(['status' => 'pending']);
+
+        Sanctum::actingAs($admin);
+
+        $this->postJson("/api/wfh/reports/{$report->id}/approve")
+            ->assertStatus(403);
+    }
+
     /**
      * Change: initiation initiator cannot approve their own initiation.
      */
