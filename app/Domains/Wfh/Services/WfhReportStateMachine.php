@@ -55,7 +55,6 @@ class WfhReportStateMachine
         return $report->fresh();
     }
 
-
     public function revise(WfhReport $report): WfhReport
     {
         if ($report->status !== 'rejected') {

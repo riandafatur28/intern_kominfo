@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Domains\ChangeManagement\Models\ChangeType;
 use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
@@ -144,7 +145,7 @@ class SmokeTest extends TestCase
         $response->assertStatus(201)->assertJsonPath('success', true);
         $pkgId = $response->json('data.initiation.id');
 
-        $typeId = \App\Domains\ChangeManagement\Models\ChangeType::create(['name' => 'Aplikasi'])->id;
+        $typeId = ChangeType::create(['name' => 'Aplikasi'])->id;
 
         $this->postJson("/api/changes/{$pkgId}/submit", [
             'initiation' => ['field_id' => $field->id, 'description' => 'Test change', 'reason' => 'Testing', 'needed_by_date' => '2026-08-01'],

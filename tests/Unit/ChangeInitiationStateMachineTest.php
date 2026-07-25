@@ -2,8 +2,6 @@
 
 namespace Tests\Unit;
 
-use App\Domains\ChangeManagement\Models\ChangeInitiation;
-use App\Domains\ChangeManagement\Models\ChangeImplementation;
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use App\Models\Field;
 use App\Models\User;
@@ -21,7 +19,6 @@ class ChangeInitiationStateMachineTest extends TestCase
     private User $initiator;
 
     private Field $field;
-
 
     protected function setUp(): void
     {

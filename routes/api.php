@@ -7,8 +7,8 @@ use App\Domains\ChangeManagement\Http\Controllers\ChangePackageController;
 use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
 use App\Domains\Organization\Http\Controllers\RoleController;
-use App\Domains\Organization\Http\Controllers\UserController;
 use App\Domains\Organization\Http\Controllers\TeamController;
+use App\Domains\Organization\Http\Controllers\UserController;
 use App\Domains\Wfh\Http\Controllers\AttendanceController;
 use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportController;
@@ -33,7 +33,6 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     Route::get('/profile', [ProfileController::class, 'show']);
     Route::put('/profile', [ProfileController::class, 'update']);
     Route::post('/profile/signature', [ProfileController::class, 'uploadSignature']);
-
 
     // Teams (dropdown options)
     Route::get('/teams', [TeamController::class, 'index']);

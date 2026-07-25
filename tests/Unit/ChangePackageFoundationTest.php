@@ -14,9 +14,9 @@ use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Database\QueryException;
-use InvalidArgumentException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Validator;
+use InvalidArgumentException;
 use Tests\TestCase;
 
 class ChangePackageFoundationTest extends TestCase

@@ -76,6 +76,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         return WfhReport::with(['user.team.field', 'attendances', 'activities.links', 'supervisor.team'])
             ->find($id);
     }
+
     public function getTeamReportsForDate(int $teamId, string $date): Collection
     {
         return WfhReport::with(['user', 'activities.links'])
@@ -112,7 +113,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
                 foreach ($memberAttendances as $att) {
                     $photos[] = [
                         'session' => $att->session,
-                        'photo_url' => $att->photo_path ? asset('storage/' . $att->photo_path) : null,
+                        'photo_url' => $att->photo_path ? asset('storage/'.$att->photo_path) : null,
                     ];
                 }
             }
@@ -158,7 +159,6 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         });
     }
 
-
     // === Monitoring ===
 
     public function getUsersWithoutAttendance(string $date, ?int $teamId = null): array
@@ -189,7 +189,6 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     // === Private helpers ===
 
-
     private function syncAttendances(WfhReport $report, array $attendances): void
     {
         foreach ($attendances as $session => $data) {
@@ -202,6 +201,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             ]);
         }
     }
+
     private function syncActivities(WfhReport $report, array $activities): void
     {
         foreach ($activities as $index => $activity) {

@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
@@ -18,6 +18,7 @@ class MustChangePasswordTest extends TestCase
         parent::setUp();
         $this->artisan('db:seed', ['--class' => 'RolePermissionSeeder']);
     }
+
     public function test_user_has_must_change_password_column_default_true(): void
     {
         $id = DB::table('users')->insertGetId([

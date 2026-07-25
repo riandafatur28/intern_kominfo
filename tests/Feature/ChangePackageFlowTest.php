@@ -18,11 +18,17 @@ class ChangePackageFlowTest extends TestCase
     use RefreshDatabase;
 
     private Field $field;
+
     private Team $team;
+
     private User $staf;
+
     private User $kepalaTim;
+
     private User $otherStaf;
+
     private User $admin;
+
     private ChangeType $typeA;
 
     protected function setUp(): void
@@ -366,6 +372,7 @@ class ChangePackageFlowTest extends TestCase
         Sanctum::actingAs($this->staf);
         $pkg = $this->postJson('/api/changes', $this->validDraftWithAll())->json('data.initiation');
         $submit = $this->postJson("/api/changes/{$pkg['id']}/submit", $this->validSubmitPayload());
+
         return [$submit->json('data.initiation.id')];
     }
 }

@@ -4,6 +4,8 @@ namespace Tests\Feature\Wfh;
 
 use App\Domains\Wfh\Models\WfhAttendance;
 use App\Domains\Wfh\Models\WfhReport;
+use App\Domains\Wfh\Models\WfhTeamReport;
+use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
@@ -144,7 +146,7 @@ class TeamReportTest extends TestCase
             'check_in_at' => now(),
         ]);
 
-        $data = app(\App\Domains\Wfh\Repositories\WfhRepositoryInterface::class)
+        $data = app(WfhRepositoryInterface::class)
             ->getTeamReportData($team->id, now()->toDateString());
 
         $this->assertCount(3, $data);
@@ -159,7 +161,7 @@ class TeamReportTest extends TestCase
         $team = Team::factory()->create();
         $member = User::factory()->create(['team_id' => $team->id]);
 
-        $data = app(\App\Domains\Wfh\Repositories\WfhRepositoryInterface::class)
+        $data = app(WfhRepositoryInterface::class)
             ->getTeamReportData($team->id, now()->toDateString());
 
         $this->assertCount(1, $data);
@@ -230,7 +232,7 @@ class TeamReportTest extends TestCase
         $admin = User::factory()->create(['team_id' => $team->id]);
         $admin->assignRole('admin');
 
-        return \App\Domains\Wfh\Models\WfhTeamReport::create([
+        return WfhTeamReport::create([
             'team_id' => $team->id,
             'report_date' => now()->toDateString(),
             'status' => 'pending',
