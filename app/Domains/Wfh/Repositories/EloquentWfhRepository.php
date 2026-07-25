@@ -7,7 +7,6 @@ use App\Domains\Wfh\Models\WfhReport;
 use App\Models\User;
 use App\Repositories\EloquentRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryInterface

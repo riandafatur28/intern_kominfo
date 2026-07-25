@@ -4,10 +4,10 @@ namespace App\Domains\Wfh\Http\Controllers;
 
 use App\Domains\Wfh\Models\WfhTeamReport;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
+use App\Models\Setting;
 use App\Models\Team;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
-use App\Models\Setting;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
