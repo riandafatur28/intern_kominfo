@@ -356,6 +356,29 @@ class TeamReportTest extends TestCase
         $this->assertNotNull($fresh->supervisor_signed_at, 'supervisor_signed_at harus terisi');
     }
 
+    public function test_reject_team_report_does_not_change_supervisor_id(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $kb = User::factory()->create(['team_id' => $team->id]);
+        $kb->assignRole('kepala_bidang');
+        $field->update(['head_id' => $kb->id]);
+
+        $report = $this->createTeamReport($team);
+        // Set a supervisor_id first, then confirm reject doesn't clear it
+        $otherUser = User::factory()->create();
+        $report->update(['supervisor_id' => $otherUser->id]);
+        Sanctum::actingAs($kb);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/reject", [
+            'reason' => 'Data tidak lengkap',
+        ])->assertStatus(200);
+
+        $fresh = WfhTeamReport::find($report->id);
+        $this->assertEquals($otherUser->id, $fresh->supervisor_id, 'reject tidak boleh mengubah supervisor_id');
+        $this->assertNull($fresh->supervisor_signed_at, 'reject tidak boleh mengubah supervisor_signed_at');
+    }
+
     public function test_cross_field_team_report_approve_has_consistent_error_shape(): void
     {
         $fieldA = Field::create(['name' => 'Bidang A']);
