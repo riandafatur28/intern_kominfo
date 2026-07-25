@@ -19,6 +19,24 @@ class TeamReportController extends Controller
         private TeamReportStateMachine $stateMachine,
     ) {}
 
+    /**
+     * Guard: actor must be in the same field as the team report.
+     */
+    private function ensureSameField(Request $request, WfhTeamReport $report): ?JsonResponse
+    {
+        $userFieldId = $request->user()->team?->field?->id;
+        $reportFieldId = $report->team?->field_id;
+
+        if (! $userFieldId || ! $reportFieldId || $userFieldId !== $reportFieldId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Laporan tidak berada dalam bidang Anda.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     public function index(Request $request): JsonResponse
     {
         $this->authorize('wfh.team_report.view');
@@ -102,11 +120,17 @@ class TeamReportController extends Controller
 
         $report = WfhTeamReport::find($id);
         if (! $report) {
-            return response()->json(['message' => 'Laporan tidak ditemukan.'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Laporan tidak ditemukan.',
+            ], 404);
         }
 
+        $guard = $this->ensureSameField($request, $report);
+        if ($guard) { return $guard; }
+
         try {
-            $report = $this->stateMachine->approve($report);
+            $report = $this->stateMachine->approve($report, $request->user());
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
@@ -116,21 +140,28 @@ class TeamReportController extends Controller
 
     public function reject(Request $request, int $id): JsonResponse
     {
-        $this->authorize('wfh.team_report.approve');
+        $this->authorize('wfh.team_report.reject');
 
         $request->validate(['reason' => ['required', 'string']]);
 
         $report = WfhTeamReport::find($id);
         if (! $report) {
-            return response()->json(['message' => 'Laporan tidak ditemukan.'], 404);
+            return response()->json([
+                'success' => false,
+                'message' => 'Laporan tidak ditemukan.',
+            ], 404);
         }
 
+        $guard = $this->ensureSameField($request, $report);
+        if ($guard) { return $guard; }
+
         try {
-            $report = $this->stateMachine->reject($report, $request->input('reason'));
+            $report = $this->stateMachine->reject($report, $request->user(), $request->input('reason'));
         } catch (\DomainException $e) {
             return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
         }
 
         return response()->json(['data' => $report]);
     }
+
 }

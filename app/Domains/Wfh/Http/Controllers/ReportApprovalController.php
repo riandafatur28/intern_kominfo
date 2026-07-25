@@ -18,6 +18,24 @@ class ReportApprovalController extends Controller
         private WfhReportStateMachine $stateMachine,
     ) {}
 
+    /**
+     * Guard: actor must be in the same field as the report owner.
+     */
+    private function ensureSameField(Request $request, WfhReport $report): ?JsonResponse
+    {
+        $userFieldId = $request->user()->team?->field?->id;
+        $reportFieldId = $report->user->team?->field_id;
+
+        if (! $userFieldId || ! $reportFieldId || $userFieldId !== $reportFieldId) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Laporan tidak berada dalam bidang Anda.',
+            ], 403);
+        }
+
+        return null;
+    }
+
     public function submit(Request $request, int $id): JsonResponse
     {
         $report = WfhReport::find($id);
@@ -65,6 +83,9 @@ class ReportApprovalController extends Controller
             ], 404);
         }
 
+        $guard = $this->ensureSameField($request, $report);
+        if ($guard) { return $guard; }
+
         try {
             $report = $this->stateMachine->approve($report, $request->user());
         } catch (\DomainException $e) {
@@ -97,6 +118,9 @@ class ReportApprovalController extends Controller
                 'message' => 'Laporan tidak ditemukan.',
             ], 404);
         }
+
+        $guard = $this->ensureSameField($request, $report);
+        if ($guard) { return $guard; }
 
         try {
             $report = $this->stateMachine->reject($report, $request->user(), $request->input('reason'));

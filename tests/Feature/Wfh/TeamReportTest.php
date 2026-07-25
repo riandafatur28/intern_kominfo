@@ -287,6 +287,75 @@ class TeamReportTest extends TestCase
             ->assertJsonPath('message', 'User tidak terhubung dengan bidang manapun.');
     }
 
+    public function test_cross_field_team_report_approve_returns_403(): void
+    {
+        $fieldA = Field::create(['name' => 'Bidang A']);
+        $teamA = Team::create(['field_id' => $fieldA->id, 'name' => 'Tim A']);
+        $fieldB = Field::create(['name' => 'Bidang B']);
+        $teamB = Team::create(['field_id' => $fieldB->id, 'name' => 'Tim B']);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $fieldA->update(['head_id' => $kb->id]);
+
+        $report = $this->createTeamReport($teamB);
+        Sanctum::actingAs($kb);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/approve")
+            ->assertStatus(403);
+    }
+
+    public function test_cross_field_team_report_reject_returns_403(): void
+    {
+        $fieldA = Field::create(['name' => 'Bidang A']);
+        $teamA = Team::create(['field_id' => $fieldA->id, 'name' => 'Tim A']);
+        $fieldB = Field::create(['name' => 'Bidang B']);
+        $teamB = Team::create(['field_id' => $fieldB->id, 'name' => 'Tim B']);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $fieldA->update(['head_id' => $kb->id]);
+
+        $report = $this->createTeamReport($teamB);
+        Sanctum::actingAs($kb);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/reject", [
+            'reason' => 'Alasan',
+        ])
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Laporan tidak berada dalam bidang Anda.');
+    }
+
+    public function test_kepala_bidang_has_team_report_reject_permission(): void
+    {
+        $kb = User::factory()->create();
+        $kb->assignRole('kepala_bidang');
+
+        $this->assertTrue($kb->hasPermissionTo('wfh.team_report.reject'));
+        $this->assertTrue($kb->hasPermissionTo('wfh.team_report.approve'));
+    }
+
+    public function test_cross_field_team_report_approve_has_consistent_error_shape(): void
+    {
+        $fieldA = Field::create(['name' => 'Bidang A']);
+        $teamA = Team::create(['field_id' => $fieldA->id, 'name' => 'Tim A']);
+        $fieldB = Field::create(['name' => 'Bidang B']);
+        $teamB = Team::create(['field_id' => $fieldB->id, 'name' => 'Tim B']);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $fieldA->update(['head_id' => $kb->id]);
+
+        $report = $this->createTeamReport($teamB);
+        Sanctum::actingAs($kb);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/approve")
+            ->assertStatus(403)
+            ->assertJsonPath('success', false)
+            ->assertJsonPath('message', 'Laporan tidak berada dalam bidang Anda.');
+    }
+
     // === Helpers ===
 
     private function createTeamReport(Team $team): mixed
