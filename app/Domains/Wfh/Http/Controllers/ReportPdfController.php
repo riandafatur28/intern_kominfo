@@ -7,6 +7,7 @@ use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Team;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
+use App\Models\Setting;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -128,11 +129,37 @@ class ReportPdfController extends Controller
         }
 
         $date = $request->input('date', now()->format('Y-m-d'));
-        $reports = $this->wfhRepository->getTeamReportsForDate($team->id, $date);
+        $teamData = $this->wfhRepository->getTeamReportData($team->id, $date);
 
         $team->load(['field.head']);
         $field = $team->field;
         $head = $field?->head;
+
+        // Build staff data: name, nip, links (all members, '-' for missing data)
+        $staff = array_map(fn ($member) => [
+            'name' => $member['name'],
+            'nip' => $member['nip'],
+            'links' => $member['links'],
+        ], $teamData);
+
+        // Build sessions documentation data
+        $sessions = [];
+        $sessionNames = Setting::get('wfh_sessions', ['pagi', 'siang', 'sore']);
+        foreach ($sessionNames as $sessionName) {
+            $entries = [];
+            foreach ($teamData as $i => $member) {
+                $memberPhotos = collect($member['photos'])->keyBy('session');
+                $photoPath = $memberPhotos->get($sessionName)['photo_path'] ?? null;
+                $entries[] = [
+                    'no' => $i + 1,
+                    'name' => $member['name'],
+                    'photo' => $photoPath && file_exists(public_path('storage/'.$photoPath))
+                        ? public_path('storage/'.$photoPath)
+                        : null,
+                ];
+            }
+            $sessions[$sessionName] = $entries;
+        }
 
         // Check team report status if team_report_id provided
         $isApproved = false;
@@ -140,17 +167,6 @@ class ReportPdfController extends Controller
             $teamReport = WfhTeamReport::find($teamReportId);
             $isApproved = $teamReport && $teamReport->status === 'approved';
         }
-
-        // Build staff data: name, nip, links
-        $staff = $reports->map(function ($report) {
-            $links = $report->activities->flatMap->links->pluck('url')->filter()->values();
-
-            return [
-                'name' => strtoupper($report->user->name),
-                'nip' => $report->user->nip ?? '-',
-                'links' => $links,
-            ];
-        })->values()->toArray();
 
         // Admin (maker) signature — always shown
         $makerSig = $admin->signature_path
@@ -176,6 +192,7 @@ class ReportPdfController extends Controller
             'unitKerja' => $field?->name ?? '-',
             'tanggalPelaksanaan' => $tanggal,
             'staff' => $staff,
+            'sessions' => $sessions,
             'isApproved' => $isApproved,
             'signatureMakerPath' => $makerSig,
             'signatureSupervisorPath' => $supervisorSig,
