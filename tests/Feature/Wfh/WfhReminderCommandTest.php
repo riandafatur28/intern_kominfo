@@ -151,4 +151,21 @@ class WfhReminderCommandTest extends TestCase
 
         Notification::assertNothingSent();
     }
+
+    public function test_notification_email_renders_recipient_name(): void
+    {
+        $user = User::factory()->create(['name' => 'Budi']);
+
+        $notification = new WfhReminderNotification(
+            currentTime: '15:30',
+            currentDate: '20-07-2026',
+        );
+
+        $mail = $notification->toMail($user);
+
+        $this->assertEquals('Pengingat WFH — Anda belum absen dan belum melaporkan kegiatan', $mail->subject);
+        $this->assertStringContainsString('Budi', $mail->render());
+        $this->assertStringContainsString('15:30', $mail->render());
+        $this->assertStringContainsString('20-07-2026', $mail->render());
+    }
 }

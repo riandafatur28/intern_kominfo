@@ -12,7 +12,6 @@ class WfhReminderNotification extends Notification implements ShouldQueue
     use Queueable;
 
     public function __construct(
-        private string $userName,
         private string $currentTime,
         private string $currentDate,
     ) {}
@@ -27,7 +26,7 @@ class WfhReminderNotification extends Notification implements ShouldQueue
         return (new MailMessage)
             ->subject('Pengingat WFH — Anda belum absen dan belum melaporkan kegiatan')
             ->view('emails.wfh-reminder', [
-                'nama' => $this->userName,
+                'nama' => $notifiable->name ?? 'Pengguna',
                 'jam' => $this->currentTime,
                 'tanggal' => $this->currentDate,
             ]);
