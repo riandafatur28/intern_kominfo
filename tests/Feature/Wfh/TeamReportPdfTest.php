@@ -2,7 +2,9 @@
 
 namespace Tests\Feature\Wfh;
 
+use App\Domains\Wfh\Models\WfhAttendance;
 use App\Domains\Wfh\Models\WfhTeamReport;
+use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
@@ -108,7 +110,7 @@ class TeamReportPdfTest extends TestCase
 
         $user = User::factory()->create(['team_id' => $team->id, 'is_active' => true]);
 
-        \App\Domains\Wfh\Models\WfhAttendance::create([
+        WfhAttendance::create([
             'user_id' => $user->id,
             'date' => now()->toDateString(),
             'session' => 'pagi',
@@ -116,7 +118,7 @@ class TeamReportPdfTest extends TestCase
             'check_in_at' => now(),
         ]);
 
-        $repo = app(\App\Domains\Wfh\Repositories\WfhRepositoryInterface::class);
+        $repo = app(WfhRepositoryInterface::class);
         $data = $repo->getTeamReportData($team->id, now()->toDateString());
 
         $this->assertCount(1, $data);
@@ -153,7 +155,7 @@ class TeamReportPdfTest extends TestCase
             'created_by' => $admin->id,
         ]);
 
-        \App\Domains\Wfh\Models\WfhAttendance::create([
+        WfhAttendance::create([
             'user_id' => $memberWithPhoto->id,
             'date' => now()->toDateString(),
             'session' => 'pagi',
@@ -252,7 +254,7 @@ class TeamReportPdfTest extends TestCase
 
         // member1: attendance pagi + siang, no sore
         foreach (['pagi', 'siang'] as $session) {
-            \App\Domains\Wfh\Models\WfhAttendance::create([
+            WfhAttendance::create([
                 'user_id' => $member1->id,
                 'date' => now()->toDateString(),
                 'session' => $session,
@@ -263,7 +265,7 @@ class TeamReportPdfTest extends TestCase
 
         // Create dummy photos for both sessions
         foreach (['pagi', 'siang'] as $session) {
-            $dir = public_path("storage/attendances/test");
+            $dir = public_path('storage/attendances/test');
             if (! is_dir($dir)) {
                 mkdir($dir, 0755, true);
             }

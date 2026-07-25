@@ -6,7 +6,6 @@ use App\Domains\Shared\Contracts\RepositoryInterface;
 use App\Domains\Wfh\Models\WfhAttendance;
 use App\Domains\Wfh\Models\WfhReport;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Database\Eloquent\Collection;
 
 interface WfhRepositoryInterface extends RepositoryInterface
 {
