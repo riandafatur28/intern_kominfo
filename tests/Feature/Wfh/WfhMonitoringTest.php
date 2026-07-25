@@ -51,6 +51,84 @@ class WfhMonitoringTest extends TestCase
             ->assertJsonPath('success', true);
     }
 
+    public function test_kepala_bidang_sees_entire_field(): void
+    {
+        $field = Field::factory()->create();
+        $teamA = Team::factory()->create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $teamB = Team::factory()->create(['field_id' => $field->id, 'name' => 'Tim B']);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $field->update(['head_id' => $kb->id]);
+
+        Sanctum::actingAs($kb);
+
+        $response = $this->getJson('/api/admin/wfh/monitoring')
+            ->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        // Field scope → team_id should be null (entire field, not one team)
+        $this->assertNull($response->json('data.team_id'),
+            'KB field head harus lihat seluruh bidang (team_id=null)');
+    }
+
+    public function test_kepala_tim_still_sees_only_own_team(): void
+    {
+        $field = Field::factory()->create();
+        $teamA = Team::factory()->create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $teamB = Team::factory()->create(['field_id' => $field->id, 'name' => 'Tim B']);
+
+        $kt = User::factory()->create(['team_id' => $teamA->id]);
+        $kt->assignRole('kepala_tim');
+        $teamA->update(['leader_id' => $kt->id]);
+
+        Sanctum::actingAs($kt);
+
+        $response = $this->getJson('/api/admin/wfh/monitoring')
+            ->assertStatus(200)
+            ->assertJsonPath('success', true);
+
+        // KT tetap scoped team → team_id = teamA
+        $this->assertEquals($teamA->id, $response->json('data.team_id'),
+            'Kepala tim harus tetap scoped ke tim sendiri');
+    }
+
+    public function test_kepala_bidang_cannot_view_other_field_team_via_query_param(): void
+    {
+        $fieldA = Field::factory()->create(['name' => 'Bidang A']);
+        $teamA = Team::factory()->create(['field_id' => $fieldA->id, 'name' => 'Tim A']);
+        $fieldB = Field::factory()->create(['name' => 'Bidang B']);
+        $teamB = Team::factory()->create(['field_id' => $fieldB->id, 'name' => 'Tim B']);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $fieldA->update(['head_id' => $kb->id]);
+
+        Sanctum::actingAs($kb);
+
+        // KB Bidang A coba filter ke tim di Bidang B → harus 403 (cross-field leak)
+        $this->getJson("/api/admin/wfh/monitoring?team_id={$teamB->id}")
+            ->assertStatus(403);
+    }
+
+    public function test_kepala_bidang_can_filter_own_team_in_field(): void
+    {
+        $field = Field::factory()->create();
+        $teamA = Team::factory()->create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $teamB = Team::factory()->create(['field_id' => $field->id, 'name' => 'Tim B']);
+
+        $kb = User::factory()->create(['team_id' => $teamA->id]);
+        $kb->assignRole('kepala_bidang');
+        $field->update(['head_id' => $kb->id]);
+
+        Sanctum::actingAs($kb);
+
+        // KB filter tim di bidang sendiri → 200, team_id set
+        $this->getJson("/api/admin/wfh/monitoring?team_id={$teamA->id}")
+            ->assertStatus(200)
+            ->assertJsonPath('data.team_id', $teamA->id);
+    }
+
     public function test_kepala_tim_can_view_monitoring(): void
     {
         $field = Field::factory()->create();

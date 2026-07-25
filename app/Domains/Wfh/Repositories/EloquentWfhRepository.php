@@ -151,26 +151,29 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     // === Monitoring ===
 
-    public function getUsersWithoutAttendance(string $date, ?int $teamId = null): array
+    public function getUsersWithoutAttendance(string $date, ?int $teamId = null, ?int $fieldId = null): array
     {
         $checkedInIds = WfhAttendance::where('date', $date)->pluck('user_id')->toArray();
 
         $query = User::where('is_active', true)->whereNotIn('id', $checkedInIds);
 
-        if ($teamId) {
+        if ($fieldId) {
+            $query->whereHas('team', fn ($q) => $q->where('field_id', $fieldId));
+        } elseif ($teamId) {
             $query->where('team_id', $teamId);
         }
 
         return $query->with('team')->get()->toArray();
     }
-
-    public function getUsersWithoutReport(string $date, ?int $teamId = null): array
+    public function getUsersWithoutReport(string $date, ?int $teamId = null, ?int $fieldId = null): array
     {
         $reportedIds = WfhReport::where('report_date', $date)->pluck('user_id')->toArray();
 
         $query = User::where('is_active', true)->whereNotIn('id', $reportedIds);
 
-        if ($teamId) {
+        if ($fieldId) {
+            $query->whereHas('team', fn ($q) => $q->where('field_id', $fieldId));
+        } elseif ($teamId) {
             $query->where('team_id', $teamId);
         }
 

@@ -27,7 +27,6 @@ interface WfhRepositoryInterface extends RepositoryInterface
 
     public function getTeamReportData(int $teamId, string $date): array;
 
-    public function getUsersWithoutAttendance(string $date, ?int $teamId = null): array;
-
-    public function getUsersWithoutReport(string $date, ?int $teamId = null): array;
+    public function getUsersWithoutAttendance(string $date, ?int $teamId = null, ?int $fieldId = null): array;
+    public function getUsersWithoutReport(string $date, ?int $teamId = null, ?int $fieldId = null): array;
 }
