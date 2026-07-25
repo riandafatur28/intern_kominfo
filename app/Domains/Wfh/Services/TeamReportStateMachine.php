@@ -15,6 +15,7 @@ class TeamReportStateMachine
 
         $report->update([
             'status' => 'approved',
+            'supervisor_id' => $actor->id,
             'supervisor_signed_at' => now(),
             'verification_token' => $report->verification_token ?? bin2hex(random_bytes(32)),
         ]);

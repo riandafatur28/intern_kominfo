@@ -336,6 +336,26 @@ class TeamReportTest extends TestCase
         $this->assertTrue($kb->hasPermissionTo('wfh.team_report.approve'));
     }
 
+    public function test_approve_team_report_sets_supervisor_id(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+
+        $kb = User::factory()->create(['team_id' => $team->id]);
+        $kb->assignRole('kepala_bidang');
+        $field->update(['head_id' => $kb->id]);
+
+        $report = $this->createTeamReport($team);
+        Sanctum::actingAs($kb);
+
+        $this->postJson("/api/admin/wfh/team-reports/{$report->id}/approve")
+            ->assertStatus(200);
+
+        $fresh = WfhTeamReport::find($report->id);
+        $this->assertEquals($kb->id, $fresh->supervisor_id, 'supervisor_id harus terisi = actor');
+        $this->assertNotNull($fresh->supervisor_signed_at, 'supervisor_signed_at harus terisi');
+    }
+
     public function test_cross_field_team_report_approve_has_consistent_error_shape(): void
     {
         $fieldA = Field::create(['name' => 'Bidang A']);

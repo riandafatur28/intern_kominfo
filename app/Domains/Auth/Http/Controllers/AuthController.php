@@ -2,6 +2,7 @@
 
 namespace App\Domains\Auth\Http\Controllers;
 
+use App\Domains\Auth\Concerns\FormatsUserPayload;
 use App\Domains\Auth\Http\Requests\ChangePasswordRequest;
 use App\Domains\Auth\Http\Requests\LoginRequest;
 use App\Models\User;
@@ -12,6 +13,8 @@ use Illuminate\Support\Facades\Hash;
 
 class AuthController extends Controller
 {
+    use FormatsUserPayload;
+
     public function login(LoginRequest $request): JsonResponse
     {
         $user = User::where('email', $request->email)->first();
@@ -35,13 +38,14 @@ class AuthController extends Controller
         }
 
         $token = $user->createToken('auth-token')->plainTextToken;
+        $user->load(['team.field', 'roles.permissions']);
 
         return response()->json([
             'success' => true,
             'message' => 'Login berhasil.',
             'data' => [
                 'token' => $token,
-                'user' => $this->userData($user),
+                'user' => $this->formatUserPayload($user),
             ],
         ]);
     }
@@ -52,7 +56,7 @@ class AuthController extends Controller
 
         return response()->json([
             'success' => true,
-            'data' => $this->userData($user),
+            'data' => $this->formatUserPayload($user),
         ]);
     }
 
@@ -79,48 +83,5 @@ class AuthController extends Controller
             'success' => true,
             'message' => 'Password berhasil diubah.',
         ]);
-    }
-
-    private function userData(User $user): array
-    {
-        $data = [
-            'id' => $user->id,
-            'name' => $user->name,
-            'nip' => $user->nip,
-            'email' => $user->email,
-            'rank' => $user->rank,
-            'position' => $user->position,
-            'phone' => $user->phone,
-            'signature_path' => $user->signature_path,
-            'must_change_password' => $user->must_change_password,
-            'is_active' => $user->is_active,
-            'roles' => $user->getRoleNames(),
-            'permissions' => $user->getAllPermissions()->pluck('name')->values(),
-        ];
-
-        if ($user->relationLoaded('team') && $user->team) {
-            $team = [
-                'id' => $user->team->id,
-                'name' => $user->team->name,
-            ];
-
-            if ($user->team->leader) {
-                $team['leader'] = [
-                    'id' => $user->team->leader->id,
-                    'name' => $user->team->leader->name,
-                ];
-            }
-
-            if ($user->team->field) {
-                $team['field'] = [
-                    'id' => $user->team->field->id,
-                    'name' => $user->team->field->name,
-                ];
-            }
-
-            $data['team'] = $team;
-        }
-
-        return $data;
     }
 }
