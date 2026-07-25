@@ -101,6 +101,222 @@ class TeamReportPdfTest extends TestCase
         $this->assertNull($captured['signatureSupervisorPath']);
     }
 
+    public function test_team_report_data_contains_raw_photo_path(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $user = User::factory()->create(['team_id' => $team->id, 'is_active' => true]);
+
+        \App\Domains\Wfh\Models\WfhAttendance::create([
+            'user_id' => $user->id,
+            'date' => now()->toDateString(),
+            'session' => 'pagi',
+            'photo_path' => 'attendances/test/photo.jpg',
+            'check_in_at' => now(),
+        ]);
+
+        $repo = app(\App\Domains\Wfh\Repositories\WfhRepositoryInterface::class);
+        $data = $repo->getTeamReportData($team->id, now()->toDateString());
+
+        $this->assertCount(1, $data);
+        $this->assertArrayHasKey('photos', $data[0]);
+        $this->assertCount(1, $data[0]['photos']);
+        $this->assertArrayHasKey('photo_path', $data[0]['photos'][0]);
+        $this->assertSame('attendances/test/photo.jpg', $data[0]['photos'][0]['photo_path']);
+    }
+
+    public function test_team_pdf_contains_sessions_data_and_all_members(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $adminTeam = Team::create(['field_id' => $field->id, 'name' => 'Tim Admin']);
+        $admin = User::factory()->create(['team_id' => $adminTeam->id]);
+        $admin->assignRole('admin');
+        Sanctum::actingAs($admin);
+
+        $memberWithPhoto = User::factory()->create([
+            'team_id' => $team->id, 'is_active' => true, 'name' => 'User A',
+        ]);
+        $memberNoPhoto = User::factory()->create([
+            'team_id' => $team->id, 'is_active' => true, 'name' => 'User B',
+        ]);
+        $memberNoData = User::factory()->create([
+            'team_id' => $team->id, 'is_active' => true, 'name' => 'User C',
+        ]);
+
+        WfhTeamReport::create([
+            'team_id' => $team->id,
+            'report_date' => now()->toDateString(),
+            'status' => 'pending',
+            'created_by' => $admin->id,
+        ]);
+
+        \App\Domains\Wfh\Models\WfhAttendance::create([
+            'user_id' => $memberWithPhoto->id,
+            'date' => now()->toDateString(),
+            'session' => 'pagi',
+            'photo_path' => 'attendances/test/pagi.jpg',
+            'check_in_at' => now(),
+        ]);
+
+        // Create dummy photo file so file_exists() check passes
+        $photoDir = public_path('storage/attendances/test');
+        if (! is_dir($photoDir)) {
+            mkdir($photoDir, 0755, true);
+        }
+        file_put_contents($photoDir.'/pagi.jpg', 'dummy');
+
+        $captured = $this->capturePdfViewData($team, null);
+
+        $this->assertArrayHasKey('sessions', $captured);
+        $this->assertCount(3, $captured['staff']);
+        $this->assertEqualsCanonicalizing(
+            ['USER A', 'USER B', 'USER C'],
+            array_column($captured['staff'], 'name'),
+        );
+        $this->assertCount(3, $captured['sessions']['pagi']);
+        $this->assertStringContainsString('pagi.jpg', $captured['sessions']['pagi'][0]['photo'] ?? '');
+        $this->assertNull($captured['sessions']['pagi'][1]['photo']);
+        $this->assertNull($captured['sessions']['pagi'][2]['photo']);
+    }
+
+    public function test_team_pdf_template_renders_documentation_page(): void
+    {
+        $staff = [
+            ['name' => 'USER A', 'nip' => '123', 'links' => ['http://link1']],
+            ['name' => 'USER B', 'nip' => '456', 'links' => []],
+        ];
+
+        $sessions = [
+            'pagi' => [
+                ['no' => 1, 'name' => 'USER A', 'photo' => '/path/to/pagi.jpg'],
+                ['no' => 2, 'name' => 'USER B', 'photo' => null],
+            ],
+            'siang' => [
+                ['no' => 1, 'name' => 'USER A', 'photo' => null],
+                ['no' => 2, 'name' => 'USER B', 'photo' => null],
+            ],
+            'sore' => [
+                ['no' => 1, 'name' => 'USER A', 'photo' => null],
+                ['no' => 2, 'name' => 'USER B', 'photo' => null],
+            ],
+        ];
+
+        $html = view('pdf.wfh-report-admin', [
+            'namaTim' => 'Tim Test',
+            'unitKerja' => 'Bidang Test',
+            'tanggalPelaksanaan' => '25 Juli 2026',
+            'staff' => $staff,
+            'sessions' => $sessions,
+            'isApproved' => false,
+            'signatureMakerPath' => null,
+            'signatureSupervisorPath' => null,
+            'makerName' => 'ADMIN',
+            'makerNip' => '789',
+            'supervisorName' => 'KB',
+            'supervisorNip' => '012',
+        ])->render();
+
+        // Page 1: '-' for empty links
+        $this->assertStringContainsString('-', $html);
+
+        // Page 2: documentation title
+        $this->assertStringContainsString('DOKUMENTASI TIM TIM TEST WORK FROM HOME', $html);
+        $this->assertStringContainsString('SESI PAGI', $html);
+        $this->assertStringContainsString('SESI SIANG', $html);
+        $this->assertStringContainsString('SESI SORE', $html);
+        $this->assertStringContainsString('<img', $html);
+
+        // '-' for missing photos
+        $this->assertStringContainsString('USER B', $html);
+    }
+
+    public function test_team_pdf_sessions_all_keys_present_with_multiple_attendance(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $adminTeam = Team::create(['field_id' => $field->id, 'name' => 'Tim Admin']);
+        $admin = User::factory()->create(['team_id' => $adminTeam->id]);
+        $admin->assignRole('admin');
+        Sanctum::actingAs($admin);
+
+        $member1 = User::factory()->create([
+            'team_id' => $team->id, 'is_active' => true, 'name' => 'User A',
+        ]);
+        $member2 = User::factory()->create([
+            'team_id' => $team->id, 'is_active' => true, 'name' => 'User B',
+        ]);
+
+        // member1: attendance pagi + siang, no sore
+        foreach (['pagi', 'siang'] as $session) {
+            \App\Domains\Wfh\Models\WfhAttendance::create([
+                'user_id' => $member1->id,
+                'date' => now()->toDateString(),
+                'session' => $session,
+                'photo_path' => "attendances/test/{$session}.jpg",
+                'check_in_at' => now(),
+            ]);
+        }
+
+        // Create dummy photos for both sessions
+        foreach (['pagi', 'siang'] as $session) {
+            $dir = public_path("storage/attendances/test");
+            if (! is_dir($dir)) {
+                mkdir($dir, 0755, true);
+            }
+            file_put_contents($dir."/{$session}.jpg", 'dummy');
+        }
+
+        $captured = $this->capturePdfViewData($team, null);
+
+        // All 3 session keys present
+        $this->assertArrayHasKey('pagi', $captured['sessions']);
+        $this->assertArrayHasKey('siang', $captured['sessions']);
+        $this->assertArrayHasKey('sore', $captured['sessions']);
+
+        // Each session has 2 entries (2 team members)
+        $this->assertCount(2, $captured['sessions']['pagi']);
+        $this->assertCount(2, $captured['sessions']['siang']);
+        $this->assertCount(2, $captured['sessions']['sore']);
+
+        // member1 (index 0) has photo in pagi + siang, null in sore
+        $this->assertStringContainsString('pagi.jpg', $captured['sessions']['pagi'][0]['photo'] ?? '');
+        $this->assertStringContainsString('siang.jpg', $captured['sessions']['siang'][0]['photo'] ?? '');
+        $this->assertNull($captured['sessions']['sore'][0]['photo']);
+
+        // member2 (index 1) has no attendance → all null
+        $this->assertNull($captured['sessions']['pagi'][1]['photo']);
+        $this->assertNull($captured['sessions']['siang'][1]['photo']);
+        $this->assertNull($captured['sessions']['sore'][1]['photo']);
+    }
+
+    public function test_team_pdf_sessions_all_null_when_no_attendance(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $adminTeam = Team::create(['field_id' => $field->id, 'name' => 'Tim Admin']);
+        $admin = User::factory()->create(['team_id' => $adminTeam->id]);
+        $admin->assignRole('admin');
+        Sanctum::actingAs($admin);
+
+        User::factory()->count(2)->create([
+            'team_id' => $team->id, 'is_active' => true,
+        ]);
+
+        $captured = $this->capturePdfViewData($team, null);
+
+        // All session entries have null photo
+        foreach (['pagi', 'siang', 'sore'] as $session) {
+            foreach ($captured['sessions'][$session] as $entry) {
+                $this->assertNull($entry['photo']);
+            }
+        }
+    }
+
     /**
      * @return array<string, mixed>
      */

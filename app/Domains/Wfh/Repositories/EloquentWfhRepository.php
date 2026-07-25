@@ -77,15 +77,6 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             ->find($id);
     }
 
-    public function getTeamReportsForDate(int $teamId, string $date): Collection
-    {
-        return WfhReport::with(['user', 'activities.links'])
-            ->where('report_date', $date)
-            ->whereHas('user', fn ($q) => $q->where('team_id', $teamId))
-            ->orderBy('status')
-            ->get();
-    }
-
     public function getTeamReportData(int $teamId, string $date): array
     {
         $members = User::where('team_id', $teamId)->where('is_active', true)->get();
@@ -113,7 +104,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
                 foreach ($memberAttendances as $att) {
                     $photos[] = [
                         'session' => $att->session,
-                        'photo_url' => $att->photo_path ? asset('storage/'.$att->photo_path) : null,
+                        'photo_path' => $att->photo_path,
                     ];
                 }
             }

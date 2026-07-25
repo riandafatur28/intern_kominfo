@@ -93,9 +93,37 @@
         .signature-box img { position: absolute; top: -55px; left: 0; height: 65px; width: auto; }
         .signature-name { font-weight: bold; border-top: 1px solid #000; padding-top: 3px; margin-top: 2px; }
         .signature-nip { font-size: 10px; margin-top: 1px; }
-
         .footer-bar { position: relative; margin-top: 10px; }
         .tanggal { text-align: right; margin-bottom: 8px; }
+
+        /* === DOKUMENTASI === */
+        .dok-title {
+            text-align: center;
+            margin: 30px 0 20px 0;
+            font-size: 13px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .dok-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        .dok-table th, .dok-table td {
+            border: 1px solid #000;
+            padding: 6px 8px;
+            text-align: left;
+            vertical-align: middle;
+        }
+        .dok-table th {
+            background-color: #f0f0f0;
+            text-align: center;
+            font-weight: bold;
+        }
+        .dok-table td.no { text-align: center; width: 30px; }
+        .dok-table td.photo { text-align: center; width: 80px; }
+        .dok-photo { width: 60px; height: 60px; object-fit: cover; }
+        .page-break { page-break-before: always; }
     </style>
     <title>Laporan WFH Tim - Admin</title>
 </head>
@@ -136,17 +164,21 @@
             </tr>
         </thead>
         <tbody>
-            @foreach($staff as $i => $member)
+            @forelse($staff as $i => $member)
                 <tr>
                     <td class="no">{{ $i + 1 }}</td>
                     <td>{{ $member['name'] }}<br><span style="font-size:9px;">NIP. {{ $member['nip'] }}</span></td>
                     <td class="links">
-                        @foreach($member['links'] as $link)
+                        @forelse($member['links'] as $link)
                             <div>{{ $link }}</div>
-                        @endforeach
+                        @empty
+                            -
+                        @endforelse
                     </td>
                 </tr>
-            @endforeach
+            @empty
+                <tr><td colspan="3" style="text-align:center;">-</td></tr>
+            @endforelse
         </tbody>
     </table>
 
@@ -182,8 +214,43 @@
                     <div class="signature-name">{{ $supervisorName }}</div>
                     <div class="signature-nip">NIP. {{ $supervisorNip }}</div>
                 </td>
+            </tr>
         </table>
     </div>
 
-</body>
-</html>
+    {{-- HALAMAN DOKUMENTASI --}}
+    <div class="page-break">
+        <div class="dok-title">
+            DOKUMENTASI TIM {{ strtoupper($namaTim) }} WORK FROM HOME {{ $tanggalPelaksanaan }}
+        </div>
+
+        @foreach($sessions as $sessionName => $entries)
+            <table class="dok-table">
+                <thead>
+                    <tr>
+                        <th colspan="3">SESI {{ strtoupper($sessionName) }}</th>
+                    </tr>
+                    <tr>
+                        <th style="width:30px;">No</th>
+                        <th>Nama</th>
+                        <th style="width:80px;">Photo</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($entries as $entry)
+                        <tr>
+                            <td class="no">{{ $entry['no'] }}</td>
+                            <td>{{ $entry['name'] }}</td>
+                            <td class="photo">
+                                @if ($entry['photo'])
+                                    <img src="{{ $entry['photo'] }}" class="dok-photo" alt="photo">
+                                @else
+                                    -
+                                @endif
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        @endforeach
+    </div>
