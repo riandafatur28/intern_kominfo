@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 4.1.0
+  version: 5.0.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,6 +9,15 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+    **v5.0.0 — KB (Kepala Bidang) full support:**
+    - New permission `wfh.team_report.view` — KB dan KT dapat list team-report.
+    - New permission `wfh.team_report.reject` — pisah dari approve (konsisten dengan modul individu).
+    - Field-scoped guard di approve/reject (individu + team-report). Admin TIDAK ada break-glass.
+    - Monitoring scope by field head: KB lihat seluruh bidang, KT lihat tim sendiri.
+    - `GET /profile` sekarang identik dengan `GET /auth/me` (team.field + permissions).
+    - `POST /auth/login` response sekarang bawa `team.field`.
+    - Team-report approve set `supervisor_id` = actor.
 
     **v4.0.0 — Breaking change (Change Package):** the serial two-step change
     flow (`/changes/initiations/*` + `/changes/implementations/*`) is removed.
@@ -18,10 +27,6 @@ info:
 
     The `kepala_bidang` role (field head) approves WFH reports as "atasan langsung".
     The `kepala_tim` role (team leader) approves/rejects change packages.
-
-    **v4.1.0 — Additions:**
-    - `GET /api/teams?field_id={id}` — flat team dropdown endpoint, open to any
-      authenticated user. Used by admin/staf forms to pick teams by name.
 servers:
   - url: http://localhost
     description: Local development server
@@ -183,29 +188,33 @@ components:
     # ── Profile ─────────────────────────────────────────────────────
     ProfileData:
       type: object
-      required: [id, name, nip, email, is_active, roles]
+      description: |
+        User payload returned by GET /profile, PUT /profile, GET /auth/me, and POST /auth/login.
+        Since v5.0.0, all four endpoints use the same shared formatter (FormatsUserPayload trait),
+        so the structure is identical across all of them — including team.field and permissions.
+      required: [id, name, nip, email, must_change_password, is_active, roles, permissions]
       properties:
         id:
           type: integer
-          example: 1
+          example: 4
         name:
           type: string
-          example: Budi Santoso
+          example: Budi Kepala Bidang
         nip:
           type: string
-          example: "199001012023011001"
+          example: "3333333333"
         email:
           type: string
           format: email
-          example: budi@kominfo.go.id
+          example: kepala.bidang@kominfo.go.id
         rank:
           type: string
           nullable: true
-          example: Pengatur Muda
+          example: Pembina
         position:
           type: string
           nullable: true
-          example: Staf Pelaksana
+          example: Kepala Bidang Pengembangan Aplikasi
         phone:
           type: string
           nullable: true
@@ -213,12 +222,15 @@ components:
         signature_path:
           type: string
           nullable: true
-          example: signatures/budi-signature.png
+          example: signatures/budi-kb-signature.png
         signature_url:
           type: string
           nullable: true
           format: uri
-          example: http://localhost/storage/signatures/budi-signature.png
+          example: http://localhost/storage/signatures/budi-kb-signature.png
+        must_change_password:
+          type: boolean
+          example: false
         is_active:
           type: boolean
           example: true
@@ -226,19 +238,37 @@ components:
           type: array
           items:
             type: string
-          example: [staf]
+          example: [kepala_bidang]
+        permissions:
+          type: array
+          items:
+            type: string
+          example: [wfh.attendance.create, wfh.report.create, wfh.report.update, wfh.report.submit, wfh.report.approve, wfh.report.reject, wfh.monitoring.view, wfh.report.export_pdf, wfh.team_report.view, wfh.team_report.approve, wfh.team_report.reject]
+        team:
+          $ref: "#/components/schemas/TeamNested"
       example:
-        id: 1
-        name: Budi Santoso
-        nip: "199001012023011001"
-        email: budi@kominfo.go.id
-        rank: Pengatur Muda
-        position: Staf Pelaksana
+        id: 4
+        name: Budi Kepala Bidang
+        nip: "3333333333"
+        email: kepala.bidang@kominfo.go.id
+        rank: Pembina
+        position: Kepala Bidang Pengembangan Aplikasi
         phone: "081234567890"
-        signature_path: signatures/budi-signature.png
-        signature_url: http://localhost/storage/signatures/budi-signature.png
+        signature_path: signatures/budi-kb-signature.png
+        signature_url: http://localhost/storage/signatures/budi-kb-signature.png
+        must_change_password: false
         is_active: true
-        roles: [staf]
+        roles: [kepala_bidang]
+        permissions: [wfh.attendance.create, wfh.report.create, wfh.report.update, wfh.report.submit, wfh.report.approve, wfh.report.reject, wfh.monitoring.view, wfh.report.export_pdf, wfh.team_report.view, wfh.team_report.approve, wfh.team_report.reject]
+        team:
+          id: 2
+          name: Tim Pengembangan
+          leader:
+            id: 3
+            name: Koko Kepala Tim
+          field:
+            id: 2
+            name: Bidang Pengembangan Aplikasi
     UpdateProfileRequest:
       type: object
       properties:
@@ -1076,16 +1106,26 @@ components:
           example: true
         data:
           type: object
-          required: [date, team_id, not_checked_in, no_report]
+          required: [date, team_id, field_id, not_checked_in, no_report]
           properties:
             date:
               type: string
               format: date
-              example: "2025-07-11"
+              example: "2026-07-25"
             team_id:
               type: integer
               nullable: true
-              example: 3
+              description: |
+                Team filter used. Null when scope is entire field (KB field head)
+                or all (admin). Set to actor's team_id for kepala_tim or explicit filter.
+              example: null
+            field_id:
+              type: integer
+              nullable: true
+              description: |
+                Field (bidang) filter used. Set when actor is field head (kepala_bidang).
+                Null for admin (all) or kepala_tim (team scope). Since v5.0.0.
+              example: 2
             not_checked_in:
               type: array
               items:
@@ -1097,8 +1137,9 @@ components:
       example:
         success: true
         data:
-          date: "2025-07-11"
-          team_id: 3
+          date: "2026-07-25"
+          team_id: null
+          field_id: 2
           not_checked_in:
             - id: 7
               name: Ahmad Wijaya
@@ -3386,6 +3427,10 @@ paths:
       tags: [WFH Reports]
       summary: Approve a WFH report
       operationId: approveWfhReport
+      description: |
+        Approves a pending WFH report. Field-scoped guard since v5.0.0: actor must
+        be in the same field as the report owner. No admin break-glass. Requires
+        `wfh.report.approve` permission.
       parameters:
         - $ref: "#/components/parameters/ReportIdPath"
       responses:
@@ -3446,6 +3491,10 @@ paths:
       tags: [WFH Reports]
       summary: Reject a WFH report
       operationId: rejectWfhReport
+      description: |
+        Rejects a pending WFH report with a reason. Field-scoped guard since v5.0.0:
+        actor must be in the same field as the report owner. No admin break-glass.
+        Requires `wfh.report.reject` permission.
       parameters:
         - $ref: "#/components/parameters/ReportIdPath"
       requestBody:
@@ -3630,8 +3679,15 @@ paths:
   /api/admin/wfh/monitoring:
     get:
       tags: [WFH Monitoring]
-      summary: Monitor WFH attendance and reports
+      summary: Monitor WFH attendance and reports (field-scoped since v5.0.0)
       operationId: getWfhMonitoring
+      description: |
+        Returns users who haven't checked in or submitted a report for a given date.
+        Scope depends on role since v5.0.0:
+        - admin → all users (team_id=null, field_id=null)
+        - kepala_bidang (field head) → entire field (field_id set, team_id=null)
+        - kepala_tim / others → own team (team_id set, field_id=null)
+        If team_id is passed explicitly, it must belong to the actor's field (cross-field → 403).
       parameters:
         - name: date
           in: query
@@ -3639,13 +3695,16 @@ paths:
             type: string
             format: date
           description: Defaults to today.
-          example: "2025-07-11"
+          example: "2026-07-25"
         - name: team_id
           in: query
           schema:
             type: integer
-          description: Filter by team. Non-admins without this param default to their own team.
-          example: 3
+          description: |
+            Filter by specific team. Must belong to actor's field — cross-field
+            attempts return 403. If omitted: admin sees all, KB sees entire field,
+            others default to own team.
+          example: 2
       responses:
         "200":
           description: Monitoring data
@@ -3789,8 +3848,10 @@ paths:
       security:
         - bearerAuth: []
       description: |
-        Returns a paginated list of WFH team reports scoped to the admin's own
-        field (bidang). Requires the `wfh.team_report.create` permission.
+        Returns a paginated list of WFH team reports. Scope depends on role:
+        admin sees all; kepala_bidang (field head) sees all teams in their field;
+        kepala_tim and other users see only their own team's reports. Requires the
+        `wfh.team_report.view` permission (assigned to kepala_bidang and kepala_tim).
       parameters:
         - name: per_page
           in: query
@@ -3816,7 +3877,7 @@ paths:
                 success: false
                 message: Unauthenticated.
         "403":
-          description: Missing wfh.team_report.create permission
+          description: Missing wfh.team_report.view permission
           content:
             application/json:
               schema:
@@ -3885,7 +3946,9 @@ paths:
         - bearerAuth: []
       description: |
         Approves a pending team report: sets status=approved, records
-        supervisor_signed_at, and generates a verification_token. Requires the
+        supervisor_id (actor), supervisor_signed_at, and generates a verification_token.
+        Field-scoped guard: actor must be in the same field as the team report's team.
+        No admin break-glass — admin in a different field gets 403. Requires the
         `wfh.team_report.approve` permission.
       parameters:
         - name: id
@@ -3916,14 +3979,14 @@ paths:
                 success: false
                 message: Unauthenticated.
         "403":
-          description: Missing wfh.team_report.approve permission
+          description: Missing wfh.team_report.approve permission, or team report outside actor's field
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: This action is unauthorized.
+                message: Laporan tidak berada dalam bidang Anda.
         "404":
           description: Team report not found
           content:
@@ -3950,7 +4013,9 @@ paths:
         - bearerAuth: []
       description: |
         Rejects a pending team report with a reason: sets status=rejected and
-        stores reject_reason. Requires the `wfh.team_report.approve` permission.
+        stores reject_reason. Field-scoped guard: actor must be in the same field.
+        No admin break-glass. Requires the `wfh.team_report.reject` permission
+        (separate from approve since v5.0.0).
       parameters:
         - name: id
           in: path
