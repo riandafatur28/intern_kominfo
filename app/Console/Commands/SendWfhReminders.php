@@ -62,7 +62,6 @@ class SendWfhReminders extends Command
 
             $now = now();
             Notification::send($users, new WfhReminderNotification(
-                userName: '',
                 currentTime: $now->format('H:i'),
                 currentDate: $now->format('d-m-Y'),
             ));
