@@ -33,8 +33,7 @@ class ProfileController extends Controller
         $user = $request->user();
         $user->update($request->only(['phone', 'position', 'rank']));
 
-        $fresh = $user->fresh();
-        $fresh->load(['team.field', 'team.leader', 'roles.permissions']);
+        $fresh = $user->fresh(['team.field', 'team.leader', 'roles.permissions']);
 
         return response()->json([
             'success' => true,
