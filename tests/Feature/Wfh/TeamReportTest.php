@@ -90,7 +90,7 @@ class TeamReportTest extends TestCase
             ->assertJsonPath('data.status', 'approved');
     }
 
-    public function test_admin_can_approve_team_report_as_admin_has_all_permissions(): void
+    public function test_admin_can_approve_team_report_in_same_field(): void
     {
         $field = Field::create(['name' => 'Bidang A']);
         $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);

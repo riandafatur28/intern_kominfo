@@ -175,10 +175,9 @@ class SegregationOfDutiesTest extends TestCase
 
         $admin = User::factory()->create(['team_id' => $teamA->id]);
         $admin->assignRole('admin');
-        $fieldA->update(['head_id' => $admin->id]);
-
+        $stafB = User::factory()->create(['team_id' => $teamB->id]);
         $report = WfhReport::factory()->create([
-            'user_id' => User::factory()->create(['team_id' => $teamB->id])->id,
+            'user_id' => $stafB->id,
             'status' => 'pending',
         ]);
 
@@ -198,8 +197,9 @@ class SegregationOfDutiesTest extends TestCase
         $admin = User::factory()->create(['team_id' => $teamA->id]);
         $admin->assignRole('admin');
 
+        $stafB = User::factory()->create(['team_id' => $teamB->id]);
         $report = WfhReport::factory()->create([
-            'user_id' => User::factory()->create(['team_id' => $teamB->id])->id,
+            'user_id' => $stafB->id,
             'status' => 'pending',
         ]);
 
