@@ -2,6 +2,7 @@
 
 namespace App\Domains\Organization\Http\Controllers;
 
+use App\Domains\Auth\Concerns\FormatsUserPayload;
 use App\Domains\Organization\Http\Requests\UpdateProfileRequest;
 use App\Domains\Organization\Http\Requests\UploadSignatureRequest;
 use App\Support\Signature\SignatureServiceInterface;
@@ -11,17 +12,19 @@ use Illuminate\Routing\Controller;
 
 class ProfileController extends Controller
 {
+    use FormatsUserPayload;
+
     public function __construct(
         private SignatureServiceInterface $signatureService,
     ) {}
 
     public function show(Request $request): JsonResponse
     {
-        $user = $request->user()->load(['team.field', 'team.leader']);
+        $user = $request->user()->load(['team.field', 'team.leader', 'roles.permissions']);
 
         return response()->json([
             'success' => true,
-            'data' => $this->formatUser($user),
+            'data' => $this->formatUserPayload($user),
         ]);
     }
 
@@ -30,10 +33,13 @@ class ProfileController extends Controller
         $user = $request->user();
         $user->update($request->only(['phone', 'position', 'rank']));
 
+        $fresh = $user->fresh();
+        $fresh->load(['team.field', 'team.leader', 'roles.permissions']);
+
         return response()->json([
             'success' => true,
             'message' => 'Profil berhasil diperbarui.',
-            'data' => $this->formatUser($user->fresh()),
+            'data' => $this->formatUserPayload($fresh),
         ]);
     }
 
@@ -57,24 +63,5 @@ class ProfileController extends Controller
                 'signature_url' => asset("storage/{$path}"),
             ],
         ]);
-    }
-
-    private function formatUser($user): array
-    {
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'nip' => $user->nip,
-            'email' => $user->email,
-            'rank' => $user->rank,
-            'position' => $user->position,
-            'phone' => $user->phone,
-            'signature_path' => $user->signature_path,
-            'signature_url' => $user->signature_path
-                ? asset("storage/{$user->signature_path}")
-                : null,
-            'is_active' => $user->is_active,
-            'roles' => $user->getRoleNames(),
-        ];
     }
 }

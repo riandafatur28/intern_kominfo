@@ -181,4 +181,48 @@ class SmokeTest extends TestCase
             ->getJson('/api/admin/users')
             ->assertStatus(403);
     }
+
+    public function test_me_and_profile_return_consistent_payload(): void
+    {
+        $this->createAdmin();
+        $admin = User::where('email', 'admin@test.com')->first();
+        Sanctum::actingAs($admin);
+
+        $me = $this->getJson('/api/auth/me')->assertStatus(200)->json('data');
+        $profile = $this->getJson('/api/profile')->assertStatus(200)->json('data');
+
+        $this->assertArrayHasKey('team', $me, '/auth/me harus include team');
+        $this->assertArrayHasKey('team', $profile, '/profile harus include team');
+        $this->assertArrayHasKey('field', $me['team'], '/auth/me harus include team.field');
+        $this->assertArrayHasKey('field', $profile['team'], '/profile harus include team.field');
+        $this->assertEqualsCanonicalizing(
+            $me['permissions'], $profile['permissions'],
+            '/auth/me dan /profile harus return permissions identik'
+        );
+        $this->assertEquals($me['team'], $profile['team'], '/auth/me dan /profile harus return team identik');
+    }
+
+    public function test_login_response_includes_team_and_field(): void
+    {
+        $field = Field::create(['name' => 'Bidang Login']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Login']);
+        $user = User::create([
+            'team_id' => $team->id,
+            'name' => 'Login Test',
+            'nip' => '0000000999',
+            'email' => 'login-team@test.com',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+        ]);
+        $user->assignRole('kepala_bidang');
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'login-team@test.com',
+            'password' => 'password',
+        ])->assertStatus(200);
+
+        $userData = $response->json('data.user');
+        $this->assertArrayHasKey('team', $userData, 'login response harus include team');
+        $this->assertArrayHasKey('field', $userData['team'], 'login harus include team.field');
+    }
 }
