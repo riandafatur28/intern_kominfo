@@ -12,18 +12,24 @@ class AdminUserSeeder extends Seeder
 {
     public function run(): void
     {
-        $field = Field::create(['name' => 'Bidang Aplikasi Informatika']);
-        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Aplikasi']);
+        $field = Field::firstOrCreate(
+            ['name' => 'Bidang Aplikasi Informatika'],
+        );
+        $team = Team::firstOrCreate(
+            ['name' => 'Tim Aplikasi'],
+            ['field_id' => $field->id],
+        );
 
-        $admin = User::create([
-            'team_id' => $team->id,
-            'name' => 'Administrator',
-            'nip' => '0000000000',
-            'email' => 'admin@kominfo.go.id',
-            'password' => config('app.admin_password', Str::random(24)),
-            'is_active' => true,
-        ]);
-
+        $admin = User::firstOrCreate(
+            ['nip' => '0000000000'],
+            [
+                'team_id' => $team->id,
+                'name' => 'Administrator',
+                'email' => 'admin@kominfo.go.id',
+                'password' => config('app.admin_password', Str::random(24)),
+                'is_active' => true,
+            ],
+        );
         $admin->assignRole('admin');
 
         // Set circular refs
