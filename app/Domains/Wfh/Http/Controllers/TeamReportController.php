@@ -127,7 +127,9 @@ class TeamReportController extends Controller
         }
 
         $guard = $this->ensureSameField($request, $report);
-        if ($guard) { return $guard; }
+        if ($guard) {
+            return $guard;
+        }
 
         try {
             $report = $this->stateMachine->approve($report, $request->user());
@@ -153,7 +155,9 @@ class TeamReportController extends Controller
         }
 
         $guard = $this->ensureSameField($request, $report);
-        if ($guard) { return $guard; }
+        if ($guard) {
+            return $guard;
+        }
 
         try {
             $report = $this->stateMachine->reject($report, $request->user(), $request->input('reason'));
@@ -163,5 +167,4 @@ class TeamReportController extends Controller
 
         return response()->json(['data' => $report]);
     }
-
 }

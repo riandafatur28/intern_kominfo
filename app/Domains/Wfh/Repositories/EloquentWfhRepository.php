@@ -165,6 +165,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
         return $query->with('team')->get()->toArray();
     }
+
     public function getUsersWithoutReport(string $date, ?int $teamId = null, ?int $fieldId = null): array
     {
         $reportedIds = WfhReport::where('report_date', $date)->pluck('user_id')->toArray();
