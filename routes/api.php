@@ -64,6 +64,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     });
 
     // WFH Module
+    Route::get('/wfh/session-config', [AttendanceController::class, 'sessionConfig']);
     Route::post('/wfh/attendance', [AttendanceController::class, 'checkIn'])
         ->middleware('permission:wfh.attendance.create');
 
