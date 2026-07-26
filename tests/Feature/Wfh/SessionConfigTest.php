@@ -120,7 +120,7 @@ class SessionConfigTest extends TestCase
 
     public function test_session_config_does_not_leak_sensitive_keys(): void
     {
-        // Seed sensitive keys explicitly
+        // Seed sensitive keys explicitly.
         Setting::set('password_default_admin', 'topsecret');
         Setting::set('password_default_user', 'usersecret');
         Setting::set('wfh_notify_start_time', '15:00');
@@ -132,9 +132,9 @@ class SessionConfigTest extends TestCase
         $response = $this->getJson('/api/wfh/session-config')
             ->assertStatus(200);
 
-        $this->assertArrayNotHasKey('password_default_admin', $response->json('data'));
-        $this->assertArrayNotHasKey('password_default_user', $response->json('data'));
-        $this->assertArrayNotHasKey('wfh_notify_start_time', $response->json('data'));
+        // Allowlist: response must expose ONLY these two keys.
+        // Stronger than denying specific sensitive keys — catches any future leak.
+        $this->assertSame(['sessions', 'allowed_days'], array_keys($response->json('data')));
     }
 
     public function test_all_roles_can_access(): void
