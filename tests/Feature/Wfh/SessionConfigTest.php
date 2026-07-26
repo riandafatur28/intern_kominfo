@@ -103,7 +103,11 @@ class SessionConfigTest extends TestCase
 
     public function test_session_config_returns_defaults_when_settings_empty(): void
     {
-        // No SettingsSeeder — RefreshDatabase + no explicit seed = empty
+        // Wipe what setUp's SettingsSeeder wrote (DB rows + static cache)
+        // so the endpoint truly exercises its inline defaults.
+        Setting::query()->delete();
+        Setting::flushCache();
+
         $user = User::factory()->create();
         $user->assignRole('staf');
         Sanctum::actingAs($user);
