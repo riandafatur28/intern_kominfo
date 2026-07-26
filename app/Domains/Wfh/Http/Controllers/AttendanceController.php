@@ -73,4 +73,14 @@ class AttendanceController extends Controller
             ],
         ], 201);
     }
+
+    public function sessionConfig(): JsonResponse
+    {
+        return response()->json([
+            'data' => [
+                'sessions' => Setting::get('wfh_sessions', ['pagi', 'siang', 'sore']),
+                'allowed_days' => Setting::get('wfh_allowed_days', [1, 2, 3, 4, 5]),
+            ],
+        ]);
+    }
 }
