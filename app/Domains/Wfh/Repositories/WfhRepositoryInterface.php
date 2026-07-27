@@ -13,8 +13,6 @@ interface WfhRepositoryInterface extends RepositoryInterface
     // Attendance
     public function findAttendanceByUserAndDate(int $userId, string $date, ?string $session = null): ?WfhAttendance;
 
-    public function createAttendance(array $data): WfhAttendance;
-
     // Reports
     public function paginateReportsForUser(int $userId, int $perPage = 15): LengthAwarePaginator;
 
@@ -23,9 +21,6 @@ interface WfhRepositoryInterface extends RepositoryInterface
     public function findReportWithRelations(int $id): ?WfhReport;
 
     public function createReportWithRelations(array $reportData, array $activities, array $attendances = []): WfhReport;
-
-    /* ponytail: deprecated, kept for interface compat. Use updateReportMetadata instead. */
-    public function updateReportWithRelations(int $id, array $reportData, array $activities = [], array $attendances = []): bool;
 
     public function updateReportMetadata(int $id, array $reportData): bool;
 

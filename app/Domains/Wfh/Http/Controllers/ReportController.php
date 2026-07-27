@@ -175,10 +175,10 @@ class ReportController extends Controller
             ], 422);
         }
 
-        // Metadata-only: ignore any embedded activities/attendances in PUT body
+        // Metadata-only: only report_date is writable. Status transitions go
+        // through submit/approve/reject/revise — never via PUT.
         $this->wfhRepository->updateReportMetadata($id, [
             'report_date' => $request->input('report_date', $report->report_date->format('Y-m-d')),
-            'status' => $request->input('status', $report->status),
         ]);
 
         return response()->json([

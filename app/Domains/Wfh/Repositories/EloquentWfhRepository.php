@@ -13,7 +13,7 @@ use Illuminate\Support\Facades\DB;
 class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryInterface
 {
     /** Columns a report update may set; everything else is silently dropped. */
-    private const METADATA_FIELDS = ['report_date', 'status'];
+    private const METADATA_FIELDS = ['report_date'];
 
     public function __construct(WfhReport $model)
     {
@@ -32,11 +32,6 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         }
 
         return $query->first();
-    }
-
-    public function createAttendance(array $data): WfhAttendance
-    {
-        return WfhAttendance::create($data);
     }
 
     // === Reports ===
@@ -144,36 +139,6 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             }
 
             return $report->fresh(['attendances', 'activities.links']);
-        });
-    }
-
-    /* ponytail: keep full-replace for now; Task 8 narrows to metadata-only. */
-    public function updateReportWithRelations(int $id, array $reportData, array $activities = [], array $attendances = []): bool
-    {
-        return DB::transaction(function () use ($id, $reportData, $activities, $attendances) {
-            $report = WfhReport::find($id);
-            if (! $report) {
-                return false;
-            }
-
-            $safe = array_intersect_key($reportData, array_flip(self::METADATA_FIELDS));
-            $report->update($safe);
-
-            $report->attendances()->delete();
-            foreach ($attendances as $session => $data) {
-                $this->addAttendanceToReport($report, [
-                    'session' => $session,
-                    'photo_path' => $data['photo_path'] ?? null,
-                ]);
-            }
-
-            $report->activities()->delete();
-            foreach ($activities as $index => $activity) {
-                $activity['sort_order'] = $activity['sort_order'] ?? $index;
-                $this->addActivityToReport($report, $activity);
-            }
-
-            return true;
         });
     }
 
