@@ -26,25 +26,5 @@ class StoreReportRequest extends FormRequest
         ];
     }
 
-    /* ponytail: deprecated; replaced by Task 9 DB-side content guard.
-     * Keep for now to not break existing POST-with-submit flow. */
-    public function withValidator($validator): void
-    {
-        $validator->after(function ($validator) {
-            if ($this->input('status') !== 'submit') {
-                return;
-            }
 
-            $hasPhoto = ! empty($this->file('attendances.pagi.photo'))
-                || ! empty($this->file('attendances.siang.photo'))
-                || ! empty($this->file('attendances.sore.photo'));
-
-            $activities = $this->input('activities');
-            $hasActivity = is_array($activities) && count($activities) > 0;
-
-            if (! $hasPhoto && ! $hasActivity) {
-                $validator->errors()->add('attendances', 'Setidaknya satu foto absensi atau satu kegiatan harus diisi.');
-            }
-        });
-    }
 }

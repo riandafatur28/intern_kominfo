@@ -13,6 +13,12 @@ class WfhReportStateMachine
             throw new \DomainException('Hanya laporan dengan status draft yang dapat disubmit.');
         }
 
+        // Content guard: at least one activity OR one attendance required
+        $report->loadCount(['activities', 'attendances']);
+        if ($report->activities_count === 0 && $report->attendances_count === 0) {
+            throw new \DomainException('Setidaknya satu kegiatan atau satu absensi harus diisi sebelum submit.');
+        }
+
         $report->update([
             'status' => 'pending',
             'maker_signed_at' => now(),

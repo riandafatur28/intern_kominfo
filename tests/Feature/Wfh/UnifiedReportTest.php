@@ -45,16 +45,20 @@ class UnifiedReportTest extends TestCase
         $this->assertCount(2, $report->activities);
     }
 
-    public function test_create_report_submit_without_photos_and_activities_returns_422(): void
+    public function test_submit_empty_draft_returns_422(): void
     {
         $user = User::factory()->create();
         $user->assignRole('staf');
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/wfh/reports', [
+        // Create empty draft
+        $response = $this->postJson('/api/wfh/reports', [
             'report_date' => now()->toDateString(),
-            'status' => 'submit',
-        ])
+        ]);
+        $reportId = $response->json('data.id');
+
+        // Submit via explicit endpoint
+        $this->postJson("/api/wfh/reports/{$reportId}/submit")
             ->assertStatus(422);
     }
 
@@ -93,7 +97,7 @@ class UnifiedReportTest extends TestCase
             ->assertStatus(201);
     }
 
-    public function test_update_report_replaces_previous_photos(): void
+    public function test_update_report_metadata_only_preserves_attendances(): void
     {
         $user = User::factory()->create();
         $user->assignRole('staf');
@@ -108,17 +112,13 @@ class UnifiedReportTest extends TestCase
         ]);
         $reportId = $response->json('data.id');
 
-        // Update with different set — should replace, not append
+        // PUT is metadata-only — attendances in body are ignored, existing preserved
         $this->putJson("/api/wfh/reports/{$reportId}", [
             'report_date' => now()->toDateString(),
-            'attendances' => [
-                'siang' => ['photo' => UploadedFile::fake()->image('siang.jpg')],
-            ],
         ])->assertStatus(200);
 
         $report = $user->wfhReports()->with('attendances')->first();
-        $this->assertCount(1, $report->attendances);
-        $this->assertEquals('siang', $report->attendances->first()->session);
+        $this->assertCount(2, $report->attendances, 'Attendances should be preserved');
     }
 
     public function test_update_report_cannot_modify_others_report(): void

@@ -33,23 +33,28 @@ class SessionConfigTest extends TestCase
         parent::tearDown();
     }
 
-    public function test_checkin_accepts_default_sessions_from_setting(): void
+    public function test_append_attendance_accepts_default_sessions_from_setting(): void
     {
         $user = User::factory()->create();
         $user->assignRole('staf');
         Sanctum::actingAs($user);
 
+        $report = WfhReport::create([
+            'user_id' => $user->id,
+            'report_date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
         // Default: pagi, siang, sore — all should be accepted
         foreach (['pagi', 'siang', 'sore'] as $session) {
-            $this->postJson('/api/wfh/attendance', [
+            $this->postJson("/api/wfh/reports/{$report->id}/attendances", [
                 'session' => $session,
-                'date' => now()->toDateString(),
                 'photo' => UploadedFile::fake()->image("{$session}.jpg"),
             ])->assertStatus(201);
         }
     }
 
-    public function test_checkin_rejects_sessions_not_in_setting(): void
+    public function test_append_attendance_rejects_sessions_not_in_setting(): void
     {
         Setting::set('wfh_sessions', ['pagi', 'sore']);
 
@@ -57,9 +62,14 @@ class SessionConfigTest extends TestCase
         $user->assignRole('staf');
         Sanctum::actingAs($user);
 
-        $this->postJson('/api/wfh/attendance', [
+        $report = WfhReport::create([
+            'user_id' => $user->id,
+            'report_date' => now()->toDateString(),
+            'status' => 'draft',
+        ]);
+
+        $this->postJson("/api/wfh/reports/{$report->id}/attendances", [
             'session' => 'siang',
-            'date' => now()->toDateString(),
             'photo' => UploadedFile::fake()->image('siang.jpg'),
         ])->assertStatus(422);
     }

@@ -13,6 +13,7 @@ use App\Domains\Wfh\Http\Controllers\AttendanceController;
 use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportActivityController;
 use App\Domains\Wfh\Http\Controllers\ReportController;
+use App\Domains\Wfh\Http\Controllers\ReportAttendanceController;
 use App\Domains\Wfh\Http\Controllers\ReportPdfController;
 use App\Domains\Wfh\Http\Controllers\TeamReportController;
 use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
@@ -66,8 +67,6 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
 
     // WFH Module
     Route::get('/wfh/session-config', [AttendanceController::class, 'sessionConfig']);
-    Route::post('/wfh/attendance', [AttendanceController::class, 'checkIn'])
-        ->middleware('permission:wfh.attendance.create');
 
     Route::get('/wfh/reports', [ReportController::class, 'index']);
     Route::post('/wfh/reports', [ReportController::class, 'store'])
@@ -86,6 +85,12 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
     Route::delete('/wfh/reports/{report}/activities/{activity}', [ReportActivityController::class, 'destroy'])
         ->middleware('permission:wfh.report.update');
     Route::patch('/wfh/reports/{report}/activities/reorder', [ReportActivityController::class, 'reorder'])
+        ->middleware('permission:wfh.report.update');
+
+    // Attendance sub-resource
+    Route::post('/wfh/reports/{report}/attendances', [ReportAttendanceController::class, 'store'])
+        ->middleware('permission:wfh.report.create');
+    Route::delete('/wfh/reports/{report}/attendances/{attendance}', [ReportAttendanceController::class, 'destroy'])
         ->middleware('permission:wfh.report.update');
 
     Route::post('/wfh/reports/{report}/submit', [ReportApprovalController::class, 'submit']);
