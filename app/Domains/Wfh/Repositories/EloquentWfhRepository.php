@@ -198,7 +198,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
                 'start_time' => $data['start_time'] ?? null,
                 'end_time' => $data['end_time'] ?? null,
                 'activity' => $data['activity'],
-                'sort_order' => $data['sort_order'] ?? ($report->activities()->max('sort_order') ?? -1) + 1,
+                'sort_order' => $data['sort_order'] ?? (($report->activities()->max('sort_order') ?? -1) + 1),
             ]);
 
             if (! empty($data['links'])) {
@@ -266,7 +266,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             return false;
         }
 
-        $activity->links()->delete();
+        // ponytail: links cascade-deleted via FK on wfh_report_links.wfh_report_activity_id
         return (bool) $activity->delete();
     }
 
