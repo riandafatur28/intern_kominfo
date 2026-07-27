@@ -4,6 +4,7 @@ namespace App\Domains\Wfh\Repositories;
 
 use App\Domains\Wfh\Models\WfhAttendance;
 use App\Domains\Wfh\Models\WfhReport;
+use App\Domains\Wfh\Models\WfhReportActivity;
 use App\Models\User;
 use App\Repositories\EloquentRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
@@ -20,7 +21,8 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     public function findAttendanceByUserAndDate(int $userId, string $date, ?string $session = null): ?WfhAttendance
     {
-        $query = WfhAttendance::where('user_id', $userId)->where('date', $date);
+        $query = WfhAttendance::where('user_id', $userId)
+            ->where('date', $date);
 
         if ($session) {
             $query->where('session', $session);
@@ -38,42 +40,46 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     public function paginateReportsForUser(int $userId, int $perPage = 15): LengthAwarePaginator
     {
-        return WfhReport::where('user_id', $userId)
-            ->with(['attendances', 'activities.links', 'supervisor'])
-            ->orderByDesc('report_date')
+        return WfhReport::with(['activities.links', 'attendances'])
+            ->where('user_id', $userId)
+            ->orderBy('report_date', 'desc')
             ->paginate($perPage);
     }
 
     public function paginateAllReports(int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        $query = WfhReport::with(['user.team', 'activities.links', 'supervisor']);
+        $query = WfhReport::with(['activities.links', 'attendances', 'user.team', 'supervisor']);
 
-        if (isset($filters['status'])) {
+        if (! empty($filters['status'])) {
             $query->where('status', $filters['status']);
         }
 
-        if (isset($filters['team_id'])) {
-            $query->whereHas('user', fn ($q) => $q->where('team_id', $filters['team_id']));
-        }
-        if (isset($filters['field_id'])) {
-            $query->whereHas('user.team', fn ($q) => $q->where('field_id', $filters['field_id']));
-        }
-
-        if (isset($filters['date_from'])) {
+        if (! empty($filters['date_from'])) {
             $query->where('report_date', '>=', $filters['date_from']);
         }
 
-        if (isset($filters['date_to'])) {
+        if (! empty($filters['date_to'])) {
             $query->where('report_date', '<=', $filters['date_to']);
         }
 
-        return $query->orderByDesc('report_date')->paginate($perPage);
+        if (! empty($filters['team_id'])) {
+            $query->whereHas('user.team', function ($q) use ($filters) {
+                $q->where('id', $filters['team_id']);
+            });
+        }
+
+        if (! empty($filters['field_id'])) {
+            $query->whereHas('user.team', function ($q) use ($filters) {
+                $q->where('field_id', $filters['field_id']);
+            });
+        }
+
+        return $query->orderBy('report_date', 'desc')->paginate($perPage);
     }
 
     public function findReportWithRelations(int $id): ?WfhReport
     {
-        return WfhReport::with(['user.team.field', 'attendances', 'activities.links', 'supervisor.team'])
-            ->find($id);
+        return WfhReport::with(['activities.links', 'attendances', 'user.team', 'supervisor'])->find($id);
     }
 
     public function getTeamReportData(int $teamId, string $date): array
@@ -122,14 +128,24 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         return DB::transaction(function () use ($reportData, $activities, $attendances) {
             $report = WfhReport::create($reportData);
 
-            $this->syncAttendances($report, $attendances);
-            $this->syncActivities($report, $activities);
+            foreach ($attendances as $session => $data) {
+                $this->addAttendanceToReport($report, [
+                    'session' => $session,
+                    'photo_path' => $data['photo_path'] ?? null,
+                ]);
+            }
+
+            foreach ($activities as $index => $activity) {
+                $activity['sort_order'] = $activity['sort_order'] ?? $index;
+                $this->addActivityToReport($report, $activity);
+            }
 
             return $report->fresh(['attendances', 'activities.links']);
         });
     }
 
-    public function updateReportWithRelations(int $id, array $reportData, array $activities, array $attendances = []): bool
+    /* ponytail: keep full-replace for now; Task 8 narrows to metadata-only. */
+    public function updateReportWithRelations(int $id, array $reportData, array $activities = [], array $attendances = []): bool
     {
         return DB::transaction(function () use ($id, $reportData, $activities, $attendances) {
             $report = WfhReport::find($id);
@@ -137,83 +153,205 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
                 return false;
             }
 
-            $report->update($reportData);
+            $allowed = ['report_date', 'status'];
+            $safe = array_intersect_key($reportData, array_flip($allowed));
+            $report->update($safe);
 
             $report->attendances()->delete();
-            $this->syncAttendances($report, $attendances);
+            foreach ($attendances as $session => $data) {
+                $this->addAttendanceToReport($report, [
+                    'session' => $session,
+                    'photo_path' => $data['photo_path'] ?? null,
+                ]);
+            }
 
             $report->activities()->delete();
-            $this->syncActivities($report, $activities);
+            foreach ($activities as $index => $activity) {
+                $activity['sort_order'] = $activity['sort_order'] ?? $index;
+                $this->addActivityToReport($report, $activity);
+            }
 
             return true;
         });
+    }
+
+    public function updateReportMetadata(int $id, array $reportData): bool
+    {
+        $report = WfhReport::find($id);
+        if (! $report) {
+            return false;
+        }
+
+        // ponytail: narrow accept only report_date and status, silently drop everything else
+        $allowed = ['report_date', 'status'];
+        $safe = array_intersect_key($reportData, array_flip($allowed));
+
+        return $report->update($safe);
+    }
+
+    // === Per-row helpers ===
+
+    public function addActivityToReport(WfhReport $report, array $data): WfhReportActivity
+    {
+        return DB::transaction(function () use ($report, $data) {
+            $activity = $report->activities()->create([
+                'start_time' => $data['start_time'] ?? null,
+                'end_time' => $data['end_time'] ?? null,
+                'activity' => $data['activity'],
+                'sort_order' => $data['sort_order'] ?? ($report->activities()->max('sort_order') ?? -1) + 1,
+            ]);
+
+            if (! empty($data['links'])) {
+                foreach ($data['links'] as $linkIndex => $link) {
+                    $url = is_array($link) ? $link['url'] : $link;
+                    $activity->links()->create([
+                        'url' => $url,
+                        'sort_order' => $linkIndex,
+                    ]);
+                }
+            }
+
+            return $activity->fresh('links');
+        });
+    }
+
+    public function updateActivity(WfhReportActivity $activity, array $data): WfhReportActivity
+    {
+        return DB::transaction(function () use ($activity, $data) {
+            $activity->update([
+                'start_time' => $data['start_time'] ?? $activity->start_time,
+                'end_time' => $data['end_time'] ?? $activity->end_time,
+                'activity' => $data['activity'] ?? $activity->activity,
+            ]);
+
+            // Links id-diff
+            if (array_key_exists('links', $data)) {
+                $existingLinkIds = $activity->links()->pluck('id')->toArray();
+                $incomingLinks = $data['links'] ?? [];
+
+                $keepIds = [];
+                foreach ($incomingLinks as $index => $link) {
+                    $linkId = is_array($link) ? ($link['id'] ?? null) : null;
+                    $url = is_array($link) ? $link['url'] : $link;
+
+                    if ($linkId && in_array($linkId, $existingLinkIds)) {
+                        $activity->links()->where('id', $linkId)->update([
+                            'url' => $url,
+                            'sort_order' => $index,
+                        ]);
+                        $keepIds[] = $linkId;
+                    } else {
+                        $newLink = $activity->links()->create([
+                            'url' => $url,
+                            'sort_order' => $index,
+                        ]);
+                        $keepIds[] = $newLink->id;
+                    }
+                }
+
+                $deleteIds = array_diff($existingLinkIds, $keepIds);
+                if ($deleteIds) {
+                    $activity->links()->whereIn('id', $deleteIds)->delete();
+                }
+            }
+
+            return $activity->fresh('links');
+        });
+    }
+
+    public function deleteActivity(int $activityId): bool
+    {
+        $activity = WfhReportActivity::find($activityId);
+        if (! $activity) {
+            return false;
+        }
+
+        $activity->links()->delete();
+        return (bool) $activity->delete();
+    }
+
+    public function reorderActivities(WfhReport $report, array $ids): void
+    {
+        $reportActivityIds = $report->activities()->pluck('id')->toArray();
+
+        // Validate all ids belong to this report
+        $invalid = array_diff($ids, $reportActivityIds);
+        if (! empty($invalid)) {
+            throw new \InvalidArgumentException('Some activity ids do not belong to this report.');
+        }
+
+        foreach ($ids as $index => $id) {
+            WfhReportActivity::where('id', $id)->update(['sort_order' => $index]);
+        }
+    }
+
+    public function addAttendanceToReport(WfhReport $report, array $data): WfhAttendance
+    {
+        return WfhAttendance::create([
+            'user_id' => $report->user_id,
+            'date' => $report->report_date->format('Y-m-d'),
+            'session' => $data['session'],
+            'photo_path' => $data['photo_path'] ?? null,
+            'check_in_at' => $data['check_in_at'] ?? now(),
+            'report_id' => $report->id,
+        ]);
+    }
+
+    public function deleteAttendance(int $attendanceId): bool
+    {
+        $attendance = WfhAttendance::find($attendanceId);
+        if (! $attendance) {
+            return false;
+        }
+
+        return (bool) $attendance->delete();
+    }
+
+    public function findDraftForUserDate(int $userId, string $date): ?WfhReport
+    {
+        return WfhReport::where('user_id', $userId)
+            ->where('report_date', $date)
+            ->whereIn('status', ['draft', 'rejected'])
+            ->first();
     }
 
     // === Monitoring ===
 
     public function getUsersWithoutAttendance(string $date, ?int $teamId = null, ?int $fieldId = null): array
     {
-        $checkedInIds = WfhAttendance::where('date', $date)->pluck('user_id')->toArray();
+        $query = User::whereDoesntHave('wfhAttendances', function ($q) use ($date) {
+            $q->where('date', $date);
+        });
 
-        $query = User::where('is_active', true)->whereNotIn('id', $checkedInIds);
-
-        if ($fieldId) {
-            $query->whereHas('team', fn ($q) => $q->where('field_id', $fieldId));
-        } elseif ($teamId) {
+        if ($teamId) {
             $query->where('team_id', $teamId);
         }
 
-        return $query->with('team')->get()->toArray();
+        if ($fieldId && ! $teamId) {
+            $query->whereHas('team', function ($q) use ($fieldId) {
+                $q->where('field_id', $fieldId);
+            });
+        }
+
+        return $query->get()->toArray();
     }
 
     public function getUsersWithoutReport(string $date, ?int $teamId = null, ?int $fieldId = null): array
     {
-        $reportedIds = WfhReport::where('report_date', $date)->pluck('user_id')->toArray();
+        $query = User::whereDoesntHave('wfhReports', function ($q) use ($date) {
+            $q->where('report_date', $date);
+        });
 
-        $query = User::where('is_active', true)->whereNotIn('id', $reportedIds);
-
-        if ($fieldId) {
-            $query->whereHas('team', fn ($q) => $q->where('field_id', $fieldId));
-        } elseif ($teamId) {
+        if ($teamId) {
             $query->where('team_id', $teamId);
         }
 
-        return $query->with('team')->get()->toArray();
-    }
-
-    // === Private helpers ===
-
-    private function syncAttendances(WfhReport $report, array $attendances): void
-    {
-        foreach ($attendances as $session => $data) {
-            $report->attendances()->create([
-                'user_id' => $report->user_id,
-                'date' => $report->report_date->format('Y-m-d'),
-                'session' => $session,
-                'photo_path' => $data['photo_path'] ?? null,
-                'check_in_at' => now(),
-            ]);
+        if ($fieldId && ! $teamId) {
+            $query->whereHas('team', function ($q) use ($fieldId) {
+                $q->where('field_id', $fieldId);
+            });
         }
-    }
 
-    private function syncActivities(WfhReport $report, array $activities): void
-    {
-        foreach ($activities as $index => $activity) {
-            $activityModel = $report->activities()->create([
-                'start_time' => $activity['start_time'],
-                'end_time' => $activity['end_time'],
-                'activity' => $activity['activity'],
-                'sort_order' => $activity['sort_order'] ?? $index,
-            ]);
-
-            if (! empty($activity['links'])) {
-                foreach ($activity['links'] as $linkIndex => $url) {
-                    $activityModel->links()->create([
-                        'url' => $url,
-                        'sort_order' => $linkIndex,
-                    ]);
-                }
-            }
-        }
+        return $query->get()->toArray();
     }
 }
