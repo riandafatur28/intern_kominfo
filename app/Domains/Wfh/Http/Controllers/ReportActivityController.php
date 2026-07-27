@@ -23,18 +23,8 @@ class ReportActivityController extends Controller
 
     public function store(WfhReport $report, StoreActivityRequest $request): JsonResponse
     {
-        if (! $this->stateMachine->canEdit($report)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Laporan tidak dapat diedit.',
-            ], 422);
-        }
-
-        if ($report->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda tidak memiliki akses ke laporan ini.',
-            ], 403);
+        if ($block = $this->authorizeEdit($report, $request)) {
+            return $block;
         }
 
         $activity = $this->wfhRepository->addActivityToReport($report, $request->validated());
@@ -49,24 +39,11 @@ class ReportActivityController extends Controller
     public function update(WfhReport $report, WfhReportActivity $activity, StoreActivityRequest $request): JsonResponse
     {
         if ($activity->wfh_report_id !== $report->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kegiatan tidak ditemukan.',
-            ], 404);
+            return $this->notFound('Kegiatan tidak ditemukan.');
         }
 
-        if (! $this->stateMachine->canEdit($report)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Laporan tidak dapat diedit.',
-            ], 422);
-        }
-
-        if ($report->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda tidak memiliki akses ke laporan ini.',
-            ], 403);
+        if ($block = $this->authorizeEdit($report, $request)) {
+            return $block;
         }
 
         $activity = $this->wfhRepository->updateActivity($activity, $request->validated());
@@ -78,27 +55,14 @@ class ReportActivityController extends Controller
         ]);
     }
 
-    public function destroy(WfhReport $report, WfhReportActivity $activity): JsonResponse
+    public function destroy(WfhReport $report, WfhReportActivity $activity, Request $request): JsonResponse
     {
         if ($activity->wfh_report_id !== $report->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Kegiatan tidak ditemukan.',
-            ], 404);
+            return $this->notFound('Kegiatan tidak ditemukan.');
         }
 
-        if (! $this->stateMachine->canEdit($report)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Laporan tidak dapat diedit.',
-            ], 422);
-        }
-
-        if ($report->user_id !== request()->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda tidak memiliki akses ke laporan ini.',
-            ], 403);
+        if ($block = $this->authorizeEdit($report, $request)) {
+            return $block;
         }
 
         $this->wfhRepository->deleteActivity($activity->id);
@@ -111,6 +75,36 @@ class ReportActivityController extends Controller
 
     public function reorder(WfhReport $report, Request $request): JsonResponse
     {
+        if ($block = $this->authorizeEdit($report, $request)) {
+            return $block;
+        }
+
+        $validated = $request->validate([
+            'ids' => ['required', 'array'],
+            'ids.*' => ['integer'],
+        ]);
+
+        try {
+            $this->wfhRepository->reorderActivities($report, $validated['ids']);
+        } catch (\InvalidArgumentException $e) {
+            return response()->json([
+                'success' => false,
+                'message' => $e->getMessage(),
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Urutan kegiatan berhasil diubah.',
+        ]);
+    }
+
+    /**
+     * Shared edit gate: report must be editable (draft|rejected) and owned by the actor.
+     * Returns null when authorized, or the blocking JSON response.
+     */
+    private function authorizeEdit(WfhReport $report, Request $request): ?JsonResponse
+    {
         if (! $this->stateMachine->canEdit($report)) {
             return response()->json([
                 'success' => false,
@@ -125,21 +119,15 @@ class ReportActivityController extends Controller
             ], 403);
         }
 
-        $ids = $request->input('ids', []);
+        return null;
+    }
 
-        try {
-            $this->wfhRepository->reorderActivities($report, $ids);
-        } catch (\InvalidArgumentException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
-        }
-
+    private function notFound(string $message): JsonResponse
+    {
         return response()->json([
-            'success' => true,
-            'message' => 'Urutan kegiatan berhasil diubah.',
-        ]);
+            'success' => false,
+            'message' => $message,
+        ], 404);
     }
 
     private function formatActivity(WfhReportActivity $activity): array
