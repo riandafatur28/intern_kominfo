@@ -16,6 +16,7 @@ use Illuminate\Routing\Controller;
 class ReportAttendanceController extends Controller
 {
     use AuthorizesRequests;
+    use AuthorizesWfhEdit;
 
     public function __construct(
         private WfhRepositoryInterface $wfhRepository,
@@ -29,17 +30,17 @@ class ReportAttendanceController extends Controller
         }
 
         $user = $request->user();
+        $date = $report->report_date->format('Y-m-d');
         $today = now()->toDateString();
 
         // Guard: report_date must be today
-        if ($report->report_date->format('Y-m-d') !== $today) {
+        if ($date !== $today) {
             return response()->json([
                 'success' => false,
                 'message' => 'Absensi hanya dapat dilakukan pada hari ini.',
             ], 422);
         }
 
-        $date = $report->report_date->format('Y-m-d');
         $session = $request->input('session');
 
         // Validate allowed day from Setting
@@ -100,32 +101,5 @@ class ReportAttendanceController extends Controller
             'success' => true,
             'message' => 'Absensi berhasil dihapus.',
         ]);
-    }
-
-    private function authorizeEdit(WfhReport $report, Request $request): ?JsonResponse
-    {
-        if ($report->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Tidak dapat mengubah laporan orang lain.',
-            ], 403);
-        }
-
-        if (! $this->stateMachine->canEdit($report)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Laporan yang sudah disetujui tidak dapat diubah.',
-            ], 422);
-        }
-
-        return null;
-    }
-
-    private function notFound(string $message): JsonResponse
-    {
-        return response()->json([
-            'success' => false,
-            'message' => $message,
-        ], 404);
     }
 }

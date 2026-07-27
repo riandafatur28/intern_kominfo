@@ -21,6 +21,12 @@ class SubmitContentGuardTest extends TestCase
         $this->artisan('db:seed', ['--class' => 'SettingsSeeder']);
     }
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_submit_empty_draft_returns_422(): void
     {
         $user = User::factory()->create();

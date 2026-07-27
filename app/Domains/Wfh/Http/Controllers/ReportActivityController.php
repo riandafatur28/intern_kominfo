@@ -15,6 +15,7 @@ use Illuminate\Routing\Controller;
 class ReportActivityController extends Controller
 {
     use AuthorizesRequests;
+    use AuthorizesWfhEdit;
 
     public function __construct(
         private WfhRepositoryInterface $wfhRepository,
@@ -97,37 +98,6 @@ class ReportActivityController extends Controller
             'success' => true,
             'message' => 'Urutan kegiatan berhasil diubah.',
         ]);
-    }
-
-    /**
-     * Shared edit gate: report must be editable (draft|rejected) and owned by the actor.
-     * Returns null when authorized, or the blocking JSON response.
-     */
-    private function authorizeEdit(WfhReport $report, Request $request): ?JsonResponse
-    {
-        if (! $this->stateMachine->canEdit($report)) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Laporan tidak dapat diedit.',
-            ], 422);
-        }
-
-        if ($report->user_id !== $request->user()->id) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Anda tidak memiliki akses ke laporan ini.',
-            ], 403);
-        }
-
-        return null;
-    }
-
-    private function notFound(string $message): JsonResponse
-    {
-        return response()->json([
-            'success' => false,
-            'message' => $message,
-        ], 404);
     }
 
     private function formatActivity(WfhReportActivity $activity): array
