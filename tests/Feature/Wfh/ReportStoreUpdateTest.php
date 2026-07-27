@@ -126,4 +126,24 @@ class ReportStoreUpdateTest extends TestCase
             'report_date' => now()->toDateString(),
         ])->assertStatus(404);
     }
+
+    public function test_update_does_not_allow_status_change_via_put(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('staf');
+        Sanctum::actingAs($user);
+
+        $create = $this->postJson('/api/wfh/reports', [
+            'report_date' => now()->toDateString(),
+        ]);
+        $reportId = $create->json('data.id');
+
+        // Attempt to self-approve via PUT — status must be ignored.
+        $this->putJson("/api/wfh/reports/{$reportId}", [
+            'report_date' => now()->toDateString(),
+            'status' => 'approved',
+        ])->assertStatus(200);
+
+        $this->assertSame('draft', WfhReport::find($reportId)->status);
+    }
 }

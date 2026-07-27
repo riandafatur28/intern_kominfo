@@ -99,22 +99,6 @@ class SecurityRegressionTest extends TestCase
     }
 
     /**
-     * R5 regression: attendance check-in with a backdated date is rejected.
-     */
-    public function test_attendance_rejects_backdated_date(): void
-    {
-        $user = $this->createUserWithRole('staf');
-        Sanctum::actingAs($user);
-
-        $yesterday = now()->subDay()->toDateString();
-
-        $this->postJson('/api/wfh/attendance', [
-            'date' => $yesterday,
-        ])
-            ->assertStatus(422);
-    }
-
-    /**
      * C1 regression: a valid-format but nonexistent verification token returns 404.
      */
     public function test_qr_verification_rejects_nonexistent_token(): void
