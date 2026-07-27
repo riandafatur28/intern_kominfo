@@ -327,10 +327,39 @@ class ReportActivitySubResourceTest extends TestCase
             'report_date' => '2026-07-28',
             'status' => 'approved',
         ]);
+        $activity = $report->activities()->create(['activity' => 'A', 'sort_order' => 0]);
 
         $response = $this->patchJson("/api/wfh/reports/{$report->id}/activities/reorder", [
-            'ids' => [],
+            'ids' => [$activity->id],
         ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_reorder_with_non_array_ids_returns_422(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('staf');
+        Sanctum::actingAs($user);
+
+        $report = $this->createDraftReport($user);
+
+        $response = $this->patchJson("/api/wfh/reports/{$report->id}/activities/reorder", [
+            'ids' => 'not-an-array',
+        ]);
+
+        $response->assertStatus(422);
+    }
+
+    public function test_reorder_with_missing_ids_returns_422(): void
+    {
+        $user = User::factory()->create();
+        $user->assignRole('staf');
+        Sanctum::actingAs($user);
+
+        $report = $this->createDraftReport($user);
+
+        $response = $this->patchJson("/api/wfh/reports/{$report->id}/activities/reorder", []);
 
         $response->assertStatus(422);
     }
