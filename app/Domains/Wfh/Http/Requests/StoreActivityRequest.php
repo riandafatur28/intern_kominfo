@@ -23,4 +23,14 @@ class StoreActivityRequest extends FormRequest
             'links.*.url' => ['required_with:links', 'url'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'activity.required' => 'Kegiatan wajib diisi.',
+            'end_time.after' => 'Waktu selesai harus setelah waktu mulai.',
+            'links.*.url.url' => 'Format tautan tidak valid.',
+            'links.*.url.required_with' => 'Tautan wajib diisi.',
+        ];
+    }
 }
