@@ -12,6 +12,9 @@ use Illuminate\Support\Facades\DB;
 
 class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryInterface
 {
+    /** Columns a report update may set; everything else is silently dropped. */
+    private const METADATA_FIELDS = ['report_date', 'status'];
+
     public function __construct(WfhReport $model)
     {
         parent::__construct($model);
@@ -153,8 +156,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
                 return false;
             }
 
-            $allowed = ['report_date', 'status'];
-            $safe = array_intersect_key($reportData, array_flip($allowed));
+            $safe = array_intersect_key($reportData, array_flip(self::METADATA_FIELDS));
             $report->update($safe);
 
             $report->attendances()->delete();
@@ -182,9 +184,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             return false;
         }
 
-        // ponytail: narrow accept only report_date and status, silently drop everything else
-        $allowed = ['report_date', 'status'];
-        $safe = array_intersect_key($reportData, array_flip($allowed));
+        $safe = array_intersect_key($reportData, array_flip(self::METADATA_FIELDS));
 
         return $report->update($safe);
     }
