@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 5.0.0
+  version: 6.0.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,6 +9,18 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+    **v6.0.0 — WFH Draft sub-resource (breaking):**
+    - `POST /wfh/attendance` removed. Attendance rows are appended via
+      `POST /wfh/reports/{report}/attendances` (carries `report_id`).
+    - Activity editing is now row-by-row: `POST|PUT|DELETE /wfh/reports/{report}/activities[/{activity}]`
+      plus `PATCH /wfh/reports/{report}/activities/reorder`.
+    - `PUT /wfh/reports/{report}` narrowed to metadata (`report_date` only);
+      embedded activities/attendances are ignored — use the sub-resource endpoints.
+    - `POST /wfh/reports` is get-or-create: returns the existing draft/rejected
+      report for `(user, report_date)` with `200` instead of duplicating (201).
+    - Submit content guard moved DB-side: `POST /wfh/reports/{report}/submit`
+      rejects (422) drafts with zero activities AND zero attendances.
 
     **v5.0.0 — KB (Kepala Bidang) full support:**
     - New permission `wfh.team_report.view` — KB dan KT dapat list team-report.
@@ -715,10 +727,10 @@ components:
     StoreReportRequest:
       type: object
       description: |
-        WFH report create/update payload. Sent as `multipart/form-data` when
-        attendance photos are uploaded (attendances.*.photo are file uploads).
-        The `status` field controls validation: when set to `submit`, at least
-        one attendance photo OR one activity must be present.
+        WFH report create payload (POST only). Sent as `multipart/form-data`
+        when attendance photos are uploaded. v6.0.0: PUT no longer uses this
+        schema — `PUT /api/wfh/reports/{report}` is metadata-only. The
+        content-required-on-submit guard moved DB-side to the submit endpoint.
       required: [report_date]
       properties:
         report_date:
@@ -729,8 +741,8 @@ components:
           type: string
           enum: [draft, submit]
           default: draft
-          description: '"draft" saves partial progress; "submit" requires activities or attendance photos.'
-          example: submit
+          description: 'POST create only. "draft" (default) persists a partial report; "submit" transitions to pending — content guard runs DB-side at the submit endpoint.'
+          example: draft
         activities:
           type: array
           nullable: true
@@ -808,6 +820,81 @@ components:
         activity: "Menyusun dokumentasi API modul WFH"
         links:
           - https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
+    StoreActivityRequest:
+      type: object
+      required: [activity]
+      description: |
+        Payload for the POST/PUT activity sub-resource (v6.0.0). Links are an
+        array of `{id?, url}`; PUT applies them as an id-diff (matched ids kept,
+        new entries created, missing ids deleted).
+      properties:
+        activity:
+          type: string
+          example: "Mengikuti pelatihan diklat Kominfo"
+        start_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          nullable: true
+          example: "08:00"
+        end_time:
+          type: string
+          pattern: '^\d{2}:\d{2}$'
+          nullable: true
+          description: Must be after start_time.
+          example: "10:00"
+        id:
+          type: integer
+          nullable: true
+          description: Optional; only meaningful inside PUT link id-diff payloads.
+        links:
+          type: array
+          nullable: true
+          items:
+            type: object
+            required: [url]
+            properties:
+              id:
+                type: integer
+                nullable: true
+              url:
+                type: string
+                format: uri
+      example:
+        activity: "Menyusun dokumentasi API modul WFH"
+        start_time: "08:00"
+        end_time: "10:00"
+        links:
+          - url: "https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12"
+    AppendAttendanceRequest:
+      type: object
+      required: [photo, session]
+      description: |
+        Multipart payload for the POST attendance sub-resource (v6.0.0).
+        `session` must be in the `wfh_sessions` Setting (default pagi/siang/sore).
+      properties:
+        photo:
+          type: string
+          format: binary
+          description: JPG/JPEG/PNG, max 2MB.
+        session:
+          type: string
+          enum: [pagi, siang, sore]
+          example: pagi
+      example:
+        session: pagi
+        photo: <binary file upload>
+    ReportActivityResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Kegiatan berhasil ditambahkan.
+        data:
+          $ref: "#/components/schemas/WfhReportActivity"
     WfhReportResource:
       type: object
       required: [id, user_id, report_date, status]
@@ -818,10 +905,6 @@ components:
         user_id:
           type: integer
           example: 1
-        wfh_attendance_id:
-          type: integer
-          nullable: true
-          example: 45
         report_date:
           type: string
           format: date
@@ -865,7 +948,6 @@ components:
       example:
         id: 23
         user_id: 1
-        wfh_attendance_id: 45
         report_date: "2025-07-11"
         status: pending
         maker_signed_at: "2025-07-11T15:45:00.000000Z"
@@ -1004,7 +1086,6 @@ components:
         data:
           - id: 23
             user_id: 1
-            wfh_attendance_id: 45
             report_date: "2025-07-11"
             status: pending
             maker_signed_at: "2025-07-11T15:45:00.000000Z"
@@ -2954,79 +3035,6 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 message: "Setting 'unknown_key' tidak ditemukan."
-  # ── WFH Attendance ───────────────────────────────────────────────
-  /api/wfh/attendance:
-    post:
-      tags: [WFH Attendance]
-      summary: Check in for WFH attendance
-      operationId: checkInAttendance
-      requestBody:
-        required: true
-        content:
-          multipart/form-data:
-            schema:
-              type: object
-              required: [photo]
-              properties:
-                photo:
-                  type: string
-                  format: binary
-                  description: JPG/JPEG/PNG, max 2MB
-                session:
-                  type: string
-                  enum: [pagi, sore]
-                  nullable: true
-                  default: pagi
-                  example: pagi
-                date:
-                  type: string
-                  format: date
-                  nullable: true
-                  description: Must be today. Defaults to today.
-                  example: "2025-07-11"
-      responses:
-        "201":
-          description: Attendance recorded
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AttendanceResponse"
-              example:
-                success: true
-                message: Absensi WFH berhasil.
-                data:
-                  id: 45
-                  date: "2025-07-11"
-                  session: pagi
-                  photo_url: http://localhost/storage/attendances/1/2025-07-11/photo.jpg
-                  check_in_at: "2025-07-11T08:15:30.000000Z"
-        "401":
-          description: Unauthenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Unauthenticated.
-        "403":
-          description: Missing permission wfh.attendance.create
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: This action is unauthorized.
-        "422":
-          description: Validation error, wrong day, or duplicate check-in
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: Anda sudah melakukan absensi untuk sesi ini.
   # ── WFH Reports ──────────────────────────────────────────────────
   /api/wfh/reports:
     get:
@@ -3069,7 +3077,7 @@ paths:
               $ref: "#/components/schemas/StoreReportRequest"
             example:
               report_date: "2025-07-11"
-              status: submit
+              status: draft
               activities:
                 - start_time: "08:00"
                   end_time: "10:00"
@@ -3088,6 +3096,22 @@ paths:
                 pagi:
                   photo: <binary file upload>
       responses:
+        "200":
+          description: Existing draft/rejected report returned (get-or-create)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [success, message, data]
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Laporan WFH sudah ada.
+                  data:
+                    $ref: "#/components/schemas/WfhReportResource"
         "201":
           description: Report created
           content:
@@ -3110,7 +3134,6 @@ paths:
                 data:
                   id: 23
                   user_id: 1
-                  wfh_attendance_id: 45
                   report_date: "2025-07-11"
                   status: draft
                   maker_signed_at: null
@@ -3176,7 +3199,7 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
               example:
                 success: false
-                message: "The activities field is required."
+                message: "The report date field is required."
   /api/wfh/reports/{report}:
     get:
       tags: [WFH Reports]
@@ -3228,35 +3251,32 @@ paths:
     put:
       tags: [WFH Reports]
       summary: Update WFH report
+      description: |
+        v6.0.0 narrowed to metadata only (`report_date`). The full-replace
+        behaviour (embedded activities/attendances arrays) is retired — use
+        the row-by-row sub-resource endpoints under `/activities` and
+        `/attendances`. Status transitions go via submit/approve/reject/revise.
+        Actor must own the report; report must be `draft` or `rejected`.
       operationId: updateWfhReport
       parameters:
         - $ref: "#/components/parameters/ReportIdPath"
       requestBody:
         required: true
         content:
-          multipart/form-data:
+          application/json:
             schema:
-              $ref: "#/components/schemas/StoreReportRequest"
+              type: object
+              required: [report_date]
+              description: |
+                Metadata only. Embedded activities/attendances are no longer
+                accepted — use the sub-resource endpoints. Status transitions
+                go via submit/approve/reject/revise, never via PUT.
+              properties:
+                report_date:
+                  type: string
+                  format: date
             example:
               report_date: "2025-07-11"
-              status: submit
-              activities:
-                - start_time: "08:00"
-                  end_time: "10:00"
-                  activity: "Menyusun dokumentasi API modul WFH"
-                  links:
-                    - https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12
-                - start_time: "10:00"
-                  end_time: "12:00"
-                  activity: "Review kode fitur change management"
-                - start_time: "13:00"
-                  end_time: "16:00"
-                  activity: "Perbaikan bug validasi tanggal absensi dan testing"
-                  links:
-                    - https://git.kominfo.go.id/intern/wfh-api/-/issues/34
-              attendances:
-                pagi:
-                  photo: <binary file upload>
       responses:
         "200":
           description: Report updated
@@ -3414,14 +3434,22 @@ paths:
                 success: false
                 message: Laporan tidak ditemukan.
         "422":
-          description: Invalid state transition
+          description: Empty content (no activities AND no attendances), or invalid state transition
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: "Laporan dengan status approved tidak dapat disubmit."
+              examples:
+                emptyContent:
+                  summary: Draft has no activities and no attendances
+                  value:
+                    success: false
+                    message: "Setidaknya satu kegiatan atau satu absensi harus diisi sebelum submit."
+                badState:
+                  summary: Report is not in draft state
+                  value:
+                    success: false
+                    message: "Hanya laporan dengan status draft yang dapat disubmit."
   /api/wfh/reports/{report}/approve:
     post:
       tags: [WFH Reports]
@@ -3618,6 +3646,411 @@ paths:
               example:
                 success: false
                 message: "Laporan dengan status draft tidak dapat direvisi."
+  /api/wfh/reports/{report}/activities:
+    post:
+      tags: [WFH Reports]
+      summary: Append an activity to a draft/rejected report
+      operationId: addReportActivity
+      description: |
+        v6.0.0 sub-resource: appends one activity (with optional inline links)
+        to the report. Replaces the retired full-replace PUT activities array.
+        Guard: report must be `draft` or `rejected` (422 otherwise); actor must
+        be the report owner (403). Requires `wfh.report.create`.
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreActivityRequest"
+            example:
+              activity: "Mengikuti pelatihan diklat Kominfo"
+              start_time: "08:00"
+              end_time: "10:00"
+              links:
+                - url: "https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12"
+      responses:
+        "201":
+          description: Activity created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportActivityResponse"
+              example:
+                success: true
+                message: Kegiatan berhasil ditambahkan.
+                data:
+                  id: 67
+                  activity: "Mengikuti pelatihan diklat Kominfo"
+                  start_time: "08:00"
+                  end_time: "10:00"
+                  sort_order: 1
+                  links:
+                    - id: 89
+                      url: "https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat mengubah laporan orang lain."
+        "422":
+          description: Report not editable (approved/pending) or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan yang sudah disetujui tidak dapat diubah."
+  /api/wfh/reports/{report}/activities/{activity}:
+    put:
+      tags: [WFH Reports]
+      summary: Update one activity (links applied as id-diff)
+      operationId: updateReportActivity
+      description: |
+        v6.0.0: updates one activity. Submitted `links` are applied as an
+        id-diff — matched `id`s kept, new entries (no id) created, missing
+        ids deleted. Same ownership/editability guards as POST.
+        Requires `wfh.report.update`.
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+        - name: activity
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Activity id; must belong to the parent report (else 404).
+          example: 67
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StoreActivityRequest"
+            example:
+              activity: "Menyusun dokumentasi API modul WFH"
+              start_time: "08:00"
+              end_time: "11:00"
+              links:
+                - id: 89
+                  url: "https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12"
+                - url: "https://git.kominfo.go.id/intern/wfh-api/-/issues/34"
+      responses:
+        "200":
+          description: Activity updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReportActivityResponse"
+              example:
+                success: true
+                message: Kegiatan berhasil diperbarui.
+                data:
+                  id: 67
+                  activity: "Menyusun dokumentasi API modul WFH"
+                  start_time: "08:00"
+                  end_time: "11:00"
+                  sort_order: 1
+                  links:
+                    - id: 89
+                      url: "https://git.kominfo.go.id/intern/wfh-api/-/merge_requests/12"
+                    - id: 90
+                      url: "https://git.kominfo.go.id/intern/wfh-api/-/issues/34"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat mengubah laporan orang lain."
+        "404":
+          description: Activity not found under this report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Kegiatan tidak ditemukan."
+        "422":
+          description: Report not editable or validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan yang sudah disetujui tidak dapat diubah."
+    delete:
+      tags: [WFH Reports]
+      summary: Delete an activity (cascade-deletes its links)
+      operationId: deleteReportActivity
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+        - name: activity
+          in: path
+          required: true
+          schema:
+            type: integer
+          example: 67
+      responses:
+        "200":
+          description: Activity deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: Kegiatan berhasil dihapus.
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat mengubah laporan orang lain."
+        "404":
+          description: Activity not found under this report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Kegiatan tidak ditemukan."
+        "422":
+          description: Report not editable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan yang sudah disetujui tidak dapat diubah."
+  /api/wfh/reports/{report}/activities/reorder:
+    patch:
+      tags: [WFH Reports]
+      summary: Reorder activities for a report
+      operationId: reorderReportActivities
+      description: |
+        Rewrites `sort_order` to match the given id sequence. The `ids` array
+        must contain exactly the report's activity ids (no extras, none
+        missing), else 422. Ownership/editability guards apply.
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [ids]
+              properties:
+                ids:
+                  type: array
+                  items:
+                    type: integer
+            example:
+              ids: [69, 67, 68]
+      responses:
+        "200":
+          description: Order applied
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: "Urutan kegiatan berhasil diubah."
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat mengubah laporan orang lain."
+        "422":
+          description: id set mismatch or report not editable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Id kegiatan tidak sesuai dengan laporan ini."
+  /api/wfh/reports/{report}/attendances:
+    post:
+      tags: [WFH Reports]
+      summary: Append an attendance (session photo) to a report
+      operationId: addReportAttendance
+      description: |
+        v6.0.0 sub-resource replacing `POST /wfh/attendance`. Multipart upload
+        of one session photo, scoped to the parent report. Guards: report must
+        be `draft`/`rejected` (422); `report_date` must be today (422); today
+        must be an allowed WFH day (422); no duplicate `(user,date,session)`
+        (422); actor must own the report (403). Requires `wfh.report.create`.
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/AppendAttendanceRequest"
+            example:
+              session: pagi
+              photo: <binary file upload>
+      responses:
+        "201":
+          description: Attendance recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AttendanceResponse"
+              example:
+                success: true
+                message: Absensi WFH berhasil.
+                data:
+                  id: 45
+                  date: "2025-07-11"
+                  session: pagi
+                  photo_url: http://localhost/storage/attendances/1/2025-07-11/photo.jpg
+                  check_in_at: "2025-07-11T08:15:30.000000Z"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat mengubah laporan orang lain."
+        "422":
+          description: Wrong day, backdated report_date, duplicate session, or report not editable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Anda sudah melakukan absensi untuk sesi ini."
+  /api/wfh/reports/{report}/attendances/{attendance}:
+    delete:
+      tags: [WFH Reports]
+      summary: Delete an attendance row from a report
+      operationId: deleteReportAttendance
+      parameters:
+        - $ref: "#/components/parameters/ReportIdPath"
+        - name: attendance
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: Attendance id; must belong to the parent report (else 404).
+          example: 45
+      responses:
+        "200":
+          description: Attendance deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: Absensi berhasil dihapus.
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
+        "403":
+          description: Not the report owner
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Tidak dapat mengubah laporan orang lain."
+        "404":
+          description: Attendance not found under this report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Absensi tidak ditemukan."
+        "422":
+          description: Report not editable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "Laporan yang sudah disetujui tidak dapat diubah."
   /api/wfh/reports/{report}/pdf:
     get:
       tags: [WFH Reports]
