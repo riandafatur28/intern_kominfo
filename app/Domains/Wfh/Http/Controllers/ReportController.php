@@ -78,6 +78,16 @@ class ReportController extends Controller
         $user = $request->user();
         $date = $request->input('report_date');
 
+        // Get-or-create: return existing draft/rejected if one exists
+        $existing = $this->wfhRepository->findDraftForUserDate($user->id, $date);
+        if ($existing) {
+            return response()->json([
+                'success' => true,
+                'message' => 'Laporan WFH sudah ada.',
+                'data' => new WfhReportResource($existing->load(['activities.links', 'attendances'])),
+            ]);
+        }
+
         // Process attendance photos
         $attendances = [];
         foreach (['pagi', 'siang', 'sore'] as $session) {
@@ -87,15 +97,30 @@ class ReportController extends Controller
             }
         }
 
-        $report = $this->wfhRepository->createReportWithRelations(
-            reportData: [
-                'user_id' => $user->id,
-                'report_date' => $date,
-                'status' => $request->input('status', 'draft'),
-            ],
-            activities: $request->input('activities', []),
-            attendances: $attendances,
-        );
+        try {
+            $report = $this->wfhRepository->createReportWithRelations(
+                reportData: [
+                    'user_id' => $user->id,
+                    'report_date' => $date,
+                    'status' => $request->input('status', 'draft'),
+                ],
+                activities: $request->input('activities', []),
+                attendances: $attendances,
+            );
+        } catch (\Illuminate\Database\QueryException $e) {
+            // Race: unique index violation — fallback to existing
+            if ($e->getCode() === '23505') {
+                $existing = $this->wfhRepository->findDraftForUserDate($user->id, $date);
+                if ($existing) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => 'Laporan WFH sudah ada.',
+                        'data' => new WfhReportResource($existing->load(['activities.links', 'attendances'])),
+                    ]);
+                }
+            }
+            throw $e;
+        }
 
         return response()->json([
             'success' => true,
@@ -150,23 +175,11 @@ class ReportController extends Controller
             ], 422);
         }
 
-        $user = $request->user();
-        $date = $request->input('report_date', $report->report_date->format('Y-m-d'));
-
-        $attendances = [];
-        foreach (['pagi', 'siang', 'sore'] as $session) {
-            if ($photo = $request->file("attendances.{$session}.photo")) {
-                $path = $photo->store("attendances/{$user->id}/{$date}", 'public');
-                $attendances[$session] = ['photo_path' => $path];
-            }
-        }
-
-        $this->wfhRepository->updateReportWithRelations(
-            id: $id,
-            reportData: ['report_date' => $date, 'status' => $request->input('status', $report->status)],
-            activities: $request->input('activities', []),
-            attendances: $attendances,
-        );
+        // Metadata-only: ignore any embedded activities/attendances in PUT body
+        $this->wfhRepository->updateReportMetadata($id, [
+            'report_date' => $request->input('report_date', $report->report_date->format('Y-m-d')),
+            'status' => $request->input('status', $report->status),
+        ]);
 
         return response()->json([
             'success' => true,

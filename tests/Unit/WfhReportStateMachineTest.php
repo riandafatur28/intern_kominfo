@@ -34,6 +34,7 @@ class WfhReportStateMachineTest extends TestCase
             'status' => 'draft',
             'user_id' => $this->user->id,
         ]);
+        $report->activities()->create(['activity' => 'Test', 'sort_order' => 0]);
 
         $result = $this->machine->submit($report, $this->user);
 
@@ -52,6 +53,7 @@ class WfhReportStateMachineTest extends TestCase
             'status' => 'draft',
             'user_id' => $maker->id,
         ]);
+        $report->activities()->create(['activity' => 'Test', 'sort_order' => 0]);
 
         $result = $this->machine->submit($report, $maker);
 
@@ -68,6 +70,7 @@ class WfhReportStateMachineTest extends TestCase
             'status' => 'draft',
             'user_id' => $head->id,
         ]);
+        $report->activities()->create(['activity' => 'Test', 'sort_order' => 0]);
 
         $result = $this->machine->submit($report, $head);
 
