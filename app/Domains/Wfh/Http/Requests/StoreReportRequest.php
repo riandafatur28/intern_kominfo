@@ -26,6 +26,8 @@ class StoreReportRequest extends FormRequest
         ];
     }
 
+    /* ponytail: deprecated; replaced by Task 9 DB-side content guard.
+     * Keep for now to not break existing POST-with-submit flow. */
     public function withValidator($validator): void
     {
         $validator->after(function ($validator) {
