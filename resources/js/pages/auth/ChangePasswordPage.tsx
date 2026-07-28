@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { useNavigate } from "react-router-dom";
+import { extractErrorMessage } from "../../lib/errors";
 
 export default function ChangePasswordPage() {
   const { changePassword, error: authError, logout } = useAuth();
@@ -27,17 +28,13 @@ export default function ChangePasswordPage() {
     setLoading(true);
     try {
       await changePassword(currentPassword, newPassword, confirmPassword);
-      navigate("/", { replace: true });
     } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message?: string; errors?: Record<string, string[]> } } })
-          ?.response?.data?.errors?.current_password?.[0] ||
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        "Gagal mengubah password.";
-      setError(msg);
-    } finally {
+      setError(extractErrorMessage(e, "Gagal mengubah password."));
       setLoading(false);
+      return;
     }
+    setLoading(false);
+    navigate("/", { replace: true });
   };
 
   return (

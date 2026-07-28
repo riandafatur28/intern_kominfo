@@ -7,12 +7,12 @@ import Button from "../components/ui/Button";
 import SignatureUpload from "../components/ui/SignatureUpload";
 import { useAuth } from "../hooks/useAuth";
 import { fetchProfile, updateProfile, uploadSignature } from "../api/profile";
-import { changePassword } from "../api/auth";
+import { extractErrorMessage } from "../lib/errors";
 
 type PageStatus = "loading" | "ready" | "saving" | "error" | "success";
 
 export default function ProfilSaya() {
-  const { setUser, user } = useAuth();
+  const { setUser, user, changePassword } = useAuth();
 
   const [name, setName] = useState("");
   const [nip, setNip] = useState("");
@@ -30,8 +30,10 @@ export default function ProfilSaya() {
 
   const [status, setStatus] = useState<PageStatus>("loading");
   const [profileMsg, setProfileMsg] = useState("");
+  const [profileError, setProfileError] = useState("");
   const [passMsg, setPassMsg] = useState("");
   const [passError, setPassError] = useState("");
+  const [passLoading, setPassLoading] = useState(false);
 
   useEffect(() => {
     fetchProfile()
@@ -56,14 +58,15 @@ export default function ProfilSaya() {
   const handleSaveProfile = async (e: FormEvent) => {
     e.preventDefault();
     setProfileMsg("");
+    setProfileError("");
     setStatus("saving");
     try {
       const updated = await updateProfile({ phone, position, rank });
       setUser(updated);
       setProfileMsg("Profil berhasil disimpan.");
       setStatus("ready");
-    } catch {
-      setProfileMsg("Gagal menyimpan profil.");
+    } catch (e: unknown) {
+      setProfileError(extractErrorMessage(e, "Gagal menyimpan profil."));
       setStatus("error");
     }
   };
@@ -71,14 +74,15 @@ export default function ProfilSaya() {
   const handleSignatureUpload = async (file: File | null) => {
     setSignatureFile(file);
     if (!file) return;
+    setProfileMsg("");
+    setProfileError("");
     try {
       const result = await uploadSignature(file);
       setSignatureUrl(result.signature_url);
       setSignatureFile(null);
       setProfileMsg("Tanda tangan berhasil diunggah.");
-    } catch (e) {
-      console.log("Upload signature error:", e);
-      setProfileMsg("Gagal mengunggah tanda tangan.");
+    } catch (e: unknown) {
+      setProfileError(extractErrorMessage(e, "Gagal mengunggah tanda tangan."));
     }
   };
 
@@ -96,6 +100,7 @@ export default function ProfilSaya() {
       return;
     }
 
+    setPassLoading(true);
     try {
       await changePassword(currentPassword, newPassword, confirmPassword);
       setPassMsg("Password berhasil diubah.");
@@ -103,12 +108,9 @@ export default function ProfilSaya() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (e: unknown) {
-      const err =
-        (e as { response?: { data?: { errors?: Record<string, string[]> } } })
-          ?.response?.data?.errors?.current_password?.[0] ||
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        "Gagal mengubah password.";
-      setPassError(err);
+      setPassError(extractErrorMessage(e, "Gagal mengubah password."));
+    } finally {
+      setPassLoading(false);
     }
   };
 
@@ -255,8 +257,8 @@ export default function ProfilSaya() {
             )}
 
             <div className="flex items-center gap-4 mt-6">
-              <Button variant="primary" type="submit" size="sm">
-                Ubah Password
+              <Button variant="primary" type="submit" size="sm" disabled={passLoading}>
+                {passLoading ? "Memproses..." : "Ubah Password"}
               </Button>
             </div>
           </form>
@@ -271,6 +273,9 @@ export default function ProfilSaya() {
           >
             {status === "saving" ? "Menyimpan..." : "Simpan Perubahan"}
           </Button>
+          {profileError && (
+            <p className="text-xs text-[#FF0000] mt-4">{profileError}</p>
+          )}
           {profileMsg && (
             <span className="text-xs text-green-600">{profileMsg}</span>
           )}

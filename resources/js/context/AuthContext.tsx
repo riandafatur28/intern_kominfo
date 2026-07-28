@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type { UserPayload } from "../api/auth";
 import { login as apiLogin, fetchMe, logout as apiLogout, changePassword as apiChangePassword } from "../api/auth";
+import { extractErrorMessage } from "../lib/errors";
 
 export interface AuthState {
   user: UserPayload | null;
@@ -73,10 +74,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("must_change_password");
       }
     } catch (e: unknown) {
-      const msg =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ||
-        "Login gagal. Coba lagi.";
-      setError(msg);
+      setError(extractErrorMessage(e, "Login gagal. Coba lagi."));
       throw e;
     } finally {
       setLoading(false);
@@ -96,14 +94,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string, newPasswordConfirmation: string) => {
     await apiChangePassword(currentPassword, newPassword, newPasswordConfirmation);
-    // After successful change, must_change_password becomes false
+    // After successful change, must_change_password becomes false.
+    // No need to re-fetch user — only must_change_password changed,
+    // which is already tracked locally. fetchMe() added unnecessary
+    // API call that could fail and mask a successful password change.
     setNeedsPasswordChange(false);
     localStorage.removeItem("must_change_password");
-    // Re-fetch user to get updated data
-    const u = await fetchMe();
-    setUser(u);
-    localStorage.setItem("permissions", JSON.stringify(u.permissions));
-    localStorage.setItem("roles", JSON.stringify(u.roles));
   }, []);
 
   const hasPermission = useCallback(
