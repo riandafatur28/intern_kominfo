@@ -7,6 +7,9 @@ services:
     working_dir: /app
     volumes:
       - .:/app
+      - vendor_data:/app/vendor
+    ports:
+      - "8000:8000"
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
@@ -42,3 +45,4 @@ services:
 
 volumes:
   postgres_data:
+  vendor_data:
