@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 6.0.0
+  version: 6.1.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,6 +9,33 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+    **v6.1.0 — Spec sync with codebase:**
+    - Added `GET /wfh/session-config` (returns WFH session names + allowed days from Settings).
+    - `AuthUser` schema now includes `signature_url` (FormatsUserPayload always emits it).
+    - `UserResource` team payload no longer documents a fabricated `leader` object —
+      only auth/profile endpoints (FormatsUserPayload) emit `team.leader`. Introduced
+      `TeamFlat` schema for the admin/users `team` shape (id, name, field?).
+    - `WfhReportResource` now documents `activity_count` and conditional `attendances[]`.
+    - `WfhReportActivity.links[].sort_order` noted as present only in full report
+      responses (WfhReportResource); sub-resource responses (POST/PUT activity) omit it.
+    - `AttendanceResponse.data.session` enum fixed to `[pagi, siang, sore]`.
+    - Change Management single-item responses now wrapped in the `ChangePackageResponse`
+      envelope `{success, message, data}` (matches controller).
+    - `ImplementationResource.cost_amount` + request schemas retyped `string` (decimal:2 cast).
+    - `InitiationResource.verification_token` removed (resource never serializes it).
+    - `GET /changes` now documents the `field_id` query filter.
+    - `ChangePackageSubmitRequest.implementation` now lists the 5 nullable impl props.
+    - `POST /changes/{id}/attachments` 200 now documents the returned `data: attachments[]`.
+    - `GET /admin/wfh/teams/{team}/pdf` now documents `team_report_id` query + 401.
+    - `/admin/wfh/team-reports/{id}/reject` 403 description notes the dual permission gate.
+    - `POST /admin/users/import` response `data` retyped object `{imported, skipped, errors}`.
+    - `POST|PUT /admin/users` request examples fixed `role` → `roles` (plural array).
+    - `POST /profile/signature` 200 now refs `SignatureUploadResponse`.
+    - `/auth/login`, `/auth/me`, `/profile` inline examples now include all always-emitted
+      fields (`signature_url`, `must_change_password`, `permissions`, `team`).
+    - Monitoring repo (code) fixed to select safe columns + eager-load `team:id,name`,
+      matching the documented `MonitoringUser` shape (previously leaked PII columns).
 
     **v6.0.0 — WFH Draft sub-resource (breaking):**
     - `POST /wfh/attendance` removed. Attendance rows are appended via
@@ -178,6 +205,12 @@ components:
           type: string
           nullable: true
           example: signatures/budi-signature.png
+        signature_url:
+          type: string
+          nullable: true
+          format: uri
+          description: Absolute URL to signature image (asset(storage/{path})); null when no signature set. Emitted by FormatsUserPayload.
+          example: http://localhost/storage/signatures/budi-signature.png
         must_change_password:
           type: boolean
           description: True when the user must set a new password before full access is granted.
@@ -214,7 +247,7 @@ components:
           example: Budi Kepala Bidang
         nip:
           type: string
-          example: "3333333333"
+          example: "197508122003121002"
         email:
           type: string
           format: email
@@ -261,7 +294,7 @@ components:
       example:
         id: 4
         name: Budi Kepala Bidang
-        nip: "3333333333"
+        nip: "197508122003121002"
         email: kepala.bidang@kominfo.go.id
         rank: Pembina
         position: Kepala Bidang Pengembangan Aplikasi
@@ -509,7 +542,7 @@ components:
           nullable: true
           example: "2025-07-14T08:30:00.000000Z"
         team:
-          $ref: "#/components/schemas/TeamNested"
+          $ref: "#/components/schemas/TeamFlat"
       example:
         id: 12
         name: Dewi Lestari
@@ -525,9 +558,6 @@ components:
         team:
           id: 3
           name: Tim Aplikasi
-          leader:
-            id: 5
-            name: Siti Nurhaliza
           field:
             id: 1
             name: Bidang Teknologi Informasi
@@ -565,6 +595,35 @@ components:
         leader:
           id: 5
           name: Siti Nurhaliza
+        field:
+          id: 1
+          name: Bidang Teknologi Informasi
+    # Team shape emitted by UserResource (admin/users). UserResource does NOT
+    # nest leader (only FormatsUserPayload does, for auth/profile). field present
+    # only when loaded.
+    TeamFlat:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          example: 3
+        name:
+          type: string
+          example: Tim Aplikasi
+        field:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: integer
+              example: 1
+            name:
+              type: string
+              example: Bidang Teknologi Informasi
+      example:
+        id: 3
+        name: Tim Aplikasi
         field:
           id: 1
           name: Bidang Teknologi Informasi
@@ -650,9 +709,6 @@ components:
             team:
               id: 3
               name: Tim Aplikasi
-              leader:
-                id: 5
-                name: Siti Nurhaliza
               field:
                 id: 1
                 name: Bidang Teknologi Informasi
@@ -670,9 +726,6 @@ components:
             team:
               id: 3
               name: Tim Aplikasi
-              leader:
-                id: 5
-                name: Siti Nurhaliza
               field:
                 id: 1
                 name: Bidang Teknologi Informasi
@@ -680,6 +733,32 @@ components:
           current_page: 1
           last_page: 5
           total: 72
+    # ── WFH Session Config ─────────────────────────────────────────
+    WfhSessionConfigResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          required: [sessions, allowed_days]
+          properties:
+            sessions:
+              type: array
+              description: WFH session names (Indonesian). Sourced from Settings key `wfh_sessions`; defaults to [pagi, siang, sore].
+              items:
+                type: string
+                enum: [pagi, siang, sore]
+              example: [pagi, siang, sore]
+            allowed_days:
+              type: array
+              description: ISO day-of-week ints allowed for WFH (1=Mon..7=Sun). Sourced from Settings key `wfh_allowed_days`; defaults to Mon–Fri.
+              items:
+                type: integer
+              example: [1, 2, 3, 4, 5]
+      example:
+        data:
+          sessions: [pagi, siang, sore]
+          allowed_days: [1, 2, 3, 4, 5]
     # ── WFH Attendance ──────────────────────────────────────────────
     AttendanceResponse:
       type: object
@@ -704,7 +783,7 @@ components:
               example: "2025-07-11"
             session:
               type: string
-              enum: [pagi, sore]
+              enum: [pagi, siang, sore]
               example: pagi
             photo_url:
               type: string
@@ -945,6 +1024,34 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/WfhReportActivity"
+        activity_count:
+          type: integer
+          description: Count of activities. Always emitted by WfhReportResource (whenLoaded count, default 0).
+          example: 3
+        attendances:
+          type: array
+          description: |
+            Attendance rows (session photo check-ins). Emitted by WfhReportResource
+            only when the `attendances` relation is loaded (show endpoint, store with attendances).
+            Absent from the list endpoint (which does not load the relation).
+          items:
+            type: object
+            properties:
+              id:
+                type: integer
+                example: 45
+              session:
+                type: string
+                enum: [pagi, siang, sore]
+                example: pagi
+              checked_in:
+                type: boolean
+                example: true
+              photo_url:
+                type: string
+                nullable: true
+                format: uri
+                example: http://localhost/storage/attendances/1/2025-07-11/photo.jpg
       example:
         id: 23
         user_id: 1
@@ -1027,6 +1134,11 @@ components:
         signature_path: signatures/1-signature.png
     WfhReportActivity:
       type: object
+      description: |
+        Activity row. NOTE on `links[].sort_order`: present when emitted via
+        WfhReportResource (full report responses: index/show). The activity
+        sub-resource controller (POST/PUT /wfh/reports/{report}/activities[/{activity}])
+        returns links as `{id, url}` only — `sort_order` is omitted there.
       properties:
         id:
           type: integer
@@ -1313,7 +1425,7 @@ components:
             production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
             required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
             cost_needed: { type: boolean, nullable: true, example: true }
-            cost_amount: { type: number, format: double, nullable: true, example: 15000000 }
+            cost_amount: { type: string, nullable: true, description: "decimal:2 cast; sent as numeric string.", example: "15000000.00" }
             resources: { type: string, nullable: true, example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps" }
       example:
         initiation:
@@ -1329,7 +1441,7 @@ components:
           production_impact: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data."
           required_effort: "3 orang x 5 hari kerja"
           cost_needed: true
-          cost_amount: 15000000
+          cost_amount: "15000000.00"
           resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
     ChangePackageSubmitRequest:
       type: object
@@ -1356,6 +1468,11 @@ components:
             implementation_result: { type: string, example: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud." }
             testing_result: { type: string, example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit." }
             evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 27 }
+            production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
+            required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
+            cost_needed: { type: boolean, nullable: true, example: true }
+            cost_amount: { type: string, nullable: true, description: "decimal:2 cast; sent as numeric string.", example: "15000000.00" }
+            resources: { type: string, nullable: true, example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps" }
       example:
         initiation:
           field_id: 3
@@ -1393,7 +1510,6 @@ components:
           reviewed_at: "2025-07-18T09:15:00.000000Z"
           review_reason: null
           initiator_signed_at: "2025-07-14T10:30:00.000000Z"
-          verification_token: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
           created_at: "2025-07-14T10:00:00.000000Z"
           field:
             id: 3
@@ -1439,6 +1555,15 @@ components:
               path: "change-attachments/diagram-arsitektur.png"
               url: "http://localhost/storage/change-attachments/diagram-arsitektur.png"
               sort_order: 1
+    # Envelope used by single-item change endpoints (store/show/update/submit/approve/reject).
+    # Controller always wraps: {success, message, data: ChangePackageResource}.
+    ChangePackageResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success: { type: boolean, example: true }
+        message: { type: string, example: "Paket perubahan berhasil disimpan." }
+        data: { $ref: "#/components/schemas/ChangePackageResource" }
     InitiationResource:
       type: object
       required: [id, field_id, initiator_id, doc_number, status]
@@ -1457,7 +1582,6 @@ components:
         reviewed_at: { type: string, format: date-time, nullable: true, example: null }
         review_reason: { type: string, nullable: true, example: null }
         initiator_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-14T10:30:00.000000Z" }
-        verification_token: { type: string, nullable: true, example: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2" }
         created_at: { type: string, format: date-time, nullable: true, example: "2025-07-14T10:00:00.000000Z" }
         field:
           type: object
@@ -1486,7 +1610,7 @@ components:
         production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
         required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
         cost_needed: { type: boolean, nullable: true, example: true }
-        cost_amount: { type: number, format: double, nullable: true, example: 15000000 }
+        cost_amount: { type: string, nullable: true, description: "Model casts decimal:2 → serialized as STRING like '15000000.00'.", example: "15000000.00" }
         resources: { type: string, nullable: true, example: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps" }
         test_plan: { type: string, nullable: true, example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama." }
         evaluator_id: { type: integer, nullable: true, example: 27 }
@@ -2281,7 +2405,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                $ref: "#/components/schemas/SignatureUploadResponse"
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "422":
           description: Validation error
@@ -2348,7 +2472,7 @@ paths:
               position: Staf Pelaksana
               phone: "081345678901"
               password: passwordbaru123
-              role: staf
+              roles: [staf]
       responses:
         "201":
           description: User created
@@ -2504,7 +2628,7 @@ paths:
               name: Dewi Lestari Wijaya
               position: Analis Sistem Informasi
               rank: Penata Muda
-              role: kepala_tim
+              roles: [kepala_tim]
               is_active: true
       responses:
         "200":
@@ -2659,34 +2783,28 @@ paths:
                     type: string
                     example: Import selesai.
                   data:
-                    type: array
-                    items:
-                      type: object
-                      properties:
-                        name:
+                    type: object
+                    required: [imported, skipped, errors]
+                    properties:
+                      imported:
+                        type: integer
+                        example: 3
+                      skipped:
+                        type: integer
+                        example: 1
+                      errors:
+                        type: array
+                        items:
                           type: string
-                          example: Rina Marlina
-                        nip:
-                          type: string
-                          example: "199712102024011008"
-                        email:
-                          type: string
-                          example: rina@kominfo.go.id
-                        status:
-                          type: string
-                          example: created
+                        example: ["Baris 4: NIP 199001012023011001 sudah terdaftar."]
               example:
                 success: true
                 message: Import selesai.
                 data:
-                  - name: Rina Marlina
-                    nip: "199712102024011008"
-                    email: rina@kominfo.go.id
-                    status: created
-                  - name: Joko Susilo
-                    nip: "198904052024011009"
-                    email: joko@kominfo.go.id
-                    status: created
+                  imported: 3
+                  skipped: 1
+                  errors:
+                    - "Baris 4: NIP 199001012023011001 sudah terdaftar."
         "401":
           description: Unauthenticated
           content:
@@ -4108,6 +4226,36 @@ paths:
               example:
                 success: false
                 message: PDF hanya dapat di-generate untuk laporan yang sudah disubmit atau disetujui.
+  /api/wfh/session-config:
+    get:
+      tags: [WFH Settings]
+      summary: Get WFH session config (session names + allowed days)
+      operationId: getWfhSessionConfig
+      security:
+        - bearerAuth: []
+      description: |
+        Returns the WFH session configuration used by the client to drive the
+        attendance UI: the list of session names (pagi/siang/sore) and the
+        ISO day-of-week ints on which WFH attendance is allowed (1=Mon..7=Sun).
+        Sourced from Settings keys `wfh_sessions` and `wfh_allowed_days`, falling
+        back to inline defaults ([pagi, siang, sore] / [1-5]) when rows absent.
+        No permission gate — any authenticated role may call this.
+      responses:
+        "200":
+          description: WFH session configuration
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WfhSessionConfigResponse"
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
   # ── WFH Monitoring ───────────────────────────────────────────────
   /api/admin/wfh/monitoring:
     get:
@@ -4254,7 +4402,23 @@ paths:
             format: date
           description: Date of the WFH reports to include
           example: "2026-07-15"
+        - name: team_report_id
+          in: query
+          schema:
+            type: integer
+            nullable: true
+          description: Optional WfhTeamReport ID. When set, controller toggles an isApproved flag that controls whether the supervisor (Kepala Bidang) signature is rendered on the PDF.
+          example: 12
       responses:
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
         "200":
           description: PDF binary
           content:
@@ -4484,7 +4648,7 @@ paths:
                 success: false
                 message: Unauthenticated.
         "403":
-          description: Missing wfh.team_report.approve permission
+          description: Missing permission (route middleware gates wfh.team_report.approve; controller body additionally requires wfh.team_report.reject), or team report outside actor's field
           content:
             application/json:
               schema:
@@ -4553,6 +4717,11 @@ paths:
         - name: status
           in: query
           schema: { type: string, enum: [draft, pending, approved, rejected] }
+        - name: field_id
+          in: query
+          schema: { type: integer, nullable: true }
+          description: Filter packages by field (bidang). Controller accepts `status` + `field_id`.
+          example: 3
       responses:
         "200":
           description: Paginated package list
@@ -4586,7 +4755,7 @@ paths:
                 production_impact: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data."
                 required_effort: "3 orang x 5 hari kerja"
                 cost_needed: true
-                cost_amount: 15000000
+                cost_amount: "15000000.00"
                 resources: "Cloud server 8 vCPU 16GB RAM, storage 200GB SSD, bandwidth 1Gbps"
       responses:
         "201":
@@ -4594,7 +4763,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChangePackageResource"
+                $ref: "#/components/schemas/ChangePackageResponse"
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
@@ -4611,7 +4780,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChangePackageResource"
+                $ref: "#/components/schemas/ChangePackageResponse"
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
@@ -4633,7 +4802,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChangePackageResource"
+                $ref: "#/components/schemas/ChangePackageResponse"
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
@@ -4672,7 +4841,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChangePackageResource"
+                $ref: "#/components/schemas/ChangePackageResponse"
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
@@ -4694,7 +4863,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChangePackageResource"
+                $ref: "#/components/schemas/ChangePackageResponse"
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
@@ -4716,7 +4885,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChangePackageResource"
+                $ref: "#/components/schemas/ChangePackageResponse"
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
@@ -4747,7 +4916,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/SuccessResponse"
+                type: object
+                required: [success, message, data]
+                properties:
+                  success: { type: boolean, example: true }
+                  message: { type: string, example: "Lampiran berhasil diunggah." }
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: integer, example: 15 }
+                        path: { type: string, example: "change-attachments/diagram-arsitektur.png" }
+                        url: { type: string, format: uri, example: "http://localhost/storage/change-attachments/diagram-arsitektur.png" }
+                        sort_order: { type: integer, example: 1 }
         "401": { $ref: "#/components/responses/Unauthenticated" }
         "403": { $ref: "#/components/responses/Forbidden" }
         "422": { $ref: "#/components/responses/ValidationError" }
