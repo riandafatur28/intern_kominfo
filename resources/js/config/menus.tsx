@@ -1,5 +1,5 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
-import { ProfilIcon } from "../components/ui/icons";
+import { ProfilIcon, UsersIcon, SettingsIcon, ShieldIcon } from "../components/ui/icons";
 
 interface MenuDef {
   label: string;
@@ -14,6 +14,24 @@ interface MenuDef {
  * grant access. Empty permissions = visible to everyone authenticated.
  */
 const allMenuDefs: MenuDef[] = [
+  {
+    label: "Manajemen Pengguna",
+    href: "/admin/users",
+    permissions: ["user.manage"],
+    icon: UsersIcon,
+  },
+  {
+    label: "Kelola Hak Akses",
+    href: "/admin/roles",
+    permissions: ["role.manage"],
+    icon: ShieldIcon,
+  },
+  {
+    label: "Pengaturan",
+    href: "/admin/settings",
+    permissions: ["setting.manage"],
+    icon: SettingsIcon,
+  },
   {
     label: "Profil Saya",
     href: "/profil",
