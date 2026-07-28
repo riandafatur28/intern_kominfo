@@ -284,39 +284,42 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     public function getUsersWithoutAttendance(string $date, ?int $teamId = null, ?int $fieldId = null): array
     {
-        $query = User::whereDoesntHave('wfhAttendances', function ($q) use ($date) {
-            $q->where('date', $date);
-        });
-
-        if ($teamId) {
-            $query->where('team_id', $teamId);
-        }
-
-        if ($fieldId && ! $teamId) {
-            $query->whereHas('team', function ($q) use ($fieldId) {
-                $q->where('field_id', $fieldId);
-            });
-        }
-
-        return $query->get()->toArray();
+        return $this->monitoringUserQuery(function () use ($date) {
+            return User::whereDoesntHave('wfhAttendances', fn ($q) => $q->where('date', $date));
+        }, $teamId, $fieldId);
     }
 
     public function getUsersWithoutReport(string $date, ?int $teamId = null, ?int $fieldId = null): array
     {
-        $query = User::whereDoesntHave('wfhReports', function ($q) use ($date) {
-            $q->where('report_date', $date);
-        });
+        return $this->monitoringUserQuery(function () use ($date) {
+            return User::whereDoesntHave('wfhReports', fn ($q) => $q->where('report_date', $date));
+        }, $teamId, $fieldId);
+    }
+
+    /**
+     * Shared builder for the monitoring lists. Selects only the safe public
+     * columns (avoiding PII/timestamps leakage like email_verified_at,
+     * signature_path, must_change_password, created_at, updated_at, deleted_at)
+     * and eager-loads team:id,name so the response matches MonitoringUser.
+     * ponytail: column allowlist is hand-maintained; add fields here when the
+     * MonitoringUser spec gains them — do not broaden to User::all().
+     */
+    private function monitoringUserQuery(callable $scope, ?int $teamId, ?int $fieldId): array
+    {
+        $query = $scope();
 
         if ($teamId) {
             $query->where('team_id', $teamId);
         }
 
         if ($fieldId && ! $teamId) {
-            $query->whereHas('team', function ($q) use ($fieldId) {
-                $q->where('field_id', $fieldId);
-            });
+            $query->whereHas('team', fn ($q) => $q->where('field_id', $fieldId));
         }
 
-        return $query->get()->toArray();
+        return $query
+            ->select(['id', 'name', 'nip', 'email', 'rank', 'position', 'phone', 'is_active', 'team_id'])
+            ->with('team:id,name')
+            ->get()
+            ->toArray();
     }
 }
