@@ -4,6 +4,9 @@ import ProtectedRoute from "./components/layout/ProtectedRoute";
 import ProfilSaya from "./pages/ProfilSaya";
 import LoginPage from "./pages/auth/LoginPage";
 import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
+import UserManagementPage from "./pages/admin/UserManagementPage";
+import SettingsPage from "./pages/admin/SettingsPage";
+import RolePermissionPage from "./pages/admin/RolePermissionPage";
 
 export default function Root() {
   return (
@@ -24,6 +27,30 @@ export default function Root() {
           element={
             <ProtectedRoute>
               <ProfilSaya />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/users"
+          element={
+            <ProtectedRoute>
+              <UserManagementPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/settings"
+          element={
+            <ProtectedRoute>
+              <SettingsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/admin/roles"
+          element={
+            <ProtectedRoute>
+              <RolePermissionPage />
             </ProtectedRoute>
           }
         />
