@@ -12,6 +12,18 @@ class ChangePackageRules
         return self::initiationRules(submit: false);
     }
 
+    /** Rules for updating an existing package — field_id already set on the record. */
+    public static function initiationUpdate(): array
+    {
+        return [
+            'initiation' => ['sometimes', 'array'],
+            'initiation.field_id' => ['sometimes', 'exists:fields,id'],
+            'initiation.needed_by_date' => ['nullable', 'date'],
+            'initiation.description' => ['required', 'string'],
+            'initiation.reason' => ['required', 'string'],
+        ];
+    }
+
     public static function initiationSubmit(): array
     {
         return self::initiationRules(submit: true);
