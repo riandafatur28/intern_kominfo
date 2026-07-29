@@ -8,8 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
-// RED: This test file exists but will fail because
-// ChangeTypeResource, ChangeTypeController, and route don't exist yet.
 class ChangeTypeEndpointTest extends TestCase
 {
     use RefreshDatabase;
