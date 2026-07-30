@@ -12,12 +12,16 @@ class SubmitChangePackageRequest extends FormRequest
     }
 
     /**
-     * Data is already saved + validated via PUT before calling submit.
-     * The submit endpoint only transitions status. Relax rules to avoid
-     * re-validating fields the frontend doesn't resend.
+     * Validate that all required business fields are present on submit.
+     * The frontend may send the full payload alongside the transition,
+     * or rely on previously-saved data. Either way, the rules ensure
+     * no incomplete package escapes the draft state.
      */
     public function rules(): array
     {
-        return [];
+        return array_merge(
+            ChangePackageRules::initiationSubmit(),
+            ChangePackageRules::implementationSubmit(),
+        );
     }
 }
