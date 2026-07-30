@@ -61,3 +61,20 @@ export function ShieldIcon({ size = 20, className }: { size?: number; className?
     </svg>
   );
 }
+
+export function WfhIcon({ size = 20, className }: { size?: number; className?: string }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
+      <path
+        d="M3 5a2 2 0 012-2h10a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V5z"
+        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+      />
+      <path
+        d="M7 5v10M13 5v10M3 9h14M3 13h14"
+        stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"
+      />
+      <circle cx="10" cy="9" r="1.5" fill="currentColor" />
+      <circle cx="10" cy="13" r="1.5" fill="currentColor" />
+    </svg>
+  );
+}

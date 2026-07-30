@@ -7,6 +7,10 @@ import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import RolePermissionPage from "./pages/admin/RolePermissionPage";
+import WfhAbsensi from "./pages/wfh/WfhAbsensi";
+import WfhLaporan from "./pages/wfh/WfhLaporan";
+import WfhMonitoring from "./pages/wfh/WfhMonitoring";
+import WfhLaporanTim from "./pages/wfh/WfhLaporanTim";
 
 export default function Root() {
   return (
@@ -51,6 +55,40 @@ export default function Root() {
           element={
             <ProtectedRoute>
               <RolePermissionPage />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* WFH Routes */}
+        <Route
+          path="/wfh/absensi"
+          element={
+            <ProtectedRoute>
+              <WfhAbsensi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wfh/laporan"
+          element={
+            <ProtectedRoute>
+              <WfhLaporan />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wfh/monitoring"
+          element={
+            <ProtectedRoute>
+              <WfhMonitoring />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/wfh/laporan-tim"
+          element={
+            <ProtectedRoute>
+              <WfhLaporanTim />
             </ProtectedRoute>
           }
         />
