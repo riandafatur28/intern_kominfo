@@ -1,5 +1,5 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
-import { ProfilIcon, UsersIcon, SettingsIcon, ShieldIcon } from "../components/ui/icons";
+import { ProfilIcon, UsersIcon, SettingsIcon, ShieldIcon, WfhIcon } from "../components/ui/icons";
 
 interface MenuDef {
   label: string;
@@ -36,6 +36,30 @@ const allMenuDefs: MenuDef[] = [
     label: "Profil Saya",
     href: "/profil",
     icon: ProfilIcon,
+  },
+
+  /* ── WFH ─────────────────────────────────────────── */
+  {
+    label: "WFH Absensi",
+    href: "/wfh/absensi",
+    icon: WfhIcon,
+  },
+  {
+    label: "WFH Laporan",
+    href: "/wfh/laporan",
+    icon: WfhIcon,
+  },
+  {
+    label: "WFH Monitoring",
+    href: "/wfh/monitoring",
+    permissions: ["wfh.monitoring.view"],
+    icon: WfhIcon,
+  },
+  {
+    label: "Laporan Tim",
+    href: "/wfh/laporan-tim",
+    permissions: ["wfh.team_report.view"],
+    icon: WfhIcon,
   },
 ];
 
