@@ -7,6 +7,10 @@ use App\Models\User;
 use App\Support\Import\UserImport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
+use App\Models\Field;
+use App\Models\Team;
+use Illuminate\Http\UploadedFile;
+use Laravel\Sanctum\Sanctum;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Validators\ValidationException;
 use Tests\TestCase;
@@ -82,5 +86,37 @@ class UserImportTest extends TestCase
         } catch (ValidationException $e) {
             $this->assertNotEmpty($e->errors());
         }
+    }
+
+    public function test_import_endpoint_returns_success_with_valid_data(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $admin = User::create([
+            'team_id' => $team->id,
+            'name' => 'Admin',
+            'nip' => '0000000001',
+            'email' => 'admin@test.com',
+            'password' => Hash::make('password'),
+            'is_active' => true,
+        ]);
+        $admin->assignRole('admin');
+
+        Sanctum::actingAs($admin);
+
+        $csv = "nama,nip,email,role\n"
+            ."User A,0000000101,a@test.com,staf\n"
+            ."User B,0000000102,b@test.com,kepala_tim\n";
+
+        $file = UploadedFile::fake()->createWithContent('users.csv', $csv);
+
+        $response = $this->postJson('/api/admin/users/import', [
+            'file' => $file,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('success', true)
+            ->assertJsonStructure(['message', 'data']);
     }
 }

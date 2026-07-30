@@ -14,7 +14,7 @@ class UpdateChangePackageRequest extends FormRequest
     public function rules(): array
     {
         return array_merge(
-            ChangePackageRules::initiationDraft(),
+            ChangePackageRules::initiationUpdate(),
             ChangePackageRules::implementationDraft(),
         );
     }
