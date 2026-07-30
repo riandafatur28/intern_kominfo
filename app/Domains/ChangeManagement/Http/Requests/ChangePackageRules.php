@@ -69,7 +69,14 @@ class ChangePackageRules
                 : ['nullable', 'array'],
             'implementation.change_type_ids.*' => ['exists:change_types,id'],
             'implementation.execution_date' => [$presence, 'date'],
-            'implementation.release_date' => [$presence, 'date', 'after_or_equal:implementation.execution_date'],
+            'implementation.release_date' => [$presence, 'date', function (string $attribute, mixed $value, Closure $fail) {
+    if ($value === null) return;
+    $executionDate = request()->input('implementation.execution_date');
+    if ($executionDate === null) return;
+    if ($value < $executionDate) {
+        $fail('Tanggal rilis harus setelah atau sama dengan tanggal eksekusi.');
+    }
+}],
             'implementation.implementation_result' => [$presence, 'string'],
             'implementation.testing_result' => [$presence, 'string'],
             'implementation.evaluator_id' => self::evaluatorRule(),
