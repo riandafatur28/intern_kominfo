@@ -1,0 +1,151 @@
+
+<?php
+
+use App\Domains\Auth\Http\Controllers\AuthController;
+use App\Domains\ChangeManagement\Http\Controllers\ChangeManagementPdfController;
+use App\Domains\ChangeManagement\Http\Controllers\ChangePackageController;
+use App\Domains\ChangeManagement\Http\Controllers\ChangeTypeController;
+use App\Domains\Organization\Http\Controllers\PermissionController;
+use App\Domains\Organization\Http\Controllers\ProfileController;
+use App\Domains\Organization\Http\Controllers\RoleController;
+use App\Domains\Organization\Http\Controllers\TeamController;
+use App\Domains\Organization\Http\Controllers\UserController;
+use App\Domains\Wfh\Http\Controllers\AttendanceController;
+use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
+use App\Domains\Wfh\Http\Controllers\ReportActivityController;
+use App\Domains\Wfh\Http\Controllers\ReportController;
+use App\Domains\Wfh\Http\Controllers\ReportAttendanceController;
+use App\Domains\Wfh\Http\Controllers\ReportPdfController;
+use App\Domains\Wfh\Http\Controllers\TeamReportController;
+use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
+use App\Http\Controllers\QrVerificationController;
+use App\Http\Controllers\SettingController;
+use Illuminate\Support\Facades\Route;
+
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
+
+Route::middleware('auth:sanctum')->post('/auth/change-password', [AuthController::class, 'changePassword']);
+
+Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
+    // Auth
+    Route::get('/auth/me', [AuthController::class, 'me']);
+    Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+    // Profile
+    Route::get('/profile', [ProfileController::class, 'show']);
+    Route::put('/profile', [ProfileController::class, 'update']);
+    Route::post('/profile/signature', [ProfileController::class, 'uploadSignature']);
+
+    // Teams (dropdown options)
+    Route::get('/teams', [TeamController::class, 'index']);
+    // Admin User Management
+    Route::middleware('permission:user.manage')->group(function () {
+        Route::get('/admin/users', [UserController::class, 'index']);
+        Route::post('/admin/users', [UserController::class, 'store']);
+        Route::get('/admin/users/{user}', [UserController::class, 'show']);
+        Route::put('/admin/users/{user}', [UserController::class, 'update']);
+        Route::delete('/admin/users/{user}', [UserController::class, 'destroy']);
+    });
+
+    Route::middleware('permission:user.import')->group(function () {
+        Route::post('/admin/users/import', [UserController::class, 'import']);
+    });
+    // RBAC Management
+    Route::middleware('permission:role.manage')->group(function () {
+        Route::get('/admin/roles', [RoleController::class, 'index']);
+        Route::put('/admin/roles/{id}/permissions', [RoleController::class, 'updatePermissions']);
+    });
+
+    Route::middleware('permission:permission.manage')->group(function () {
+        Route::get('/admin/permissions', [PermissionController::class, 'index']);
+    });
+
+    Route::middleware('permission:setting.manage')->group(function () {
+        Route::get('/admin/settings', [SettingController::class, 'index']);
+        Route::put('/admin/settings/{key}', [SettingController::class, 'update']);
+    });
+
+    // WFH Module
+    Route::get('/wfh/session-config', [AttendanceController::class, 'sessionConfig']);
+
+    Route::get('/wfh/reports', [ReportController::class, 'index']);
+    Route::post('/wfh/reports', [ReportController::class, 'store'])
+        ->middleware('permission:wfh.report.create');
+    Route::get('/wfh/reports/{report}', [ReportController::class, 'show']);
+    Route::put('/wfh/reports/{report}', [ReportController::class, 'update'])
+        ->middleware('permission:wfh.report.update');
+    Route::delete('/wfh/reports/{report}', [ReportController::class, 'destroy'])
+        ->middleware('permission:wfh.report.delete');
+
+    // Activity sub-resource
+    Route::post('/wfh/reports/{report}/activities', [ReportActivityController::class, 'store'])
+        ->middleware('permission:wfh.report.create');
+    Route::put('/wfh/reports/{report}/activities/{activity}', [ReportActivityController::class, 'update'])
+        ->middleware('permission:wfh.report.update');
+    Route::delete('/wfh/reports/{report}/activities/{activity}', [ReportActivityController::class, 'destroy'])
+        ->middleware('permission:wfh.report.update');
+    Route::patch('/wfh/reports/{report}/activities/reorder', [ReportActivityController::class, 'reorder'])
+        ->middleware('permission:wfh.report.update');
+
+    // Attendance sub-resource
+    Route::post('/wfh/reports/{report}/attendances', [ReportAttendanceController::class, 'store'])
+        ->middleware('permission:wfh.report.create');
+    Route::delete('/wfh/reports/{report}/attendances/{attendance}', [ReportAttendanceController::class, 'destroy'])
+        ->middleware('permission:wfh.report.update');
+
+    Route::post('/wfh/reports/{report}/submit', [ReportApprovalController::class, 'submit']);
+    Route::post('/wfh/reports/{report}/approve', [ReportApprovalController::class, 'approve'])
+        ->middleware('permission:wfh.report.approve');
+    Route::post('/wfh/reports/{report}/reject', [ReportApprovalController::class, 'reject'])
+        ->middleware('permission:wfh.report.reject');
+    Route::post('/wfh/reports/{report}/revise', [ReportApprovalController::class, 'revise']);
+
+    Route::get('/admin/wfh/monitoring', [WfhMonitoringController::class, 'index'])
+        ->middleware('permission:wfh.monitoring.view');
+
+    Route::get('/admin/wfh/reports', [ReportController::class, 'adminIndex'])
+        ->middleware('permission:wfh.monitoring.view');
+
+    Route::get('/wfh/reports/{report}/pdf', [ReportPdfController::class, 'export'])
+        ->middleware('permission:wfh.report.export_pdf');
+
+    Route::get('/admin/wfh/teams/{team}/pdf', [ReportPdfController::class, 'exportTeam'])
+        ->middleware('permission:wfh.report.export_pdf');
+
+    Route::get('/admin/wfh/team-reports', [TeamReportController::class, 'index'])
+        ->middleware('permission:wfh.team_report.view');
+    Route::post('/admin/wfh/team-reports', [TeamReportController::class, 'store'])
+        ->middleware('permission:wfh.team_report.create');
+
+    Route::middleware('permission:wfh.team_report.approve')->group(function () {
+        Route::post('/admin/wfh/team-reports/{id}/approve', [TeamReportController::class, 'approve']);
+        Route::post('/admin/wfh/team-reports/{id}/reject', [TeamReportController::class, 'reject']);
+    });
+    // Change Management — Package flow
+    Route::get('/changes', [ChangePackageController::class, 'index'])
+        ->middleware('permission:change.initiation.view');
+    Route::post('/changes', [ChangePackageController::class, 'store'])
+        ->middleware('permission:change.initiation.create');
+    Route::get('/changes/{id}', [ChangePackageController::class, 'show'])
+        ->middleware('permission:change.initiation.view');
+    Route::put('/changes/{id}', [ChangePackageController::class, 'update'])
+        ->middleware('permission:change.initiation.update');
+    Route::delete('/changes/{id}', [ChangePackageController::class, 'destroy'])
+        ->middleware('permission:change.initiation.update');
+    Route::post('/changes/{id}/submit', [ChangePackageController::class, 'submit'])
+        ->middleware('permission:change.initiation.submit');
+    Route::post('/changes/{id}/approve', [ChangePackageController::class, 'approve'])
+        ->middleware('permission:change.initiation.approve');
+    Route::post('/changes/{id}/reject', [ChangePackageController::class, 'reject'])
+        ->middleware('permission:change.initiation.reject');
+    Route::post('/changes/{id}/attachments', [ChangePackageController::class, 'uploadAttachments'])
+        ->middleware('permission:change.implementation.update');
+    Route::get('/changes/{id}/pdf/initiation', [ChangeManagementPdfController::class, 'exportInitiation'])
+        ->middleware('permission:change.initiation.export_pdf');
+    Route::get('/changes/{id}/pdf/implementation', [ChangeManagementPdfController::class, 'exportImplementation'])
+        ->middleware('permission:change.implementation.export_pdf');
+
+    // Change Types — reference data, no additional permission
+    Route::get('/change-types', [ChangeTypeController::class, 'index']);
+});
