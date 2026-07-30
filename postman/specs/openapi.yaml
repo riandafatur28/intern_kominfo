@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 6.1.0
+  version: 6.2.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,6 +9,14 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+    **v6.2.0 — Added GET /change-types (reference data):
+    - Added `GET /api/change-types` — returns all change types (no permission
+      gate beyond auth+sanctum).
+    - Added `ChangeType` schema with id/name.
+    - Added `ChangeTypeListResponse` envelope.
+    - Real examples: Hardware, Network, Software, Utilities, Aplikasi,
+      Prosedur, Operating System, Personil.
 
     **v6.1.0 — Spec sync with codebase:**
     - Added `GET /wfh/session-config` (returns WFH session names + allowed days from Settings).
@@ -1398,6 +1406,50 @@ components:
           status: terverifikasi
           message: Dokumen telah ditandatangani secara elektronik.
     # ── Change Package ─────────────────────────────────────────────
+    # ── Change Types (reference data) ──────────────────────────────
+    ChangeType:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+          example: 1
+        name:
+          type: string
+          example: Hardware
+      example:
+        id: 1
+        name: Hardware
+    ChangeTypeListResponse:
+      type: object
+      required: [success, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ChangeType"
+      example:
+        success: true
+        data:
+          - id: 1
+            name: Hardware
+          - id: 2
+            name: Network
+          - id: 3
+            name: Software
+          - id: 4
+            name: Utilities
+          - id: 5
+            name: Aplikasi
+          - id: 6
+            name: Prosedur
+          - id: 7
+            name: Operating System
+          - id: 8
+            name: Personil
     ChangePackageDraftRequest:
       type: object
       required: [initiation]
@@ -4704,6 +4756,51 @@ paths:
               example:
                 success: false
                 message: Token verifikasi tidak ditemukan.
+  # ── Change Types (reference data) ────────────────────────────────
+  /api/change-types:
+    get:
+      tags: [Change Package]
+      summary: List all change types (reference data)
+      operationId: listChangeTypes
+      description: |
+        Returns all change type options used in the Change Package module.
+        This is reference data for dropdown selects — no additional permission
+        beyond authentication.
+      responses:
+        "200":
+          description: Change type list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChangeTypeListResponse"
+              example:
+                success: true
+                data:
+                  - id: 1
+                    name: Hardware
+                  - id: 2
+                    name: Network
+                  - id: 3
+                    name: Software
+                  - id: 4
+                    name: Utilities
+                  - id: 5
+                    name: Aplikasi
+                  - id: 6
+                    name: Prosedur
+                  - id: 7
+                    name: Operating System
+                  - id: 8
+                    name: Personil
+        "401":
+          description: Unauthenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Unauthenticated.
   # ── Change Package ──────────────────────────────────────────────
   /api/changes:
     get:
