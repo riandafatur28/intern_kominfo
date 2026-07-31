@@ -21,7 +21,6 @@ class InitiationResource extends JsonResource
             'status' => $this->status,
             'review_status' => $this->review_status,
             'reviewed_at' => $this->reviewed_at,
-            'review_reason' => $this->review_reason,
             'initiator_signed_at' => $this->initiator_signed_at,
             'created_at' => $this->created_at,
         ];

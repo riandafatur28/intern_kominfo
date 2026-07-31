@@ -1472,7 +1472,6 @@ components:
             execution_date: { type: string, format: date, nullable: true, example: "2025-11-10" }
             release_date: { type: string, format: date, nullable: true, example: "2025-11-15" }
             implementation_result: { type: string, nullable: true, example: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud." }
-            testing_result: { type: string, nullable: true, example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit." }
             evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 27 }
             production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
             required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
@@ -1509,7 +1508,7 @@ components:
             needed_by_date: { type: string, format: date, example: "2025-12-15" }
         implementation:
           type: object
-          required: [priority, impact, change_type_ids, test_plan, execution_date, release_date, implementation_result, testing_result]
+          required: [priority, impact, change_type_ids, test_plan, execution_date, release_date, implementation_result]
           properties:
             priority: { type: string, enum: [low, medium, high, critical], example: high }
             impact: { type: string, enum: [low, medium, high], example: high }
@@ -1518,7 +1517,6 @@ components:
             execution_date: { type: string, format: date, example: "2025-11-10" }
             release_date: { type: string, format: date, example: "2025-11-15" }
             implementation_result: { type: string, example: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud." }
-            testing_result: { type: string, example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit." }
             evaluator_id: { type: integer, nullable: true, description: "Active user, same field.", example: 27 }
             production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
             required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
@@ -1539,7 +1537,6 @@ components:
           execution_date: "2025-11-10"
           release_date: "2025-11-15"
           implementation_result: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud."
-          testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit."
           evaluator_id: 27
     ChangePackageResource:
       type: object
@@ -1560,7 +1557,6 @@ components:
           status: approved
           review_status: approved
           reviewed_at: "2025-07-18T09:15:00.000000Z"
-          review_reason: null
           initiator_signed_at: "2025-07-14T10:30:00.000000Z"
           created_at: "2025-07-14T10:00:00.000000Z"
           field:
@@ -1592,7 +1588,6 @@ components:
           reviewer_id: 5
           reviewer_signed_at: "2025-07-18T09:15:00.000000Z"
           implementation_result: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud."
-          testing_result: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit."
           release_date: "2025-11-15"
           responsible_id: 5
           responsible_signed_at: "2025-07-18T09:15:00.000000Z"
@@ -1632,7 +1627,6 @@ components:
         status: { type: string, enum: [draft, pending, approved, rejected], example: pending }
         review_status: { type: string, nullable: true, example: null }
         reviewed_at: { type: string, format: date-time, nullable: true, example: null }
-        review_reason: { type: string, nullable: true, example: null }
         initiator_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-14T10:30:00.000000Z" }
         created_at: { type: string, format: date-time, nullable: true, example: "2025-07-14T10:00:00.000000Z" }
         field:
@@ -1673,7 +1667,6 @@ components:
         reviewer_id: { type: integer, nullable: true, example: 5 }
         reviewer_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-18T09:15:00.000000Z" }
         implementation_result: { type: string, nullable: true, example: "Migrasi berhasil dilakukan pada akhir pekan tanpa downtime, semua data telah dipindahkan ke cloud." }
-        testing_result: { type: string, nullable: true, example: "Semua endpoint API merespons normal, load test 100 concurrent users tanpa error selama 30 menit." }
         release_date: { type: string, format: date, nullable: true, example: "2025-11-15" }
         responsible_id: { type: integer, nullable: true, example: 5 }
         responsible_signed_at: { type: string, format: date-time, nullable: true, example: "2025-07-18T09:15:00.000000Z" }
