@@ -6,12 +6,13 @@ import Modal from "../../components/ui/Modal";
 import TextArea from "../../components/ui/TextArea";
 import Pagination from "../../components/ui/Pagination";
 import { useAuth } from "../../hooks/useAuth";
+import { formatTanggalLengkap } from "../../utils/userDisplay";
 import {
   listTeamReports,
   createTeamReport,
   approveTeamReport,
   rejectTeamReport,
-  getTeamReportPdfUrl,
+  fetchTeamReportPdf,
   type WfhTeamReport,
   extractWfhError,
 } from "../../api/wfh";
@@ -26,7 +27,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export default function WfhLaporanTim() {
-  const { user } = useAuth();
+  const { user, hasPermission } = useAuth();
 
   /* ── List state ──────────────────────────────────────────────── */
   const [status, setStatus] = useState<PageStatus>("loading");
@@ -60,10 +61,12 @@ export default function WfhLaporanTim() {
     setErrMsg("");
     try {
       const res = await listTeamReports({ per_page: 15 });
-      setReports(res.data);
-      setPage(res.meta.current_page);
-      setLastPage(res.meta.last_page);
-      setTotal(res.meta.total);
+      // BE returns raw paginator without meta envelope
+      const raw = (res as any).meta ?? res;
+      setReports(raw.data ?? []);
+      setPage(raw.current_page ?? 1);
+      setLastPage(raw.last_page ?? 1);
+      setTotal(raw.total ?? 0);
       setStatus("ready");
     } catch (e: unknown) {
       setErrMsg(extractWfhError(e, "Gagal memuat laporan tim."));
@@ -127,12 +130,13 @@ export default function WfhLaporanTim() {
   }
 
   function openPdf(report: WfhTeamReport) {
-    const url = getTeamReportPdfUrl(
-      report.team_id,
-      report.report_date,
-      report.id
-    );
-    window.open(url, "_blank");
+    fetchTeamReportPdf(report.team_id, report.report_date, report.id)
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, "_blank");
+        setTimeout(() => URL.revokeObjectURL(url), 60000);
+      })
+      .catch(() => setErrMsg("Gagal memuat PDF. Coba lagi."));
   }
 
   if (status === "loading" && reports.length === 0) {
@@ -180,7 +184,7 @@ export default function WfhLaporanTim() {
               return (
                 <tr key={r.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
                   <td className="px-4 py-3 text-[#333]">{r.team.name}</td>
-                  <td className="px-4 py-3 text-[#333]">{r.report_date}</td>
+                  <td className="px-4 py-3 text-[#333]">{formatTanggalLengkap(r.report_date)}</td>
                   <td className="px-4 py-3">
                     <span
                       className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}
@@ -199,7 +203,8 @@ export default function WfhLaporanTim() {
                       >
                         PDF
                       </button>
-                      {r.status === "pending" && (
+                      {r.status === "pending" &&
+                        hasPermission("wfh.team_report.approve") && (
                         <>
                           <button
                             className="text-green-600 hover:underline text-xs"
@@ -300,7 +305,7 @@ export default function WfhLaporanTim() {
           <TextArea
             label="Alasan penolakan"
             value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
+            onChange={setRejectReason}
             placeholder="Masukkan alasan..."
             rows={3}
           />

@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import type { UserPayload } from "../api/auth";
 import { login as apiLogin, fetchMe, logout as apiLogout, changePassword as apiChangePassword } from "../api/auth";
+import { syncSwAuth } from "../utils/swAuth";
 import { extractErrorMessage } from "../lib/errors";
 
 export interface AuthState {
@@ -57,6 +58,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .finally(() => setLoading(false));
   }, []);
 
+  // Jaga token SW tetap sinkron (login/logout/mount)
+  useEffect(() => {
+    syncSwAuth();
+    const onChange = () => syncSwAuth();
+    window.addEventListener("storage", onChange);
+    navigator.serviceWorker?.addEventListener?.("controllerchange", onChange);
+    return () => {
+      window.removeEventListener("storage", onChange);
+      navigator.serviceWorker?.removeEventListener?.("controllerchange", onChange);
+    };
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     setError(null);
     setLoading(true);
@@ -65,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem("token", data.token);
       localStorage.setItem("permissions", JSON.stringify(data.user.permissions));
       localStorage.setItem("roles", JSON.stringify(data.user.roles));
+      syncSwAuth();
       setUser(data.user);
       if (data.user.must_change_password) {
         setNeedsPasswordChange(true);
@@ -87,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("must_change_password");
     localStorage.removeItem("permissions");
     localStorage.removeItem("roles");
+    syncSwAuth();
     setUser(null);
     setNeedsPasswordChange(false);
     window.location.href = "/login";

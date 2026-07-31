@@ -1,5 +1,5 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
-import { ProfilIcon, UsersIcon, SettingsIcon, ShieldIcon, WfhIcon } from "../components/ui/icons";
+import { ProfilIcon, UsersIcon, SettingsIcon, ShieldIcon, WfhIcon, WfhAbsensiIcon, WfhMonitorIcon } from "../components/ui/icons";
 
 interface MenuDef {
   label: string;
@@ -7,12 +7,17 @@ interface MenuDef {
   permissions?: string[];   // user needs ANY of these
   roles?: string[];         // user needs ANY of these
   icon?: React.ComponentType<{ size?: number; className?: string }>;
+  pngIcon?: boolean;        // icon uses embedded PNG → needs CSS filter for active state
 }
 
 /**
  * All possible menus. Each entry declares which permissions or roles
  * grant access. Empty permissions = visible to everyone authenticated.
  */
+function capFirst(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
 const allMenuDefs: MenuDef[] = [
   {
     label: "Manajemen Pengguna",
@@ -33,33 +38,23 @@ const allMenuDefs: MenuDef[] = [
     icon: SettingsIcon,
   },
   {
+    label: "Absensi WFH",
+    href: "/wfh/absensi",
+    permissions: ["wfh.report.create"],
+    icon: WfhAbsensiIcon,
+    pngIcon: true,
+  },
+  {
+    label: "Monitoring",
+    href: "/wfh/monitoring",
+    permissions: ["wfh.monitoring.view"],
+    icon: WfhMonitorIcon,
+    pngIcon: true,
+  },
+  {
     label: "Profil Saya",
     href: "/profil",
     icon: ProfilIcon,
-  },
-
-  /* ── WFH ─────────────────────────────────────────── */
-  {
-    label: "WFH Absensi",
-    href: "/wfh/absensi",
-    icon: WfhIcon,
-  },
-  {
-    label: "WFH Laporan",
-    href: "/wfh/laporan",
-    icon: WfhIcon,
-  },
-  {
-    label: "WFH Monitoring",
-    href: "/wfh/monitoring",
-    permissions: ["wfh.monitoring.view"],
-    icon: WfhIcon,
-  },
-  {
-    label: "Laporan Tim",
-    href: "/wfh/laporan-tim",
-    permissions: ["wfh.team_report.view"],
-    icon: WfhIcon,
   },
 ];
 
@@ -82,9 +77,10 @@ export function getFilteredMenus(
         return true;
       return false;
     })
-    .map(({ label, href, icon }) => ({
+    .map(({ label, href, icon, pngIcon }) => ({
       label,
       href,
       icon,
+      pngIcon,
     }));
 }

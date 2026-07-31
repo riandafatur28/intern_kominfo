@@ -9,6 +9,8 @@ export interface ModalProps {
     footer?: ReactNode;
     /** Tailwind max-width class for the dialog. Defaults to max-w-lg. */
     maxWidth?: string;
+    /** Override container classes. Defaults to "bg-white". */
+    className?: string;
 }
 
 export default function Modal({
@@ -18,6 +20,7 @@ export default function Modal({
     children,
     footer,
     maxWidth = "max-w-lg",
+    className = "",
 }: ModalProps) {
     if (!open) return null;
 
@@ -27,7 +30,7 @@ export default function Modal({
             onClick={onClose}
         >
             <div
-                className={`bg-white rounded-2xl shadow-xl w-full ${maxWidth} max-h-[90vh] flex flex-col`}
+                className={`rounded-2xl shadow-xl w-full ${maxWidth} max-h-[90vh] flex flex-col ${className || "bg-white"}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {title && (
