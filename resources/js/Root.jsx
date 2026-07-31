@@ -2,15 +2,14 @@ import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import ProfilSaya from "./pages/ProfilSaya";
+import WfhAbsensi from "./pages/wfh/WfhAbsensi";
+import WfhMonitoring from "./pages/wfh/WfhMonitoring";
 import LoginPage from "./pages/auth/LoginPage";
 import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import RolePermissionPage from "./pages/admin/RolePermissionPage";
-import WfhAbsensi from "./pages/wfh/WfhAbsensi";
-import WfhLaporan from "./pages/wfh/WfhLaporan";
-import WfhMonitoring from "./pages/wfh/WfhMonitoring";
-import WfhLaporanTim from "./pages/wfh/WfhLaporanTim";
+
 
 export default function Root() {
   return (
@@ -68,27 +67,12 @@ export default function Root() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/wfh/laporan"
-          element={
-            <ProtectedRoute>
-              <WfhLaporan />
-            </ProtectedRoute>
-          }
-        />
+
         <Route
           path="/wfh/monitoring"
           element={
             <ProtectedRoute>
               <WfhMonitoring />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/wfh/laporan-tim"
-          element={
-            <ProtectedRoute>
-              <WfhLaporanTim />
             </ProtectedRoute>
           }
         />

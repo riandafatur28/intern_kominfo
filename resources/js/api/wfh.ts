@@ -120,7 +120,7 @@ export async function createWfhReport(data: {
     activity: string;
     links?: string[];
   }[];
-  attendances?: { pagi?: File };
+  attendances?: Record<string, File>;
 }): Promise<{ success: boolean; message: string; data: WfhReport }> {
   const formData = new FormData();
   formData.append("report_date", data.report_date);
@@ -135,8 +135,10 @@ export async function createWfhReport(data: {
       });
     });
   }
-  if (data.attendances?.pagi) {
-    formData.append("attendances[pagi][photo]", data.attendances.pagi);
+  if (data.attendances) {
+    Object.entries(data.attendances).forEach(([session, file]) => {
+      formData.append(`attendances[${session}][photo]`, file);
+    });
   }
   const res = await client.post("/wfh/reports", formData, {
     headers: { "Content-Type": "multipart/form-data" },
@@ -219,7 +221,7 @@ export async function createReportActivity(
     start_time: string;
     end_time: string;
     activity: string;
-    links?: string[];
+    links?: { url: string }[];
   }
 ): Promise<{ success: boolean; message: string; data: WfhReportActivity }> {
   const res = await client.post(`/wfh/reports/${reportId}/activities`, data);
@@ -234,7 +236,7 @@ export async function updateReportActivity(
     start_time?: string;
     end_time?: string;
     activity?: string;
-    links?: string[];
+    links?: { url: string }[];
   }
 ): Promise<{ success: boolean; message: string; data: WfhReportActivity }> {
   const res = await client.put(
@@ -355,12 +357,32 @@ export function getTeamReportPdfUrl(
   return `/api/admin/wfh/teams/${teamId}/pdf?${params}`;
 }
 
+/** Fetch report PDF as blob with auth (window.open kehilangan Bearer → 401 → route login tak ada) */
+export function fetchReportPdf(reportId: number): Promise<Blob> {
+  return client
+    .get(`/wfh/reports/${reportId}/pdf`, { responseType: "blob" })
+    .then((res) => res.data as Blob);
+}
+
+export function fetchTeamReportPdf(
+  teamId: number,
+  date: string,
+  teamReportId?: number
+): Promise<Blob> {
+  const params = new URLSearchParams({ date });
+  if (teamReportId) params.set("team_report_id", String(teamReportId));
+  return client
+    .get(`/admin/wfh/teams/${teamId}/pdf?${params}`, { responseType: "blob" })
+    .then((res) => res.data as Blob);
+}
+
 /* ── WFH Team Reports ───────────────────────────────────────────── */
 
 export interface TeamReportListResponse {
-  success: boolean;
+  success?: boolean;
   data: WfhTeamReport[];
-  meta: PaginationMeta;
+  /** BE returns raw Laravel paginator without meta envelope */
+  meta?: PaginationMeta;
 }
 
 /** GET /api/admin/wfh/team-reports */

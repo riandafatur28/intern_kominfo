@@ -20,11 +20,13 @@ import {
   createReportActivity,
   updateReportActivity,
   deleteReportActivity,
-  getReportPdfUrl,
   type WfhReport,
   type WfhReportActivity,
   extractWfhError,
 } from "../../api/wfh";
+import { openPdfDirect } from "../../utils/swAuth";
+import { formatTanggalLengkap } from "../../utils/userDisplay";
+
 
 type PageStatus = "loading" | "ready" | "error";
 type FormMode = "create" | "edit" | "detail" | null;
@@ -36,8 +38,16 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
   rejected: { label: "Ditolak", color: "bg-red-100 text-red-700" },
 };
 
+/* ISO datetime dari API ("2026-07-31T04:00:00.000000Z") → "HH:MM" untuk <input type="time"> */
+function toTimeInput(iso: string): string {
+  const norm = iso.length > 23 ? iso.slice(0, 23) + "Z" : iso;
+  const d = new Date(norm);
+  if (Number.isNaN(d.getTime())) return iso.slice(0, 5);
+  return `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+}
+
 export default function WfhLaporan() {
-  const { hasPermission } = useAuth();
+  const { hasPermission, user } = useAuth();
 
   /* ── List state ──────────────────────────────────────────────── */
   const [pageStatus, setPageStatus] = useState<PageStatus>("loading");
@@ -57,7 +67,7 @@ export default function WfhLaporan() {
   /* ── Create / Edit fields ────────────────────────────────────── */
   const [reportDate, setReportDate] = useState("");
   const [activities, setActivities] = useState<
-    { start_time: string; end_time: string; activity: string; links: string[] }[]
+    { id?: number; start_time: string; end_time: string; activity: string; links: string[] }[]
   >([]);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState(false);
@@ -116,8 +126,9 @@ export default function WfhLaporan() {
     setReportDate(report.report_date);
     setActivities(
       report.activities.map((a) => ({
-        start_time: a.start_time,
-        end_time: a.end_time,
+        id: a.id,
+        start_time: toTimeInput(a.start_time),
+        end_time: toTimeInput(a.end_time),
         activity: a.activity,
         links: a.links.map((l) => l.url),
       }))
@@ -135,23 +146,49 @@ export default function WfhLaporan() {
     setFormErr("");
     try {
       if (formMode === "create") {
+        // Backend mengabaikan activities embedded di POST /wfh/reports
+        // (v6.0.0 sub-resource) → buat report dulu, append via sub-resource
         const res = await createWfhReport({
           report_date: reportDate,
           status: "draft",
-          activities: activities.map((a) => ({
+        });
+        const rid = res.data.id;
+        for (const a of activities) {
+          if (!a.activity.trim()) continue;
+          await createReportActivity(rid, {
+            start_time: a.start_time,
+            end_time: a.end_time,
+            activity: a.activity.trim(),
+            links: a.links.filter(Boolean).map((url) => ({ url })),
+          });
+        }
+        setFormMsg(res.message);
+      } else if (formMode === "edit" && selectedReport) {
+        const rid = selectedReport.id;
+        await updateWfhReport(rid, { report_date: reportDate });
+        // Sub-resource diff: hapus yang dihilangkan, update yang punya id,
+        // create yang baru (baris tanpa id)
+        const keep = new Set(
+          activities.map((a) => a.id).filter((id): id is number => id != null)
+        );
+        for (const orig of selectedReport.activities) {
+          if (!keep.has(orig.id)) {
+            await deleteReportActivity(rid, orig.id);
+          }
+        }
+        for (const a of activities) {
+          const payload = {
             start_time: a.start_time,
             end_time: a.end_time,
             activity: a.activity,
-            links: a.links.filter(Boolean),
-          })),
-        });
-        setFormMsg(res.message);
-      } else if (formMode === "edit" && selectedReport) {
-        // Update metadata
-        await updateWfhReport(selectedReport.id, { report_date: reportDate });
-        // Update activities: delete all, recreate
-        // (Simpler: for each activity, update if has id, create if not)
-        // For now just update metadata
+            links: a.links.filter(Boolean).map((url) => ({ url })),
+          };
+          if (a.id) {
+            await updateReportActivity(rid, a.id, payload);
+          } else if (a.activity.trim()) {
+            await createReportActivity(rid, payload);
+          }
+        }
         setFormMsg("Laporan berhasil disimpan.");
       }
       setFormMode(null);
@@ -234,9 +271,14 @@ export default function WfhLaporan() {
     }
   }
 
-  function openPdf(reportId: number) {
-    const url = getReportPdfUrl(reportId);
-    window.open(url, "_blank");
+  async function openPdf(report: WfhReport) {
+    // Per spec: PDF resmi tersedia mulai status pending; draft/rejected belum sah
+    if (report.status === "draft" || report.status === "rejected") {
+      setErrMsg("PDF bukti kerja tersedia setelah laporan disubmit.");
+      return;
+    }
+    // Buka langsung di tab (tanpa blob) — auth header dipasang Service Worker.
+    openPdfDirect(`/api/wfh/reports/${report.id}/pdf`, (msg) => setErrMsg(msg));
   }
 
   /* ── Activity helpers ────────────────────────────────────────── */
@@ -450,7 +492,7 @@ export default function WfhLaporan() {
                 };
                 return (
                   <tr key={r.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
-                    <td className="px-4 py-3 text-[#333]">{r.report_date}</td>
+                    <td className="px-4 py-3 text-[#333]">{formatTanggalLengkap(r.report_date)}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}
@@ -487,22 +529,22 @@ export default function WfhLaporan() {
                           </button>
                         )}
                         {r.status === "pending" && hasPermission("wfh.report.approve") && (
-                          <>
-                            <button
-                              className="text-green-600 hover:underline text-xs"
-                              onClick={() => handleApprove(r.id)}
-                              disabled={saving}
-                            >
-                              Setujui
-                            </button>
-                            <button
-                              className="text-red-500 hover:underline text-xs"
-                              onClick={() => openRejectModal(r.id)}
-                              disabled={saving}
-                            >
-                              Tolak
-                            </button>
-                          </>
+                          <button
+                            className="text-green-600 hover:underline text-xs"
+                            onClick={() => handleApprove(r.id)}
+                            disabled={saving}
+                          >
+                            Setujui
+                          </button>
+                        )}
+                        {r.status === "pending" && hasPermission("wfh.report.reject") && (
+                          <button
+                            className="text-red-500 hover:underline text-xs"
+                            onClick={() => openRejectModal(r.id)}
+                            disabled={saving}
+                          >
+                            Tolak
+                          </button>
                         )}
                         {r.status === "rejected" && (
                           <button
@@ -515,7 +557,7 @@ export default function WfhLaporan() {
                         )}
                         <button
                           className="text-[#256EEF] hover:underline text-xs"
-                          onClick={() => openPdf(r.id)}
+                          onClick={() => openPdf(r)}
                         >
                           PDF
                         </button>
@@ -559,7 +601,7 @@ export default function WfhLaporan() {
           <TextArea
             label="Alasan penolakan"
             value={rejectReason}
-            onChange={(e) => setRejectReason(e.target.value)}
+            onChange={setRejectReason}
             placeholder="Masukkan alasan..."
             rows={3}
           />
@@ -617,7 +659,7 @@ function DetailView({
   onRevise: (id: number) => void;
   onDelete: (id: number) => void;
   onSubmit: (id: number) => void;
-  onPdf: (id: number) => void;
+  onPdf: (report: WfhReport) => void;
 }) {
   const st = STATUS_LABEL[report.status] ?? {
     label: report.status,
@@ -637,7 +679,7 @@ function DetailView({
       <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
         <div>
           <span className="text-[#767676]">Tanggal:</span>{" "}
-          <span className="font-medium">{report.report_date}</span>
+          <span className="font-medium">{formatTanggalLengkap(report.report_date)}</span>
         </div>
         <div>
           <span className="text-[#767676]">Status:</span>{" "}
@@ -676,7 +718,7 @@ function DetailView({
             className="border border-[#E0E9F2] rounded-lg p-4"
           >
             <div className="text-xs text-[#767676] mb-1">
-              {act.start_time} - {act.end_time}
+              {toTimeInput(act.start_time).replace(":", ".")} – {toTimeInput(act.end_time).replace(":", ".")}
             </div>
             <p className="text-sm text-[#333]">{act.activity}</p>
             {act.links.length > 0 && (
@@ -702,7 +744,7 @@ function DetailView({
       <div className="flex gap-3 mt-6">
         <button
           className="text-[#256EEF] hover:underline text-sm"
-          onClick={() => onPdf(report.id)}
+          onClick={() => onPdf(report)}
         >
           PDF
         </button>
@@ -723,20 +765,20 @@ function DetailView({
           </button>
         )}
         {report.status === "pending" && hasPermission("wfh.report.approve") && (
-          <>
-            <button
-              className="text-green-600 hover:underline text-sm"
-              onClick={() => onApprove(report.id)}
-            >
-              Setujui
-            </button>
-            <button
-              className="text-red-500 hover:underline text-sm"
-              onClick={() => onReject(report.id)}
-            >
-              Tolak
-            </button>
-          </>
+          <button
+            className="text-green-600 hover:underline text-sm"
+            onClick={() => onApprove(report.id)}
+          >
+            Setujui
+          </button>
+        )}
+        {report.status === "pending" && hasPermission("wfh.report.reject") && (
+          <button
+            className="text-red-500 hover:underline text-sm"
+            onClick={() => onReject(report.id)}
+          >
+            Tolak
+          </button>
         )}
         {report.status === "rejected" && (
           <button

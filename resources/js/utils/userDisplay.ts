@@ -75,6 +75,19 @@ export function formatDate(iso: string | null): string {
     });
 }
 
+/** Format an ISO date string to e.g. "27 Juli 2026" (long Indonesian month, tz-safe). */
+export function formatTanggalLengkap(iso: string | null): string {
+    if (!iso) return "-";
+    const m = iso.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) return formatDate(iso);
+    const [, y, mo, d] = m;
+    const BULAN = [
+        "Januari", "Februari", "Maret", "April", "Mei", "Juni",
+        "Juli", "Agustus", "September", "Oktober", "November", "Desember",
+    ];
+    return `${Number(d)} ${BULAN[Number(mo) - 1]} ${y}`;
+}
+
 /** Generate a reasonably strong random password. */
 export function generatePassword(length = 12): string {
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";

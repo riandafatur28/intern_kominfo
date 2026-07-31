@@ -13,6 +13,8 @@ export interface SidebarMenuItem {
   divider?: boolean;
   disabled?: boolean;
   matchPaths?: string[];
+  /** Icon uses embedded PNG → needs CSS filter to tint on active */
+  pngIcon?: boolean;
 }
 
 export interface SidebarProps {
@@ -115,7 +117,9 @@ export default function Sidebar({
         style={{ paddingLeft: `${paddingLeft}px` }}
       >
         <span className="shrink-0 w-5 h-5 flex items-center justify-center">
-          {item.icon && <item.icon size={20} />}
+          {item.icon && (
+            <item.icon size={20} className={active && item.pngIcon ? "[filter:brightness(0)_saturate(100%)_invert(31%)_sepia(52%)_saturate(2878%)_hue-rotate(214deg)_brightness(97%)_contrast(101%)]" : ""} />
+          )}
         </span>
         <span className="flex-1">{item.label}</span>
         {hasChildren && (
