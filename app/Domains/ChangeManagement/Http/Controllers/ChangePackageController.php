@@ -266,6 +266,7 @@ class ChangePackageController extends Controller
             'reviewer_signed_at' => $now,
             'responsible_id' => $userId,
             'responsible_signed_at' => $now,
+            'review_status' => 'diterima',
         ]);
 
         return response()->json([
@@ -310,15 +311,16 @@ class ChangePackageController extends Controller
         }
 
         $userId = $request->user()->id;
-        $reason = $request->input('reason');
+        $now = now();
 
         $this->repo->transitionPackage($id, 'rejected', [
             'reviewer_id' => $userId,
             'review_status' => 'rejected',
-            'reviewed_at' => now(),
-            'review_reason' => $reason,
+            'reviewed_at' => $now,
         ], [
-            'review_response' => $reason,
+            'reviewer_id' => $userId,
+            'reviewer_signed_at' => $now,
+            'review_status' => 'ditolak',
         ]);
 
         return response()->json([

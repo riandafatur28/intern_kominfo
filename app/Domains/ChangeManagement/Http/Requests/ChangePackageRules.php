@@ -78,7 +78,7 @@ class ChangePackageRules
     }
 }],
             'implementation.implementation_result' => [$presence, 'string'],
-            'implementation.testing_result' => [$presence, 'string'],
+            'implementation.review_response' => ['nullable', 'string'],
             'implementation.evaluator_id' => self::evaluatorRule(),
         ];
     }

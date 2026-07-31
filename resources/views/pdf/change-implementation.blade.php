@@ -119,6 +119,10 @@
                 <td>{{ $executionDate }}</td>
             </tr>
             <tr>
+                <td class="label">Penanggungjawab Pelaksana Perubahan</td>
+                <td>{{ $responsibleTeamName }}</td>
+            </tr>
+            <tr>
                 <td class="label">Ditinjau Oleh</td>
                 <td>{{ $reviewerName }}<br>NIP. {{ $reviewerNip }} — {{ $reviewerPosition }}</td>
             </tr>
@@ -135,7 +139,13 @@
             </tr>
             <tr>
                 <td class="label">Hasil Pengujian Implementasi</td>
-                <td>{{ $testingResult }}</td>
+                <td>
+                    @forelse($attachmentImages as $image)
+                        <img src="{{ $image }}" alt="hasil pengujian" style="max-width: 100%; margin-bottom: 6px;">
+                    @empty
+                        -
+                    @endforelse
+                </td>
             </tr>
             <tr>
                 <td class="label">Tanggal Rilis</td>
