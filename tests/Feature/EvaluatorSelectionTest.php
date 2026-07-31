@@ -144,7 +144,6 @@ class EvaluatorSelectionTest extends TestCase
                 'execution_date' => '2026-09-10',
                 'release_date' => '2026-09-15',
                 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
                 'evaluator_id' => $otherFieldUser->id,
             ],
         ])

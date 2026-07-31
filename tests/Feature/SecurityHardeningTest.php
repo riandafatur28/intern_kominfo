@@ -168,7 +168,6 @@ class SecurityHardeningTest extends TestCase
                 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15',
                 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
             ],
         ])->assertStatus(200);
 
