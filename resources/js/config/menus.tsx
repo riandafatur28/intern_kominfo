@@ -45,7 +45,7 @@ const allMenuDefs: MenuDef[] = [
     pngIcon: true,
   },
   {
-    label: "Monitoring",
+    label: "Monitoring WFH",
     href: "/wfh/monitoring",
     permissions: ["wfh.monitoring.view"],
     icon: WfhMonitorIcon,

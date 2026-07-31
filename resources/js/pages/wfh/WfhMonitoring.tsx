@@ -288,8 +288,14 @@ export default function WfhMonitoring() {
   }
 
   async function openTPdf(r: WfhTeamReport) {
+    // report_date ISO UTC ("2026-07-30T17:00:00.000000Z") = 31 Juli WIB.
+    // Kirim tanggal murni WIB supaya query data di PDF cocok.
+    const iso = r.report_date;
+    const tanggal = iso.includes("T") || iso.includes("Z")
+      ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+      : iso.slice(0, 10);
     // Buka langsung di tab (tanpa blob) — auth header dipasang Service Worker.
-    const params = new URLSearchParams({ date: r.report_date });
+    const params = new URLSearchParams({ date: tanggal });
     params.set("team_report_id", String(r.id));
     openPdfDirect(`/api/admin/wfh/teams/${r.team_id}/pdf?${params}`, (msg) => showToast(msg, "error"));
   }
@@ -469,11 +475,11 @@ export default function WfhMonitoring() {
                     <th className="text-center px-4 py-3 font-medium text-[#767676]">Pagi</th>
                     <th className="text-center px-4 py-3 font-medium text-[#767676]">Siang</th>
                     <th className="text-center px-4 py-3 font-medium text-[#767676]">Sore</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">Aksi</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">Catatan</th>
                     <th className="text-left px-4 py-3 font-medium text-[#767676]">
                       Status Laporan
                     </th>
+                    <th className="text-left px-4 py-3 font-medium text-[#767676]">Catatan</th>
+                    <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -514,15 +520,15 @@ export default function WfhMonitoring() {
                             </td>
                           ))}
                           <td className="px-4 py-3">
-                            <span className="text-[#D9D9D9] text-xs">—</span>
+                            <span className="inline-block text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                              {draft ? "Belum Dikirim" : "Belum Laporan"}
+                            </span>
                           </td>
                           <td className="px-4 py-3 text-[#767676] text-xs">
                             {draft ? "Belum dikirim" : "Belum mengisi laporan"}
                           </td>
                           <td className="px-4 py-3">
-                            <span className="inline-block text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                              {draft ? "Belum Dikirim" : "Belum Laporan"}
-                            </span>
+                            <span className="text-[#D9D9D9] text-xs">—</span>
                           </td>
                         </tr>
                       );
@@ -562,6 +568,16 @@ export default function WfhMonitoring() {
                           </td>
                         ))}
                         <td className="px-4 py-3">
+                          <span
+                            className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}
+                          >
+                            {st.label}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-[#767676] text-xs">
+                          {catatanLaporan(r)}
+                        </td>
+                        <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <button
                               className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
@@ -594,16 +610,6 @@ export default function WfhMonitoring() {
                               </>
                             )}
                           </div>
-                        </td>
-                        <td className="px-4 py-3 text-[#767676] text-xs">
-                          {catatanLaporan(r)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}
-                          >
-                            {st.label}
-                          </span>
                         </td>
                       </tr>
                     );
