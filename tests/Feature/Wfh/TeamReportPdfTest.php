@@ -224,11 +224,11 @@ class TeamReportPdfTest extends TestCase
         // Page 1: '-' for empty links
         $this->assertStringContainsString('-', $html);
 
-        // Page 2: documentation title
-        $this->assertStringContainsString('DOKUMENTASI TIM TIM TEST WORK FROM HOME', $html);
-        $this->assertStringContainsString('SESI PAGI', $html);
-        $this->assertStringContainsString('SESI SIANG', $html);
-        $this->assertStringContainsString('SESI SORE', $html);
+        // Page 2: documentation title (template baru: Laporan Bukti Absensi)
+        $this->assertStringContainsString('LAPORAN BUKTI ABSENSI WORK FROM HOME - TIM', strtoupper($html));
+        $this->assertStringContainsString('Pagi', $html);
+        $this->assertStringContainsString('Siang', $html);
+        $this->assertStringContainsString('Sore', $html);
         $this->assertStringContainsString('<img', $html);
 
         // '-' for missing photos

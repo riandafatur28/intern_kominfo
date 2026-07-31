@@ -129,8 +129,20 @@ export default function WfhLaporanTim() {
     }
   }
 
+  /** API mengirim report_date sebagai ISO UTC ("2026-07-30T17:00:00.000000Z")
+   *  padahal laporan itu tanggal 31 Juli (WIB). Kirim tanggal murni WIB ke PDF
+   *  supaya query data & judul cocok. */
+  function tanggalPdf(reportDate: string): string {
+    if (!reportDate.includes("T") && !reportDate.includes("Z")) {
+      return reportDate.slice(0, 10);
+    }
+    return new Date(reportDate).toLocaleDateString("en-CA", {
+      timeZone: "Asia/Jakarta",
+    });
+  }
+
   function openPdf(report: WfhTeamReport) {
-    fetchTeamReportPdf(report.team_id, report.report_date, report.id)
+    fetchTeamReportPdf(report.team_id, tanggalPdf(report.report_date), report.id)
       .then((blob) => {
         const url = URL.createObjectURL(blob);
         window.open(url, "_blank");

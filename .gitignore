@@ -33,3 +33,5 @@ docs
 tmp/
 *.pdf
 Screenshot*.png
+.env.testing
+MEMORY.md

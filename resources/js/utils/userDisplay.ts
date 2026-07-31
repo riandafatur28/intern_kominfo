@@ -78,6 +78,11 @@ export function formatDate(iso: string | null): string {
 /** Format an ISO date string to e.g. "27 Juli 2026" (long Indonesian month, tz-safe). */
 export function formatTanggalLengkap(iso: string | null): string {
     if (!iso) return "-";
+    // ISO UTC ("2026-07-30T17:00:00.000000Z") = tanggal 31 Juli WIB.
+    // Konversi dulu ke tanggal murni WIB supaya hari/bulan benar.
+    if (iso.includes("T") || iso.includes("Z")) {
+        iso = new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" });
+    }
     const m = iso.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
     if (!m) return formatDate(iso);
     const [, y, mo, d] = m;

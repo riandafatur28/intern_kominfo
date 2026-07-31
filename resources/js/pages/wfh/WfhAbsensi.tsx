@@ -145,7 +145,13 @@ export default function WfhAbsensi() {
       let currentReport: WfhReport | null = null;
       try {
         const listRes = await listWfhReports({ per_page: 100 });
-        const todayReport = listRes.data.find((r) => r.report_date === today);
+        // report_date bisa ISO UTC ("2026-07-30T17:00:00.000000Z") = hari ini WIB
+        const todayReport = listRes.data.find((r) => {
+          const d = r.report_date.includes("T") || r.report_date.includes("Z")
+            ? new Date(r.report_date).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+            : r.report_date.slice(0, 10);
+          return d === today;
+        });
         if (todayReport) {
           const detailRes = await getWfhReport(todayReport.id);
           currentReport = detailRes.data;
