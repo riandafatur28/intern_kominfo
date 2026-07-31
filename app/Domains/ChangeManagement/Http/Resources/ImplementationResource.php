@@ -27,7 +27,6 @@ class ImplementationResource extends JsonResource
             'reviewer_id' => $this->reviewer_id,
             'reviewer_signed_at' => $this->reviewer_signed_at,
             'implementation_result' => $this->implementation_result,
-            'testing_result' => $this->testing_result,
             'release_date' => $this->release_date?->format('Y-m-d'),
             'responsible_id' => $this->responsible_id,
             'responsible_signed_at' => $this->responsible_signed_at,

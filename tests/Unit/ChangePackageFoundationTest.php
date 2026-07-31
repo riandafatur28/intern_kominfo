@@ -116,7 +116,6 @@ class ChangePackageFoundationTest extends TestCase
                 'execution_date' => '2026-08-02',
                 'release_date' => '2026-08-03',
                 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
             ],
             [$otherType->id],
         );
@@ -177,9 +176,7 @@ class ChangePackageFoundationTest extends TestCase
         $this->repo->transitionPackage($package->id, 'rejected', [
             'reviewer_id' => $this->teammate->id,
             'review_status' => 'rejected',
-            'review_reason' => 'No',
-        ], [
-            'review_response' => 'No',
+            'reviewed_at' => now(),
         ]);
 
         $package->refresh();
@@ -298,7 +295,6 @@ class ChangePackageFoundationTest extends TestCase
         $this->assertArrayHasKey('implementation.execution_date', $validator->errors()->toArray());
         $this->assertArrayHasKey('implementation.release_date', $validator->errors()->toArray());
         $this->assertArrayHasKey('implementation.implementation_result', $validator->errors()->toArray());
-        $this->assertArrayHasKey('implementation.testing_result', $validator->errors()->toArray());
     }
 
     public function test_submit_change_package_request_passes_with_full_payload(): void
@@ -320,19 +316,19 @@ class ChangePackageFoundationTest extends TestCase
                 'execution_date' => '2026-08-02',
                 'release_date' => '2026-08-03',
                 'implementation_result' => 'ok',
-                'testing_result' => 'pass',
+                'review_response' => 'Catatan staf',
             ],
         ], $rules);
 
         $this->assertTrue($validator->passes(), $validator->errors()->toJson());
     }
 
-    public function test_decide_change_package_request_reason_optional(): void
+    public function test_decide_change_package_request_has_no_rules(): void
     {
+        // Kepala tim decide is a pure approve/reject — no reason input accepted.
         $rules = (new DecideChangePackageRequest)->rules();
 
-        $this->assertTrue(Validator::make([], $rules)->passes());
-        $this->assertTrue(Validator::make(['reason' => 'nope'], $rules)->passes());
+        $this->assertSame([], $rules);
     }
 
     public function test_update_change_package_request_exists_with_nested_shape(): void

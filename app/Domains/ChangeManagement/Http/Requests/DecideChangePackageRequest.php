@@ -13,8 +13,7 @@ class DecideChangePackageRequest extends FormRequest
 
     public function rules(): array
     {
-        return [
-            'reason' => ['nullable', 'string'],
-        ];
+        // Kepala tim decide is a pure approve/reject — no reason input.
+        return [];
     }
 }

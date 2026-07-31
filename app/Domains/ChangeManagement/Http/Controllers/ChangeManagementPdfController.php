@@ -2,6 +2,7 @@
 
 namespace App\Domains\ChangeManagement\Http\Controllers;
 
+use App\Domains\ChangeManagement\Models\ChangeImplementation;
 use App\Domains\ChangeManagement\Repositories\ChangeManagementRepositoryInterface;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
@@ -126,8 +127,9 @@ class ChangeManagementPdfController extends Controller
             'reviewStatus' => $impl->review_status ?? '-',
             'reviewResponse' => $impl->review_response ?? '-',
             'executionDate' => $impl->execution_date?->isoFormat('D MMMM Y') ?? '-',
+            'responsibleTeamName' => $impl->reviewer?->team?->name ?? '-',
             'implementationResult' => $impl->implementation_result ?? '-',
-            'testingResult' => $impl->testing_result ?? '-',
+            'attachmentImages' => $this->resolveAttachmentImages($impl),
             'releaseDate' => $impl->release_date?->isoFormat('D MMMM Y') ?? '-',
             'evaluatorName' => $evaluator ? strtoupper($evaluator->name) : '-',
             'evaluatorNip' => $evaluator?->nip ?? '-',
@@ -155,13 +157,36 @@ class ChangeManagementPdfController extends Controller
 
     private function resolveSignature(?string $path): string
     {
-        if ($path) {
-            $full = public_path('storage/'.$path);
-            if (file_exists($full)) {
-                return 'data:image/png;base64,'.base64_encode((string) file_get_contents($full));
+        return $path ? $this->fileDataUri($path, 'image/png') : '';
+    }
+
+    /** @return list<string> base64 data URIs of the implementation attachments (images only). */
+    private function resolveAttachmentImages(ChangeImplementation $impl): array
+    {
+        $images = [];
+
+        foreach ($impl->attachments as $attachment) {
+            $mime = match (strtolower(pathinfo($attachment->path, PATHINFO_EXTENSION))) {
+                'png' => 'image/png',
+                'jpg', 'jpeg' => 'image/jpeg',
+                default => null,
+            };
+
+            if ($mime !== null && ($uri = $this->fileDataUri($attachment->path, $mime)) !== '') {
+                $images[] = $uri;
             }
         }
 
-        return '';
+        return $images;
+    }
+
+    private function fileDataUri(string $path, string $mime): string
+    {
+        $full = public_path('storage/'.$path);
+        if (! is_file($full)) {
+            return '';
+        }
+
+        return 'data:'.$mime.';base64,'.base64_encode((string) file_get_contents($full));
     }
 }

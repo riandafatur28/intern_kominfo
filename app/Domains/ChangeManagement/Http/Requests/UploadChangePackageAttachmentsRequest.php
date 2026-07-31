@@ -15,7 +15,7 @@ class UploadChangePackageAttachmentsRequest extends FormRequest
     {
         return [
             'files' => ['required', 'array', 'max:10'],
-            'files.*' => ['required', 'file', 'mimes:pdf,jpg,jpeg,png,doc,docx', 'max:10240'],
+            'files.*' => ['required', 'file', 'mimes:jpg,jpeg,png', 'max:10240'],
         ];
     }
 }
