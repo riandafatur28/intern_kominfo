@@ -15,9 +15,22 @@ export default function Checkbox({
 }: CheckboxProps) {
     return (
         <label
-            className={`inline-flex items-center gap-2 select-none ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+            className={`relative inline-flex items-center gap-2 select-none ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"
                 } ${className}`}
         >
+            {/*
+              Real-size invisible input (not a zero-size `sr-only` clip) — a clipped-to-0x0
+              input is technically "not in view" to the browser, which can trigger a
+              scroll-into-view on every focus even though the visible control is already
+              on-screen. An opacity-0 overlay sized to the whole label avoids that.
+            */}
+            <input
+                type="checkbox"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                checked={checked}
+                disabled={disabled}
+                onChange={(e) => onChange?.(e.target.checked)}
+            />
             <span
                 className={`flex items-center justify-center w-[18px] h-[18px] rounded-[5px] border transition-colors ${checked
                         ? "bg-[#256EEF] border-[#256EEF]"
@@ -37,13 +50,6 @@ export default function Checkbox({
                 )}
             </span>
             {label && <span className="text-sm text-[#424655]">{label}</span>}
-            <input
-                type="checkbox"
-                className="sr-only"
-                checked={checked}
-                disabled={disabled}
-                onChange={(e) => onChange?.(e.target.checked)}
-            />
         </label>
     );
 }

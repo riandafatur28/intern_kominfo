@@ -5,15 +5,18 @@
  * request /api/* yang belum punya header, jadi PDF bisa dibuka di tab browser
  * native TANPA blob. Token dikirim dari halaman via postMessage.
  */
-let authToken: string | null = null;
+let authToken = null;
 
-self.addEventListener("message", (e: MessageEvent) => {
+self.addEventListener("message", (e) => {
   if (e.data && e.data.type === "AUTH") {
     authToken = typeof e.data.token === "string" && e.data.token ? e.data.token : null;
+    // Ack so the page knows the token has actually landed before it trusts
+    // this SW to inject Authorization on the next navigation (see swAuth.ts).
+    if (e.ports && e.ports[0]) e.ports[0].postMessage({ ok: true });
   }
 });
 
-self.addEventListener("fetch", (e: FetchEvent) => {
+self.addEventListener("fetch", (e) => {
   const url = new URL(e.request.url);
   if (url.pathname.startsWith("/api/")) {
     if (!authToken) return; // passthrough default

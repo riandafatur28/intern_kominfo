@@ -6,8 +6,14 @@ import FormField from "../components/ui/FormField";
 import Button from "../components/ui/Button";
 import SignatureUpload from "../components/ui/SignatureUpload";
 import { useAuth } from "../hooks/useAuth";
-import { fetchProfile, updateProfile, uploadSignature } from "../api/profile";
+import { fetchProfile, updateProfile, uploadSignature, deleteSignature } from "../api/profile";
 import { extractErrorMessage } from "../lib/errors";
+
+
+function bustCache(url: string | null): string | null {
+  if (!url) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+}
 
 type PageStatus = "loading" | "ready" | "saving" | "error" | "success";
 
@@ -46,7 +52,7 @@ export default function ProfilSaya() {
         setPhone(u.phone ?? "");
         setPosition(u.position ?? "");
         setRank(u.rank ?? "");
-        setSignatureUrl(u.signature_url ?? null);
+        setSignatureUrl(bustCache(u.signature_url ?? null));
         setTeamName(u.team?.field?.name ?? u.team?.name ?? "");
         setStatus("ready");
       })
@@ -78,11 +84,24 @@ export default function ProfilSaya() {
     setProfileError("");
     try {
       const result = await uploadSignature(file);
-      setSignatureUrl(result.signature_url);
+      setSignatureUrl(bustCache(result.signature_url));
       setSignatureFile(null);
       setProfileMsg("Tanda tangan berhasil diunggah.");
     } catch (e: unknown) {
       setProfileError(extractErrorMessage(e, "Gagal mengunggah tanda tangan."));
+    }
+  };
+
+  const handleSignatureDelete = async () => {
+    setSignatureFile(null);
+    setProfileMsg("");
+    setProfileError("");
+    try {
+      await deleteSignature();
+      setSignatureUrl(null);
+      setProfileMsg("Tanda tangan berhasil dihapus.");
+    } catch (e: unknown) {
+      setProfileError(extractErrorMessage(e, "Gagal menghapus tanda tangan."));
     }
   };
 
@@ -208,7 +227,7 @@ export default function ProfilSaya() {
             value={signatureFile || signatureUrl}
             onChange={(f) => {
               if (f) handleSignatureUpload(f);
-              else setSignatureFile(null);
+              else handleSignatureDelete();
             }}
           />
         </FormSection>

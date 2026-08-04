@@ -10,27 +10,44 @@ export function syncSwAuth(): void {
     .catch(() => {});
 }
 
-/**
- * Buka PDF langsung di tab baru. Panggil sinkron dari click handler (lolos popup blocker).
- * - SW aktif → window.open URL murni, auth header dipasang SW (tanpa blob).
- * - SW belum aktif (fresh load / http non-secure) → fetch + blob otomatis, PDF tetap kebuka.
- * Klik SELALU langsung membuka — tanpa syarat reload.
- */
-export function openPdfDirect(url: string, onFail?: (msg: string) => void): void {
+
+function postAuthAndWaitAck(controller: ServiceWorker, token: string | null, timeoutMs = 300): Promise<boolean> {
+  return new Promise((resolve) => {
+    let done = false;
+    const channel = new MessageChannel();
+    channel.port1.onmessage = () => {
+      if (done) return;
+      done = true;
+      resolve(true);
+    };
+    controller.postMessage({ type: "AUTH", token }, [channel.port2]);
+    setTimeout(() => {
+      if (done) return;
+      done = true;
+      resolve(false);
+    }, timeoutMs);
+  });
+}
+
+
+export async function openPdfDirect(url: string, onFail?: (msg: string) => void): Promise<void> {
   const win = window.open("", "_blank"); // sync — lolos popup blocker
   if (!win) {
     onFail?.("Izinkan popup untuk membuka PDF.");
     return;
   }
 
-  const sw = "serviceWorker" in navigator && navigator.serviceWorker.controller;
-  if (sw) {
-    win.location.href = url; // SW pasang Authorization — tanpa blob
-    return;
+  const token = localStorage.getItem("token");
+  const controller = "serviceWorker" in navigator ? navigator.serviceWorker.controller : null;
+  if (controller && token) {
+    const acked = await postAuthAndWaitAck(controller, token);
+    if (acked) {
+      win.location.href = url; // SW pasang Authorization — tanpa blob
+      return;
+    }
   }
 
-  // Fallback: SW belum siap → ambil dgn header Bearer manual, tampilkan via objectURL
-  const token = localStorage.getItem("token");
+  // Fallback: SW belum siap / belum ack → ambil dgn header Bearer manual, tampilkan via objectURL
   fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
     .then((res) => {
       if (!res.ok) throw new Error(String(res.status));
