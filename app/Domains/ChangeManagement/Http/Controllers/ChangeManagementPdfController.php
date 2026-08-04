@@ -41,31 +41,29 @@ class ChangeManagementPdfController extends Controller
             ], 422);
         }
 
-        $initiator = $package->initiator;
-        $reviewer = $package->reviewer;
         $field = $package->field;
 
-        $initiatorSig = $this->resolveSignature($initiator?->signature_path);
-        $reviewerSig = $this->resolveSignature($reviewer?->signature_path);
+        // The template's single "Inisiator Perubahan" signature block is signed by the
+        // kepala tim who reviewed/approved the package (their profile + signature) —
+        // not the staf who typed the form. Mirrors dokumen inisiasi sistem.pdf.
+        $signer = $package->reviewer;
+        $signerSig = $this->resolveSignature($signer?->signature_path);
 
         $verifyUrl = $this->qrCodeService->generateVerificationUrl($package->verification_token);
         $qrSvg = $this->qrCodeService->generate($verifyUrl);
 
         $data = [
             'docNumber' => $package->doc_number,
-            'tanggal' => $package->initiation_date->isoFormat('D MMMM Y'),
+            // DD-MM-YYYY — matches dokumen inisiasi/implementasi sistem.pdf's date format.
+            'tanggal' => $package->initiation_date->format('d-m-Y'),
             'bidang' => $field?->name ?? '-',
-            'neededByDate' => $package->needed_by_date?->isoFormat('D MMMM Y') ?? '-',
+            'neededByDate' => $package->needed_by_date?->format('d-m-Y') ?? '-',
             'description' => $package->description,
             'reason' => $package->reason,
-            'initiatorName' => strtoupper($initiator?->name ?? '-'),
-            'initiatorNip' => $initiator?->nip ?? '-',
-            'initiatorPosition' => $initiator?->position ?? '-',
-            'initiatorSig' => $initiatorSig,
-            'reviewerName' => $reviewer ? strtoupper($reviewer->name) : '-',
-            'reviewerNip' => $reviewer?->nip ?? '-',
-            'reviewerPosition' => $reviewer?->position ?? '-',
-            'reviewerSig' => $reviewerSig,
+            'initiatorName' => $signer ? strtoupper($signer->name) : '-',
+            'initiatorNip' => $signer?->nip ?? '-',
+            'initiatorPosition' => $signer?->position ?? '-',
+            'initiatorSig' => $signerSig,
             'qrSvg' => $qrSvg,
         ];
 
@@ -101,7 +99,10 @@ class ChangeManagementPdfController extends Controller
             ], 422);
         }
 
-        $evaluator = $impl->evaluator;
+        // "Dievaluasi Oleh" is whoever was logged in when the form was submitted (the
+        // initiator/staf) — evaluator_id is stamped at submit(), but fall back to the
+        // initiator directly for older records saved before that stamping existed.
+        $evaluator = $impl->evaluator ?? $package->initiator;
         $reviewer = $impl->reviewer;
         $responsible = $impl->responsible;
         $field = $package->field;
@@ -112,36 +113,46 @@ class ChangeManagementPdfController extends Controller
 
         $data = [
             'docNumber' => $package->doc_number ?? '-',
-            'tanggal' => $package->initiation_date?->isoFormat('D MMMM Y') ?? '-',
+            'tanggal' => $package->initiation_date?->format('d-m-Y') ?? '-',
             'bidang' => $field?->name ?? '-',
             'description' => $package->description ?? '-',
-            'priority' => $impl->priority ?? '-',
-            'impact' => $impl->impact ?? '-',
+            // Raw keys (not pre-formatted labels) — the template renders these as a
+            // checkbox list of all options (Low/Medium/High/...), same as Tipe
+            // Perubahan, and needs the selected key to mark the right one.
+            'priority' => $impl->priority ?? 'low',
+            'impact' => $impl->impact ?? 'low',
             'productionImpact' => $impl->production_impact ?? '-',
             'requiredEffort' => $impl->required_effort ?? '-',
             'costNeeded' => $impl->cost_needed ? 'Ada' : 'Tidak',
             'costAmount' => $impl->cost_amount ? 'Rp. '.$impl->cost_amount : '-',
             'resources' => $impl->resources ?? '-',
             'testPlan' => $impl->test_plan ?? '-',
-            'changeTypes' => $impl->changeTypes->pluck('name')->implode(', '),
+            'changeTypeNames' => $impl->changeTypes->pluck('name')->all(),
             'reviewStatus' => $impl->review_status ?? '-',
             'reviewResponse' => $impl->review_response ?? '-',
-            'executionDate' => $impl->execution_date?->isoFormat('D MMMM Y') ?? '-',
-            'responsibleTeamName' => $impl->reviewer?->team?->name ?? '-',
-            'implementationResult' => $impl->implementation_result ?? '-',
+            'executionDate' => $impl->execution_date?->format('d-m-Y') ?? '-',
+            // Fixed per spec — the responsible party is always "Tim Aplikasi", regardless
+            // of which kepala tim account approved.
+            'responsibleTeamName' => 'Tim Aplikasi',
+            // "Hasil Tanggapan Perubahan" mirrors the "Tanggapan" field — there is no
+            // separate input for it in the web form.
+            'implementationResult' => $impl->review_response ?? '-',
             'attachmentImages' => $this->resolveAttachmentImages($impl),
-            'releaseDate' => $impl->release_date?->isoFormat('D MMMM Y') ?? '-',
+            'releaseDate' => $impl->release_date?->format('d-m-Y') ?? '-',
             'evaluatorName' => $evaluator ? strtoupper($evaluator->name) : '-',
             'evaluatorNip' => $evaluator?->nip ?? '-',
             'evaluatorPosition' => $evaluator?->position ?? '-',
+            'evaluatorBidang' => $evaluator?->team?->field?->name ?? $field?->name ?? '-',
             'evaluatorSig' => $evaluatorSig,
             'reviewerName' => $reviewer ? strtoupper($reviewer->name) : '-',
             'reviewerNip' => $reviewer?->nip ?? '-',
             'reviewerPosition' => $reviewer?->position ?? '-',
+            'reviewerBidang' => $reviewer?->team?->field?->name ?? $field?->name ?? '-',
             'reviewerSig' => $reviewerSig,
             'responsibleName' => $responsible ? strtoupper($responsible->name) : '-',
             'responsibleNip' => $responsible?->nip ?? '-',
             'responsiblePosition' => $responsible?->position ?? '-',
+            'responsibleBidang' => $responsible?->team?->field?->name ?? $field?->name ?? '-',
             'responsibleSig' => $responsibleSig,
         ];
 

@@ -138,7 +138,7 @@ export default function Sidebar({
 
     const wrappedContent = active && !hasChildren ? (
       <div className="relative">
-        <div className="absolute left-[-6px] top-0 w-[317px] h-[54px] bg-[#DBEAFE] rounded-[10px]" />
+        <div className="absolute -left-[6px] -right-[6px] top-0 h-[54px] bg-[#DBEAFE] rounded-[10px]" />
         {content}
       </div>
     ) : content;
@@ -198,7 +198,7 @@ export default function Sidebar({
       )}
 
       {/* Navigation */}
-      <nav className="flex-1 flex flex-col gap-[2px] px-[14px] overflow-y-auto">
+      <nav className="flex-1 flex flex-col gap-[2px] px-[14px] overflow-y-auto overflow-x-hidden">
         {menuItems.map((item) => renderItem(item))}
       </nav>
 

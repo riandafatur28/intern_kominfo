@@ -9,6 +9,7 @@ use App\Support\Signature\SignatureServiceInterface;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
+use Illuminate\Support\Facades\Storage;
 
 class ProfileController extends Controller
 {
@@ -60,6 +61,25 @@ class ProfileController extends Controller
             'data' => [
                 'signature_path' => $path,
                 'signature_url' => asset("storage/{$path}"),
+            ],
+        ]);
+    }
+
+    public function deleteSignature(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        if ($user->signature_path) {
+            Storage::disk('public')->delete($user->signature_path);
+            $user->update(['signature_path' => null]);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Tanda tangan berhasil dihapus.',
+            'data' => [
+                'signature_path' => null,
+                'signature_url' => null,
             ],
         ]);
     }

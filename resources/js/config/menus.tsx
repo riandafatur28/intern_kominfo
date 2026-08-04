@@ -1,5 +1,16 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
-import { ProfilIcon, UsersIcon, SettingsIcon, ShieldIcon, WfhIcon, WfhAbsensiIcon, WfhMonitorIcon } from "../components/ui/icons";
+import {
+  ProfilIcon,
+  UsersIcon,
+  SettingsIcon,
+  ShieldIcon,
+  WfhIcon,
+  WfhAbsensiIcon,
+  WfhMonitorIcon,
+  ChangeMonitorIcon,
+  ChangeApprovalIcon,
+  ChangeInisiasiIcon,
+} from "../components/ui/icons";
 
 interface MenuDef {
   label: string;
@@ -50,6 +61,24 @@ const allMenuDefs: MenuDef[] = [
     permissions: ["wfh.monitoring.view"],
     icon: WfhMonitorIcon,
     pngIcon: true,
+  },
+  {
+    label: "Monitoring Perubahan",
+    href: "/change-management/monitoring",
+    roles: ["admin"],
+    icon: ChangeMonitorIcon,
+  },
+  {
+    label: "Persetujuan Perubahan",
+    href: "/change-management/persetujuan",
+    roles: ["kepala_tim"],
+    icon: ChangeApprovalIcon,
+  },
+  {
+    label: "Inisiasi Perubahan",
+    href: "/change-management/inisiasi",
+    roles: ["staf", "admin"],
+    icon: ChangeInisiasiIcon,
   },
   {
     label: "Profil Saya",

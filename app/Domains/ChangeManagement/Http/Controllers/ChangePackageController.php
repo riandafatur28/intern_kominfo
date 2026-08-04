@@ -201,15 +201,26 @@ class ChangePackageController extends Controller
         }
 
         // Persist the submit payload (staf fills all business fields) before transition.
+        // Stamp initiation/execution date and "dievaluasi oleh" as of this submit click —
+        // not the earlier draft-creation time — so the generated PDFs reflect the actual
+        // submission moment and the logged-in submitter's profile.
+        $now = now();
+
         $this->repo->updatePackage(
             id: $id,
-            initiation: $request->input('initiation', []),
-            implementation: $request->input('implementation', []),
+            initiation: array_merge($request->input('initiation', []), [
+                'initiation_date' => $now->toDateString(),
+            ]),
+            implementation: array_merge($request->input('implementation', []), [
+                'evaluator_id' => $request->user()->id,
+                'evaluator_signed_at' => $now,
+                'execution_date' => $now->toDateString(),
+            ]),
             typeIds: $request->input('implementation.change_type_ids', []),
         );
 
         $this->repo->transitionPackage($id, 'pending', [
-            'initiator_signed_at' => now(),
+            'initiator_signed_at' => $now,
             'verification_token' => $package->verification_token ?? bin2hex(random_bytes(32)),
         ], []);
 
@@ -364,16 +375,28 @@ class ChangePackageController extends Controller
 
         $this->repo->addAttachments($package->implementation->id, $paths);
 
+        // Shape must match ImplementationResource's attachment mapping (id/path/url/sort_order) —
+        // returning the raw model here previously omitted `url`, so a freshly-uploaded
+        // preview broke on the form even though it rendered fine after a reload (which
+        // goes through the resource).
+        $attachments = $package->implementation->fresh('attachments')->attachments
+            ->map(fn ($a) => [
+                'id' => $a->id,
+                'path' => $a->path,
+                'url' => asset('storage/'.$a->path),
+                'sort_order' => $a->sort_order,
+            ]);
+
         return response()->json([
             'success' => true,
             'message' => 'Lampiran berhasil diunggah.',
-            'data' => $package->implementation->fresh('attachments')->attachments,
+            'data' => $attachments,
         ]);
     }
 
     /**
      * Single source of truth for package visibility. Mirrors paginatePackages scope:
-     * admin = all, kepala_tim/kepala_bidang = same team, staf = own.
+     * admin = all, kepala_tim/kepala_bidang = same team or admin-initiated, staf = own.
      */
     private function actorCanAccessPackage(User $actor, ChangeInitiation $package): bool
     {
@@ -382,8 +405,11 @@ class ChangePackageController extends Controller
         }
 
         if ($actor->hasAnyRole(['kepala_tim', 'kepala_bidang'])) {
+            // Mirrors paginatePackages' scope — same team, or the package was
+            // initiated by an admin (who sits outside any kepala_tim's team roster).
             return $actor->team_id !== null
-                && $actor->team_id === $package->initiator?->team_id;
+                && ($actor->team_id === $package->initiator?->team_id
+                    || $package->initiator?->hasRole('admin'));
         }
 
         return $package->initiator_id === $actor->id;

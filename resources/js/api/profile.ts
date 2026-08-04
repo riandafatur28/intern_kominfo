@@ -38,3 +38,8 @@ export async function uploadSignature(file: File): Promise<SignatureResponse["da
   });
   return res.data.data;
 }
+
+export async function deleteSignature(): Promise<SignatureResponse["data"]> {
+  const res = await client.delete<SignatureResponse>("/profile/signature");
+  return res.data.data;
+}

@@ -9,6 +9,9 @@ import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import SettingsPage from "./pages/admin/SettingsPage";
 import RolePermissionPage from "./pages/admin/RolePermissionPage";
+import AdminMonitoring from "./pages/change-management/AdminMonitoring";
+import LeadApproval from "./pages/change-management/LeadApproval";
+import UserInisiasi from "./pages/change-management/UserInisiasi";
 
 
 export default function Root() {
@@ -73,6 +76,32 @@ export default function Root() {
           element={
             <ProtectedRoute>
               <WfhMonitoring />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* Change Management Routes */}
+        <Route
+          path="/change-management/monitoring"
+          element={
+            <ProtectedRoute>
+              <AdminMonitoring />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-management/persetujuan"
+          element={
+            <ProtectedRoute>
+              <LeadApproval />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-management/inisiasi"
+          element={
+            <ProtectedRoute>
+              <UserInisiasi />
             </ProtectedRoute>
           }
         />
