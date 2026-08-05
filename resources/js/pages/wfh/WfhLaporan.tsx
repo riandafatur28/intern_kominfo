@@ -21,7 +21,6 @@ import {
   updateReportActivity,
   deleteReportActivity,
   type WfhReport,
-  type WfhReportActivity,
   extractWfhError,
 } from "../../api/wfh";
 import { openPdfDirect } from "../../utils/swAuth";
@@ -47,7 +46,7 @@ function toTimeInput(iso: string): string {
 }
 
 export default function WfhLaporan() {
-  const { hasPermission, user } = useAuth();
+  const { hasPermission } = useAuth();
 
   /* ── List state ──────────────────────────────────────────────── */
   const [pageStatus, setPageStatus] = useState<PageStatus>("loading");

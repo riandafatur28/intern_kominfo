@@ -4,7 +4,6 @@ import {
   UsersIcon,
   SettingsIcon,
   ShieldIcon,
-  WfhIcon,
   WfhAbsensiIcon,
   WfhMonitorIcon,
   ChangeMonitorIcon,
@@ -25,9 +24,6 @@ interface MenuDef {
  * All possible menus. Each entry declares which permissions or roles
  * grant access. Empty permissions = visible to everyone authenticated.
  */
-function capFirst(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 const allMenuDefs: MenuDef[] = [
   {
