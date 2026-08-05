@@ -25,7 +25,7 @@ export function changeInitiationBody(data) {
         docNumber = '', tanggal = '', halaman = 1,
         bidang = '-', neededByDate = '-', description = '-', reason = '-',
         initiatorName = '-', initiatorNip = '-', initiatorPosition = 'Inisiator Perubahan',
-        initiatorSignatureUrl, isApproved = false, bsreLogoUrl,
+        initiatorSignatureUrl, isApproved = false,
         logoUrl = '/images/logo-jatim.png',
     } = data;
 

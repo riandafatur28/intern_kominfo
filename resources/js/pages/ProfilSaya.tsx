@@ -18,7 +18,7 @@ function bustCache(url: string | null): string | null {
 type PageStatus = "loading" | "ready" | "saving" | "error" | "success";
 
 export default function ProfilSaya() {
-  const { setUser, user, changePassword } = useAuth();
+  const { setUser, changePassword } = useAuth();
 
   const [name, setName] = useState("");
   const [nip, setNip] = useState("");

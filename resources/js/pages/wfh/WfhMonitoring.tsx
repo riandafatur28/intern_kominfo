@@ -163,7 +163,7 @@ export default function WfhMonitoring() {
     try {
       const res = await listTeamReports({ per_page: 15 });
       // BE returns raw paginator {data,current_page,last_page,total} without meta envelope
-      const raw = (res as any).meta ?? res;
+      const raw = ((res as unknown as { meta?: { data?: WfhTeamReport[]; current_page?: number; last_page?: number; total?: number } }).meta ?? res) as { data?: WfhTeamReport[]; current_page?: number; last_page?: number; total?: number };
       setTeamReports(raw.data ?? []);
       setTPage(raw.current_page ?? 1);
       setTLastPage(raw.last_page ?? 1);
@@ -185,7 +185,7 @@ export default function WfhMonitoring() {
 
   useEffect(() => {
     if (tab === "tim") loadTeamReports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+     
   }, [tab, tPage]);
 
   /* ── Actions: individu ───────────────────────────────────────── */

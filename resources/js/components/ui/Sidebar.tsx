@@ -1,4 +1,4 @@
-import { useState, type ReactNode, type ComponentType, type MouseEvent } from "react";
+import { useState, type ReactNode, type ComponentType } from "react";
 import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import { getFilteredMenus } from "../../config/menus";

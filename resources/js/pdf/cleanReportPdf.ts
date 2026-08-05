@@ -18,7 +18,6 @@ const CW = PAGE_W - 2 * ML; // lebar konten
 
 const BLACK = rgb(0, 0, 0);
 const BLUE = rgb(0.1, 0.34, 0.85); // #1a56db (link)
-const GRAY = rgb(0.47, 0.47, 0.47);
 
 const H = 11; // font identitas
 const HSMALL = 8.5; // link
@@ -266,7 +265,6 @@ export async function buildWfhReportPdf(data: WfhReportPrintData): Promise<Uint8
   const pct = (p: number) => (CW * p) / 100;
   const colW = [pct(6), pct(20), pct(44), pct(30)];
   const colX = [ML, ML + colW[0], ML + colW[0] + colW[1], ML + colW[0] + colW[1] + colW[2]];
-  const fsz = [10.5, 10.5, 10.5, HSMALL];
 
   const kegiatan = Array.isArray(data.kegiatan) ? data.kegiatan : [];
   const rows: TableRow[] = kegiatan.map((k, i) => {
@@ -336,7 +334,6 @@ export async function buildWfhReportPdf(data: WfhReportPrintData): Promise<Uint8
     const nip = c.isPlace ? data.makerNip : data.supervisorNip;
     const nipText = `NIP. ${nip ?? ""}`;
     page.drawText(win(nipText), { x: c.x + (colW2 - font.widthOfTextAtSize(win(nipText), H)) / 2, y: PAGE_H - yy - H, size: H, font, color: BLACK });
-    yy += lineH(H);
   }
 
   const bytes = await doc.save();
