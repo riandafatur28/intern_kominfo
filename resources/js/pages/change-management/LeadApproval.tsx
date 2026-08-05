@@ -20,6 +20,23 @@ import { openPdfDirect } from "../../utils/swAuth";
 
 type View = "queue" | "history";
 
+function formatSlash(iso: string | null | undefined): string {
+  if (!iso) return "-";
+  const m = iso.slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso;
+  const [, y, mo, d] = m;
+  return `${d}/${mo}/${y}`;
+}
+
+function EyeIcon({ size = 20 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
 export default function LeadApproval() {
   const { user, hasPermission } = useAuth();
   const [view, setView] = useState<View>("queue");
@@ -27,11 +44,7 @@ export default function LeadApproval() {
   /* ── Queue ───────────────────────────────────────────────────── */
   const [queue, setQueue] = useState<ChangePackage[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
-  const [selectedId, setSelectedId] = useState<number | null>(null);
-  // listChangePackages() is a light "summary" read (no attachment rows) so the queue
-  // table stays cheap; fetch the full package (with lampiran) once a row is picked,
-  // same as staf's detail view does via getChangePackage().
-  const [selectedDetail, setSelectedDetail] = useState<ChangePackage | null>(null);
+  const [queueSelected, setQueueSelected] = useState<ChangePackage | null>(null);
   const [errMsg, setErrMsg] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -46,11 +59,6 @@ export default function LeadApproval() {
     try {
       const res = await listChangePackages({ status: "pending", per_page: 100 });
       setQueue(res.data);
-      setSelectedId((prev) =>
-        prev != null && res.data.some((p) => p.initiation.id === prev)
-          ? prev
-          : (res.data[0]?.initiation.id ?? null)
-      );
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal memuat antrian persetujuan."));
     } finally {
@@ -88,30 +96,6 @@ export default function LeadApproval() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
 
-  const selected = useMemo(
-    () => queue.find((p) => p.initiation.id === selectedId) ?? null,
-    [queue, selectedId]
-  );
-
-  // Upgrade the light queue row to a full detail (with lampiran) as soon as its id is
-  // selected. Keep rendering the light `selected` row in the meantime so the header
-  // (doc number, initiator, status) shows instantly without waiting on the fetch.
-  useEffect(() => {
-    if (selectedId == null) {
-      setSelectedDetail(null);
-      return;
-    }
-    let cancelled = false;
-    getChangePackage(selectedId)
-      .then((res) => {
-        if (!cancelled) setSelectedDetail(res.data);
-      })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [selectedId]);
-
   const historyCounts = useMemo(() => {
     let approved = 0;
     let rejected = 0;
@@ -122,15 +106,42 @@ export default function LeadApproval() {
     return { approved, rejected };
   }, [history]);
 
-  async function handleApprove() {
-    if (!selected) return;
+  async function handleViewDetail(id: number) {
+    setErrMsg("");
+    setSaving(true);
+    try {
+      const res = await getChangePackage(id);
+      setQueueSelected(res.data);
+    } catch (e: unknown) {
+      setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleApprove(pkg: ChangePackage) {
     setSaving(true);
     setErrMsg("");
     try {
-      await approveChangePackage(selected.initiation.id);
+      await approveChangePackage(pkg.initiation.id);
+      setQueueSelected(null);
       await loadQueue();
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal menyetujui permohonan."));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function handleReject(pkg: ChangePackage) {
+    setSaving(true);
+    setErrMsg("");
+    try {
+      await rejectChangePackage(pkg.initiation.id);
+      setQueueSelected(null);
+      await loadQueue();
+    } catch (e: unknown) {
+      setErrMsg(extractChangeError(e, "Gagal menolak permohonan."));
     } finally {
       setSaving(false);
     }
@@ -146,22 +157,9 @@ export default function LeadApproval() {
     }
   }
 
-  async function handleReject() {
-    if (!selected) return;
-    setSaving(true);
-    setErrMsg("");
-    try {
-      await rejectChangePackage(selected.initiation.id);
-      await loadQueue();
-    } catch (e: unknown) {
-      setErrMsg(extractChangeError(e, "Gagal menolak permohonan."));
-    } finally {
-      setSaving(false);
-    }
-  }
-
   const canDecide = hasPermission("change.initiation.approve") || hasPermission("change.initiation.reject");
 
+  /* ── Detail Riwayat (tidak diubah) ───────────────────────────── */
   if (historySelected) {
     return (
       <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
@@ -195,6 +193,44 @@ export default function LeadApproval() {
     );
   }
 
+  /* ── Detail Antrian (mirip halaman detail riwayat) ───────────── */
+  if (queueSelected) {
+    return (
+      <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
+        <div className="flex items-center justify-between">
+          <PageTitle title={queueSelected.initiation.doc_number} subtitle={queueSelected.initiation.initiator?.name} />
+          <button className="text-[#256EEF] text-sm hover:underline" onClick={() => setQueueSelected(null)}>
+            &larr; Kembali ke Antrian
+          </button>
+        </div>
+        {errMsg && (
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{errMsg}</div>
+        )}
+        <PackageDetailView pkg={queueSelected} />
+        {canDecide && (
+          <div className="flex gap-3">
+            <Button
+              className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100"
+              variant="outline"
+              onClick={() => handleApprove(queueSelected)}
+              disabled={saving}
+            >
+              Setujui
+            </Button>
+            <Button
+              variant="outline"
+              className="!text-red-500 !border-red-300 hover:!bg-red-50"
+              onClick={() => handleReject(queueSelected)}
+              disabled={saving}
+            >
+              Tolak
+            </Button>
+          </div>
+        )}
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Permintaan Persetujuan" }]}>
       <div className="flex items-center justify-between">
@@ -213,92 +249,80 @@ export default function LeadApproval() {
       )}
 
       {view === "queue" ? (
-        <div className="grid grid-cols-[320px_1fr] gap-6 items-start">
-          {/* ── Queue list ─────────────────────────────────────── */}
-          <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
-            <div className="px-4 py-3 border-b border-[#E0E9F2]">
-              <h3 className="text-xs font-semibold text-[#767676] tracking-wide">ANTRIAN PERSETUJUAN</h3>
-            </div>
-            {queueLoading ? (
-              <div className="text-center py-8 text-sm text-[#767676]">Memuat...</div>
-            ) : queue.length === 0 ? (
-              <div className="text-center py-8 text-sm text-[#767676]">Tidak ada permohonan menunggu.</div>
-            ) : (
-              <div className="flex flex-col">
-                {queue.map((p) => (
-                  <button
-                    key={p.initiation.id}
-                    onClick={() => setSelectedId(p.initiation.id)}
-                    className={`text-left px-4 py-3 border-b border-[#F0F0F0] transition-colors ${
-                      p.initiation.id === selectedId ? "bg-[#DBEAFE]" : "hover:bg-[#F6FAFF]"
-                    }`}
-                  >
-                    <p className="text-xs text-[#767676]">{p.initiation.doc_number}</p>
-                    <p className="text-sm font-semibold text-[#256EEF]">{p.initiation.initiator?.name}</p>
-                    <p className="text-xs text-[#767676] mt-1">{p.initiation.field?.name}</p>
-                    <p className="text-xs text-[#767676]">
-                      {changeClassLabel(p.implementation?.priority)} • {p.initiation.initiation_date}
-                    </p>
-                  </button>
-                ))}
-              </div>
-            )}
+        <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-[#E0E9F2]">
+            <h3 className="text-sm font-semibold text-[#141D23]">Antrian Persetujuan</h3>
           </div>
-
-          {/* ── Detail panel ───────────────────────────────────── */}
-          {selected ? (
-            <div className="flex flex-col gap-6">
-              <div className="bg-white rounded-[10px] shadow-sm p-5 flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-[#767676]">{selected.initiation.doc_number}</p>
-                  <div className="flex items-center gap-3">
-                    <span className="text-lg font-bold text-[#141D23]">
-                      {changeClassLabel(selected.implementation?.priority)}
-                    </span>
-                    <span
-                      className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${statusBadge(selected.initiation.status).color}`}
-                    >
-                      {selected.initiation.status === "pending"
-                        ? "Menunggu Persetujuan"
-                        : statusBadge(selected.initiation.status).label}
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#767676] mt-1">
-                    {selected.initiation.initiator?.name} · {selected.initiation.field?.name} ·{" "}
-                    {selected.initiation.initiation_date}
-                  </p>
-                </div>
-                {canDecide && (
-                  <div className="flex gap-3 shrink-0">
-                    <Button
-                      className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100"
-                      variant="outline"
-                      onClick={handleApprove}
-                      disabled={saving}
-                    >
-                      Setujui
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="!text-red-500 !border-red-300 hover:!bg-red-50"
-                      onClick={handleReject}
-                      disabled={saving}
-                    >
-                      Tolak
-                    </Button>
-                  </div>
-                )}
-              </div>
-
-              <PackageDetailView pkg={selectedDetail ?? selected} />
-            </div>
+          {queueLoading ? (
+            <div className="text-center py-10 text-sm text-[#767676]">Memuat...</div>
           ) : (
-            <div className="bg-white rounded-[10px] shadow-sm p-12 text-center text-sm text-[#767676]">
-              Pilih permohonan pada antrian untuk melihat detail.
-            </div>
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
+                  <th className="text-left px-4 py-3 font-medium text-[#767676]">Tanggal</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#767676]">Nomor</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#767676]">Judul</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#767676]">Inisiator</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#767676]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {queue.length === 0 && (
+                  <tr>
+                    <td colSpan={5} className="text-center py-10 text-sm text-[#767676]">
+                      Tidak ada permohonan menunggu persetujuan.
+                    </td>
+                  </tr>
+                )}
+                {queue.map((p) => (
+                  <tr key={p.initiation.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
+                    <td className="px-4 py-3 text-[#333] whitespace-nowrap">{formatSlash(p.initiation.initiation_date)}</td>
+                    <td className="px-4 py-3 font-medium text-[#256EEF] whitespace-nowrap">{p.initiation.doc_number}</td>
+                    <td className="px-4 py-3 text-[#333] max-w-xs">
+                      <span className="line-clamp-2">{p.initiation.description}</span>
+                    </td>
+                    <td className="px-4 py-3 text-[#333] whitespace-nowrap">{p.initiation.initiator?.name}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleViewDetail(p.initiation.id)}
+                          title="Lihat detail permohonan"
+                          className="p-2 rounded-lg text-[#256EEF] hover:bg-[#EBF3FF] transition-colors"
+                        >
+                          <EyeIcon />
+                        </button>
+                        {canDecide && (
+                          <>
+                            <Button
+                              size="sm"
+                              className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100"
+                              variant="outline"
+                              onClick={() => handleApprove(p)}
+                              disabled={saving}
+                            >
+                              Setujui
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="!text-red-500 !border-red-300 hover:!bg-red-50"
+                              onClick={() => handleReject(p)}
+                              disabled={saving}
+                            >
+                              Tolak
+                            </Button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           )}
         </div>
       ) : (
+        /* ── View riwayat: TIDAK DIUBAH ── */
         <>
           <div className="grid grid-cols-2 gap-5">
             <div className="bg-green-50 border border-green-100 rounded-[10px] p-5 flex items-center gap-4">
