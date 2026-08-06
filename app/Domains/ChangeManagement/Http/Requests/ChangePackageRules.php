@@ -56,8 +56,8 @@ class ChangePackageRules
 
         return [
             'implementation' => [$presence, 'array'],
-            'implementation.priority' => [$presence, 'string', 'in:low,medium,high,critical'],
-            'implementation.impact' => [$presence, 'string', 'in:low,medium,high'],
+            'implementation.priority' => [$presence, 'string', 'in:normal,emergency'],
+            'implementation.impact' => [$presence, 'string', 'in:Minor,Mayor'],
             'implementation.production_impact' => ['nullable', 'string'],
             'implementation.required_effort' => ['nullable', 'string'],
             'implementation.cost_needed' => ['nullable', 'boolean'],

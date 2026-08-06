@@ -197,7 +197,7 @@ class ChangePackageFlowTest extends TestCase
                 'description' => 'Initial',
                 'reason' => 'Initial reason',
             ],
-            'implementation' => ['priority' => 'low', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ])->json('data.initiation');
 
         $response = $this->postJson("/api/changes/{$pkg['id']}/submit", [
@@ -208,8 +208,8 @@ class ChangePackageFlowTest extends TestCase
                 'needed_by_date' => '2026-09-01',
             ],
             'implementation' => [
-                'priority' => 'high',
-                'impact' => 'medium',
+                'priority' => 'emergency',
+                'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Real test plan',
                 'execution_date' => '2026-09-10',
@@ -224,7 +224,7 @@ class ChangePackageFlowTest extends TestCase
             ->assertJsonPath('data.initiation.description', 'Final desc')
             ->assertJsonPath('data.initiation.reason', 'Final reason')
             ->assertJsonPath('data.initiation.needed_by_date', '2026-09-01')
-            ->assertJsonPath('data.implementation.priority', 'high')
+            ->assertJsonPath('data.implementation.priority', 'emergency')
             ->assertJsonPath('data.implementation.test_plan', 'Real test plan')
             ->assertJsonPath('data.implementation.execution_date', '2026-09-10')
             ->assertJsonPath('data.implementation.implementation_result', 'Real result')
@@ -354,7 +354,7 @@ class ChangePackageFlowTest extends TestCase
                 'description' => 'Test description',
                 'reason' => 'Test reason',
             ],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ];
     }
 
@@ -368,7 +368,7 @@ class ChangePackageFlowTest extends TestCase
                 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'high', 'impact' => 'medium',
+                'priority' => 'emergency', 'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Test plan', 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15', 'implementation_result' => 'Done',
@@ -384,7 +384,7 @@ class ChangePackageFlowTest extends TestCase
                 'reason' => 'Test reason', 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'high', 'impact' => 'medium',
+                'priority' => 'emergency', 'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Test plan', 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15', 'implementation_result' => 'Done',
