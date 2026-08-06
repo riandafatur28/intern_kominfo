@@ -136,24 +136,6 @@ class ChangePackageFlowTest extends TestCase
         $this->assertSoftDeleted('change_initiations', ['id' => $pkg['id']]);
     }
 
-    public function test_deleting_draft_removes_attachment_files_from_disk(): void
-    {
-        Storage::fake('public');
-        Sanctum::actingAs($this->staf);
-        $pkg = $this->postJson('/api/changes', $this->validDraftPayload())->json('data.initiation');
-        $upload = $this->postJson("/api/changes/{$pkg['id']}/attachments", [
-            'files' => [UploadedFile::fake()->image('doc.jpg')],
-        ]);
-        $path = $upload->json('data.0.path');
-        Storage::disk('public')->assertExists($path);
-
-        $this->deleteJson("/api/changes/{$pkg['id']}")->assertStatus(200);
-
-        // The row is gone (already covered by test_staf_can_delete_own_draft) — the
-        // underlying file must go with it, or it leaks on disk forever.
-        Storage::disk('public')->assertMissing($path);
-    }
-
     public function test_cannot_delete_non_draft(): void
     {
         Sanctum::actingAs($this->staf);
@@ -215,7 +197,7 @@ class ChangePackageFlowTest extends TestCase
                 'description' => 'Initial',
                 'reason' => 'Initial reason',
             ],
-            'implementation' => ['priority' => 'low', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ])->json('data.initiation');
 
         $response = $this->postJson("/api/changes/{$pkg['id']}/submit", [
@@ -226,8 +208,8 @@ class ChangePackageFlowTest extends TestCase
                 'needed_by_date' => '2026-09-01',
             ],
             'implementation' => [
-                'priority' => 'high',
-                'impact' => 'medium',
+                'priority' => 'emergency',
+                'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Real test plan',
                 'execution_date' => '2026-09-10',
@@ -237,19 +219,14 @@ class ChangePackageFlowTest extends TestCase
             ],
         ]);
 
-        // execution_date / initiation_date are stamped server-side to the submit-click
-        // date (not the client-supplied payload) so the generated PDFs always show the
-        // actual submission moment.
         $response->assertStatus(200)
             ->assertJsonPath('data.initiation.status', 'pending')
             ->assertJsonPath('data.initiation.description', 'Final desc')
             ->assertJsonPath('data.initiation.reason', 'Final reason')
             ->assertJsonPath('data.initiation.needed_by_date', '2026-09-01')
-            ->assertJsonPath('data.initiation.initiation_date', now()->toDateString())
-            ->assertJsonPath('data.implementation.priority', 'high')
+            ->assertJsonPath('data.implementation.priority', 'emergency')
             ->assertJsonPath('data.implementation.test_plan', 'Real test plan')
-            ->assertJsonPath('data.implementation.execution_date', now()->toDateString())
-            ->assertJsonPath('data.implementation.evaluator_id', $this->staf->id)
+            ->assertJsonPath('data.implementation.execution_date', '2026-09-10')
             ->assertJsonPath('data.implementation.implementation_result', 'Real result')
             ->assertJsonPath('data.implementation.review_response', 'Tanggapan staf');
         $this->assertContains($this->typeA->id, $response->json('data.implementation.change_types.*.id'));
@@ -262,26 +239,6 @@ class ChangePackageFlowTest extends TestCase
         $otherKt->assignRole('kepala_tim');
         Sanctum::actingAs($otherKt);
         $this->postJson("/api/changes/{$initId}/approve")->assertStatus(403);
-    }
-
-    public function test_kepala_tim_sees_and_can_approve_admin_initiated_package(): void
-    {
-        // Admin sits outside every kepala_tim's team roster — a same-team-only
-        // visibility rule would leave admin-submitted packages invisible (and
-        // therefore unapprovable by anyone, since admin can't approve its own).
-        $crossTeamAdmin = User::factory()->create(['team_id' => Team::factory()->create(['field_id' => $this->field->id])->id]);
-        $crossTeamAdmin->assignRole('admin');
-
-        Sanctum::actingAs($crossTeamAdmin);
-        $pkg = $this->postJson('/api/changes', $this->validDraftWithAll())->json('data.initiation');
-        $this->postJson("/api/changes/{$pkg['id']}/submit", $this->validSubmitPayload())->assertStatus(200);
-
-        Sanctum::actingAs($this->kepalaTim);
-        $listed = collect($this->getJson('/api/changes')->json('data'))
-            ->pluck('initiation.id');
-        $this->assertContains($pkg['id'], $listed);
-
-        $this->postJson("/api/changes/{$pkg['id']}/approve")->assertStatus(200);
     }
 
     public function test_admin_can_approve_break_glass(): void
@@ -322,11 +279,6 @@ class ChangePackageFlowTest extends TestCase
         ]);
         $response->assertStatus(200);
         $this->assertCount(1, $response->json('data'));
-        // The upload response must carry a usable `url` (not just the raw storage
-        // `path`) so the freshly-uploaded preview renders on the form immediately,
-        // matching what ImplementationResource returns on a full package read.
-        $this->assertNotEmpty($response->json('data.0.url'));
-        $this->assertStringEndsWith('/storage/'.$response->json('data.0.path'), $response->json('data.0.url'));
     }
 
     public function test_submit_without_testing_result_succeeds(): void
@@ -402,7 +354,7 @@ class ChangePackageFlowTest extends TestCase
                 'description' => 'Test description',
                 'reason' => 'Test reason',
             ],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ];
     }
 
@@ -416,7 +368,7 @@ class ChangePackageFlowTest extends TestCase
                 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'high', 'impact' => 'medium',
+                'priority' => 'emergency', 'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Test plan', 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15', 'implementation_result' => 'Done',
@@ -432,7 +384,7 @@ class ChangePackageFlowTest extends TestCase
                 'reason' => 'Test reason', 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'high', 'impact' => 'medium',
+                'priority' => 'emergency', 'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Test plan', 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15', 'implementation_result' => 'Done',

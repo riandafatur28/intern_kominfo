@@ -40,8 +40,8 @@ return new class extends Migration
         Schema::create('change_implementations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('change_initiation_id')->constrained('change_initiations')->cascadeOnDelete();
-            $table->string('priority', 10)->default('medium'); // low, medium, high, critical
-            $table->string('impact', 10)->default('low'); // low, medium, high
+            $table->string('priority', 10)->default('normal'); // normal, emergency
+            $table->string('impact', 10)->default('Minor'); // Minor, Mayor
             $table->text('production_impact')->nullable();
             $table->text('required_effort')->nullable();
             $table->boolean('cost_needed')->default(false);
