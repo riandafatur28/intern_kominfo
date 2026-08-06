@@ -37,8 +37,8 @@ class SegregationOfDutiesTest extends TestCase
         ChangeImplementation::create([
             'change_initiation_id' => $initiation->id,
             'status' => 'draft',
-            'priority' => 'medium',
-            'impact' => 'low',
+            'priority' => 'normal',
+            'impact' => 'Minor',
         ]);
         $initiation->update(['status' => 'pending']);
 
