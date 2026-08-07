@@ -35,7 +35,7 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
         'initiator.team',
         'reviewer',
         'implementation.evaluator',
-        'implementation.reviewer',
+        'implementation.reviewer.team',
         'implementation.responsible',
         'implementation.changeTypes',
         'implementation.attachments',
@@ -63,8 +63,8 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
 
             $impl = ChangeImplementation::create(array_merge([
                 'status' => 'draft',
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
             ], $implementation, [
                 'change_initiation_id' => $parent->id,
             ]));
@@ -89,8 +89,8 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
             if (! $impl) {
                 $impl = ChangeImplementation::create(array_merge([
                     'status' => 'draft',
-                    'priority' => 'medium',
-                    'impact' => 'low',
+                    'priority' => 'normal',
+                    'impact' => 'Minor',
                 ], $implementation, [
                     'change_initiation_id' => $parent->id,
                 ]));

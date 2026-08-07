@@ -140,7 +140,7 @@ class SmokeTest extends TestCase
                 'description' => 'Test change',
                 'reason' => 'Testing',
             ],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ]);
         $response->assertStatus(201)->assertJsonPath('success', true);
         $pkgId = $response->json('data.initiation.id');
@@ -149,7 +149,7 @@ class SmokeTest extends TestCase
 
         $this->postJson("/api/changes/{$pkgId}/submit", [
             'initiation' => ['field_id' => $field->id, 'description' => 'Test change', 'reason' => 'Testing', 'needed_by_date' => '2026-08-01'],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low', 'change_type_ids' => [$typeId], 'test_plan' => 'plan', 'execution_date' => '2026-08-10', 'release_date' => '2026-08-15', 'implementation_result' => 'Done', 'testing_result' => 'Pass'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor', 'change_type_ids' => [$typeId], 'test_plan' => 'plan', 'execution_date' => '2026-08-10', 'release_date' => '2026-08-15', 'implementation_result' => 'Done'],
         ])->assertStatus(200)->assertJsonPath('data.initiation.status', 'pending');
         $supervisor = $this->createSupervisor();
         Sanctum::actingAs($supervisor);

@@ -65,8 +65,8 @@ class ChangePackageFoundationTest extends TestCase
 
         ChangeImplementation::create([
             'change_initiation_id' => $package->id,
-            'priority' => 'low',
-            'impact' => 'low',
+            'priority' => 'normal',
+            'impact' => 'Minor',
             'status' => 'draft',
         ]);
     }
@@ -84,8 +84,8 @@ class ChangePackageFoundationTest extends TestCase
                 'status' => 'draft',
             ],
             [
-                'priority' => 'high',
-                'impact' => 'medium',
+                'priority' => 'emergency',
+                'impact' => 'Mayor',
                 'test_plan' => 'Plan A',
                 'status' => 'draft',
             ],
@@ -96,7 +96,7 @@ class ChangePackageFoundationTest extends TestCase
         $this->assertNotNull($package->implementation);
         $this->assertEquals('draft', $package->status);
         $this->assertEquals('draft', $package->implementation->status);
-        $this->assertEquals('high', $package->implementation->priority);
+        $this->assertEquals('emergency', $package->implementation->priority);
         $this->assertCount(1, $package->implementation->changeTypes);
         $this->assertEquals(1, ChangeImplementation::where('change_initiation_id', $package->id)->count());
     }
@@ -110,20 +110,19 @@ class ChangePackageFoundationTest extends TestCase
             $package->id,
             ['description' => 'Updated desc', 'needed_by_date' => '2026-08-01'],
             [
-                'priority' => 'critical',
-                'impact' => 'high',
+                'priority' => 'emergency',
+                'impact' => 'Mayor',
                 'test_plan' => 'New plan',
                 'execution_date' => '2026-08-02',
                 'release_date' => '2026-08-03',
                 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
             ],
             [$otherType->id],
         );
 
         $this->assertEquals('Updated desc', $updated->description);
         $this->assertEquals('2026-08-01', $updated->needed_by_date->toDateString());
-        $this->assertEquals('critical', $updated->implementation->priority);
+        $this->assertEquals('emergency', $updated->implementation->priority);
         $this->assertEquals('New plan', $updated->implementation->test_plan);
         $this->assertEquals([$otherType->id], $updated->implementation->changeTypes->pluck('id')->all());
     }
@@ -177,9 +176,7 @@ class ChangePackageFoundationTest extends TestCase
         $this->repo->transitionPackage($package->id, 'rejected', [
             'reviewer_id' => $this->teammate->id,
             'review_status' => 'rejected',
-            'review_reason' => 'No',
-        ], [
-            'review_response' => 'No',
+            'reviewed_at' => now(),
         ]);
 
         $package->refresh();
@@ -268,7 +265,7 @@ class ChangePackageFoundationTest extends TestCase
                 'reason' => 'y',
             ],
             'implementation' => [
-                'priority' => 'medium',
+                'priority' => 'normal',
             ],
         ], $rules);
 
@@ -286,8 +283,8 @@ class ChangePackageFoundationTest extends TestCase
                 'reason' => 'y',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
             ],
         ], $rules);
 
@@ -298,7 +295,6 @@ class ChangePackageFoundationTest extends TestCase
         $this->assertArrayHasKey('implementation.execution_date', $validator->errors()->toArray());
         $this->assertArrayHasKey('implementation.release_date', $validator->errors()->toArray());
         $this->assertArrayHasKey('implementation.implementation_result', $validator->errors()->toArray());
-        $this->assertArrayHasKey('implementation.testing_result', $validator->errors()->toArray());
     }
 
     public function test_submit_change_package_request_passes_with_full_payload(): void
@@ -313,26 +309,26 @@ class ChangePackageFoundationTest extends TestCase
                 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
                 'change_type_ids' => [$this->changeType->id],
                 'test_plan' => 'plan',
                 'execution_date' => '2026-08-02',
                 'release_date' => '2026-08-03',
                 'implementation_result' => 'ok',
-                'testing_result' => 'pass',
+                'review_response' => 'Catatan staf',
             ],
         ], $rules);
 
         $this->assertTrue($validator->passes(), $validator->errors()->toJson());
     }
 
-    public function test_decide_change_package_request_reason_optional(): void
+    public function test_decide_change_package_request_has_no_rules(): void
     {
+        // Kepala tim decide is a pure approve/reject — no reason input accepted.
         $rules = (new DecideChangePackageRequest)->rules();
 
-        $this->assertTrue(Validator::make([], $rules)->passes());
-        $this->assertTrue(Validator::make(['reason' => 'nope'], $rules)->passes());
+        $this->assertSame([], $rules);
     }
 
     public function test_update_change_package_request_exists_with_nested_shape(): void
@@ -356,8 +352,8 @@ class ChangePackageFoundationTest extends TestCase
                 'status' => 'draft',
             ],
             [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
                 'status' => 'draft',
             ],
             [$this->changeType->id],

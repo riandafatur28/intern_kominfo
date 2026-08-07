@@ -26,7 +26,6 @@ class ChangeInitiation extends Model
         'status',
         'review_status',
         'reviewed_at',
-        'review_reason',
         'initiator_signed_at',
         'verification_token',
     ];

@@ -31,7 +31,6 @@ class ChangeImplementation extends Model
         'reviewer_id',
         'reviewer_signed_at',
         'implementation_result',
-        'testing_result',
         'release_date',
         'responsible_id',
         'responsible_signed_at',

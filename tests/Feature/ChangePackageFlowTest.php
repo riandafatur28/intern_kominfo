@@ -175,6 +175,7 @@ class ChangePackageFlowTest extends TestCase
         $response = $this->postJson("/api/changes/{$initId}/approve");
         $response->assertStatus(200)->assertJsonPath('data.initiation.status', 'approved');
         $this->assertEquals('completed', $response->json('data.implementation.status'));
+        $this->assertEquals('diterima', $response->json('data.implementation.review_status'));
     }
 
     public function test_cannot_self_approve(): void
@@ -196,7 +197,7 @@ class ChangePackageFlowTest extends TestCase
                 'description' => 'Initial',
                 'reason' => 'Initial reason',
             ],
-            'implementation' => ['priority' => 'low', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ])->json('data.initiation');
 
         $response = $this->postJson("/api/changes/{$pkg['id']}/submit", [
@@ -207,14 +208,14 @@ class ChangePackageFlowTest extends TestCase
                 'needed_by_date' => '2026-09-01',
             ],
             'implementation' => [
-                'priority' => 'high',
-                'impact' => 'medium',
+                'priority' => 'emergency',
+                'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Real test plan',
                 'execution_date' => '2026-09-10',
                 'release_date' => '2026-09-15',
                 'implementation_result' => 'Real result',
-                'testing_result' => 'Real test outcome',
+                'review_response' => 'Tanggapan staf',
             ],
         ]);
 
@@ -223,11 +224,11 @@ class ChangePackageFlowTest extends TestCase
             ->assertJsonPath('data.initiation.description', 'Final desc')
             ->assertJsonPath('data.initiation.reason', 'Final reason')
             ->assertJsonPath('data.initiation.needed_by_date', '2026-09-01')
-            ->assertJsonPath('data.implementation.priority', 'high')
+            ->assertJsonPath('data.implementation.priority', 'emergency')
             ->assertJsonPath('data.implementation.test_plan', 'Real test plan')
             ->assertJsonPath('data.implementation.execution_date', '2026-09-10')
             ->assertJsonPath('data.implementation.implementation_result', 'Real result')
-            ->assertJsonPath('data.implementation.testing_result', 'Real test outcome');
+            ->assertJsonPath('data.implementation.review_response', 'Tanggapan staf');
         $this->assertContains($this->typeA->id, $response->json('data.implementation.change_types.*.id'));
     }
 
@@ -251,9 +252,12 @@ class ChangePackageFlowTest extends TestCase
     {
         [$initId] = $this->createSubmittedPackage();
         Sanctum::actingAs($this->kepalaTim);
-        $response = $this->postJson("/api/changes/{$initId}/reject", ['reason' => 'Tidak sesuai']);
+        // Reject is a pure decision — no reason body, staf's review_response stays untouched.
+        $response = $this->postJson("/api/changes/{$initId}/reject");
         $response->assertStatus(200)->assertJsonPath('data.initiation.status', 'rejected');
         $this->assertEquals('rejected', $response->json('data.implementation.status'));
+        $this->assertEquals('ditolak', $response->json('data.implementation.review_status'));
+        $this->assertEquals('Catatan staf', $response->json('data.implementation.review_response'));
     }
 
     public function test_reject_is_terminal_cannot_resubmit(): void
@@ -277,6 +281,30 @@ class ChangePackageFlowTest extends TestCase
         $this->assertCount(1, $response->json('data'));
     }
 
+    public function test_submit_without_testing_result_succeeds(): void
+    {
+        // RED: testing_result was required on submit; it is now dropped (attachments carry the result).
+        Sanctum::actingAs($this->staf);
+        $pkg = $this->postJson('/api/changes', $this->validDraftWithAll())->json('data.initiation');
+        $payload = $this->validSubmitPayload();
+        unset($payload['implementation']['testing_result']);
+
+        $this->postJson("/api/changes/{$pkg['id']}/submit", $payload)
+            ->assertStatus(200)
+            ->assertJsonPath('data.initiation.status', 'pending');
+    }
+
+    public function test_cannot_upload_non_image_attachment(): void
+    {
+        Storage::fake('public');
+        Sanctum::actingAs($this->staf);
+        $pkg = $this->postJson('/api/changes', $this->validDraftPayload())->json('data.initiation');
+
+        $this->postJson("/api/changes/{$pkg['id']}/attachments", [
+            'files' => [UploadedFile::fake()->create('doc.pdf', 100, 'application/pdf')],
+        ])->assertStatus(422)->assertJsonValidationErrors(['files.0']);
+    }
+
     public function test_cannot_upload_to_non_draft(): void
     {
         Storage::fake('public');
@@ -289,6 +317,9 @@ class ChangePackageFlowTest extends TestCase
 
     public function test_initiation_pdf_after_approve(): void
     {
+        $this->setUserSignature($this->staf);
+        $this->setUserSignature($this->kepalaTim);
+
         [$initId] = $this->createSubmittedPackage();
         Sanctum::actingAs($this->kepalaTim);
         $this->postJson("/api/changes/{$initId}/approve");
@@ -300,6 +331,9 @@ class ChangePackageFlowTest extends TestCase
 
     public function test_implementation_pdf_after_approve(): void
     {
+        $this->setUserSignature($this->staf);
+        $this->setUserSignature($this->kepalaTim);
+
         [$initId] = $this->createSubmittedPackage();
         Sanctum::actingAs($this->kepalaTim);
         $this->postJson("/api/changes/{$initId}/approve");
@@ -307,6 +341,35 @@ class ChangePackageFlowTest extends TestCase
         $this->get("/api/changes/{$initId}/pdf/implementation")
             ->assertStatus(200)
             ->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_initiation_pdf_rejected_when_signature_unset(): void
+    {
+        $this->setUserSignature($this->staf);
+        // kepalaTim (reviewer) intentionally left without signature.
+
+        [$initId] = $this->createSubmittedPackage();
+        Sanctum::actingAs($this->kepalaTim);
+        $this->postJson("/api/changes/{$initId}/approve");
+        Sanctum::actingAs($this->admin);
+        // staf (initiator) has signature but reviewer (kepalaTim) does not.
+        $this->getJson("/api/changes/{$initId}/pdf/initiation")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_implementation_pdf_rejected_if_signature_unset(): void
+    {
+        // evaluator unset (skipped by guard). reviewer = responsible =
+        // kepalaTim — intentionally left without signature.
+
+        [$initId] = $this->createSubmittedPackage();
+        Sanctum::actingAs($this->kepalaTim);
+        $this->postJson("/api/changes/{$initId}/approve");
+        Sanctum::actingAs($this->admin);
+        $this->getJson("/api/changes/{$initId}/pdf/implementation")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
     }
 
     public function test_pdf_before_approve_returns_422(): void
@@ -326,7 +389,7 @@ class ChangePackageFlowTest extends TestCase
                 'description' => 'Test description',
                 'reason' => 'Test reason',
             ],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ];
     }
 
@@ -340,11 +403,10 @@ class ChangePackageFlowTest extends TestCase
                 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'high', 'impact' => 'medium',
+                'priority' => 'emergency', 'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Test plan', 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15', 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
             ],
         ];
     }
@@ -357,11 +419,11 @@ class ChangePackageFlowTest extends TestCase
                 'reason' => 'Test reason', 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'high', 'impact' => 'medium',
+                'priority' => 'emergency', 'impact' => 'Mayor',
                 'change_type_ids' => [$this->typeA->id],
                 'test_plan' => 'Test plan', 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15', 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
+                'review_response' => 'Catatan staf',
             ],
         ];
     }

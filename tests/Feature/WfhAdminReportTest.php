@@ -99,11 +99,33 @@ class WfhAdminReportTest extends TestCase
             'status' => 'pending',
         ]);
 
+        $this->setUserSignature($staf);
+
         Sanctum::actingAs($staf);
 
         $this->getJson("/api/wfh/reports/{$report->id}/pdf")
             ->assertStatus(200)
             ->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_wfh_pdf_rejected_when_signature_unset(): void
+    {
+        $field = Field::create(['name' => 'Bidang Test']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim Test']);
+
+        $staf = User::factory()->create(['team_id' => $team->id]);
+        $staf->assignRole('staf');
+
+        $report = WfhReport::factory()->create([
+            'user_id' => $staf->id,
+            'status' => 'pending',
+        ]);
+
+        Sanctum::actingAs($staf);
+
+        $this->getJson("/api/wfh/reports/{$report->id}/pdf")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
     }
 
     public function test_pdf_cannot_be_exported_from_draft_status(): void
