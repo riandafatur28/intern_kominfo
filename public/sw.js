@@ -7,6 +7,12 @@
  */
 let authToken = null;
 
+// Aktifkan SW baru segera (tanpa harus tutup semua tab dulu).
+self.addEventListener("install", () => self.skipWaiting());
+self.addEventListener("activate", (e) => {
+  e.waitUntil(self.clients.claim());
+});
+
 self.addEventListener("message", (e) => {
   if (e.data && e.data.type === "AUTH") {
     authToken = typeof e.data.token === "string" && e.data.token ? e.data.token : null;
@@ -23,6 +29,16 @@ self.addEventListener("fetch", (e) => {
     const headers = new Headers(e.request.headers);
     if (headers.has("Authorization")) return; // fetch API normal — sudah ada header
     headers.set("Authorization", `Bearer ${authToken}`);
-    e.respondWith(fetch(new Request(e.request, { headers })));
+    e.respondWith(
+      fetch(new Request(e.request, { headers })).then((res) => {
+        // PDF preview harus tampil di tab (bukan unduh): BE kirim attachment,
+        // ganti jadi inline agar browser render PDF di tab native.
+        const respHeaders = new Headers(res.headers);
+        if (respHeaders.has("Content-Disposition")) {
+          respHeaders.set("Content-Disposition", "inline");
+        }
+        return new Response(res.body, { status: res.status, statusText: res.statusText, headers: respHeaders });
+      })
+    );
   }
 });
