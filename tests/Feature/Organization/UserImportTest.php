@@ -2,14 +2,14 @@
 
 namespace Tests\Feature\Organization;
 
+use App\Models\Field;
 use App\Models\Setting;
+use App\Models\Team;
 use App\Models\User;
 use App\Support\Import\UserImport;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Hash;
-use App\Models\Field;
-use App\Models\Team;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Hash;
 use Laravel\Sanctum\Sanctum;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Validators\ValidationException;
