@@ -5,6 +5,7 @@ import ProfilSaya from "./pages/ProfilSaya";
 import WfhAbsensi from "./pages/wfh/WfhAbsensi";
 import WfhMonitoring from "./pages/wfh/WfhMonitoring";
 import LoginPage from "./pages/auth/LoginPage";
+import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
 import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import SettingsPage from "./pages/admin/SettingsPage";
@@ -22,6 +23,7 @@ export default function Root() {
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/lupa-sandi" element={<ForgotPasswordPage />} />
         {/* Must change password — no other pages accessible */}
         <Route path="/change-password" element={<ChangePasswordPage />} />
 

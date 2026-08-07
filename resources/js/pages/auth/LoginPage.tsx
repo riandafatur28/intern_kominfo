@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useAuth } from "../../hooks/useAuth";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 const BG_IMAGE =
   "https://lh3.googleusercontent.com/aida/AP1WRLv4NiIgWfyLUWd2lwn_PKhJPcmXD4sk1K0cSf7SNJFKRmo0obaBmo0gVqvMRFt8-FGOUIXgygBZXSLwheIwbdkILt_5zRrkKGkXbNTe7EtwJGSRnbVyLTOvrpRKOxYHAiRQFjodBrjFCYhaCienw2zpWRUzrqC1ZPAmd7KhV1ViXg3ZN9XfVBbpSrXJrH5laLNHhNFoGQjpwhTJ-OZ-NaD0oHBKbV-TvZK2c1b5Y3eO5QyQMf3Xih0A5OI";
@@ -63,12 +63,20 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label
-                className="block font-label-md text-label-md text-on-surface mb-1"
-                htmlFor="password"
-              >
-                Kata sandi
-              </label>
+              <div className="flex justify-between items-center mb-1">
+                <label
+                  className="block font-label-md text-label-md text-on-surface"
+                  htmlFor="password"
+                >
+                  Kata sandi
+                </label>
+                <Link
+                  to="/lupa-sandi"
+                  className="font-label-md text-label-md text-primary hover:underline"
+                >
+                  Lupa sandi?
+                </Link>
+              </div>
               <div className="relative">
                 <input
                   className={`${inputClasses} pr-12`}
@@ -130,10 +138,7 @@ export default function LoginPage() {
         </div>
 
         <div className="absolute bottom-8 w-full px-4 flex flex-col items-center gap-1 font-caption text-caption text-on-surface-variant/70">
-          <span className="flex items-center gap-2 text-on-surface-variant">
-            <span className="inline-block w-2 h-2 rounded-full bg-emerald-500" />
-            Sistem Aktif
-            <span className="mx-1">·</span>
+          <span className="text-on-surface-variant">
             © 2026 Diskominfo Jatim
           </span>
         </div>
@@ -204,10 +209,6 @@ export default function LoginPage() {
                 Informatika (APTIKA), Diskominfo Jawa Timur.
               </p>
             </div>
-          </div>
-
-          <div className="pt-8 font-caption text-caption text-inverse-primary/80">
-            © 2026 Diskominfo Jatim. Hak Cipta Dilindungi.
           </div>
         </div>
       </div>
