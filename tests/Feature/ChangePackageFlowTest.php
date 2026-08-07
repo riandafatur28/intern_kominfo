@@ -317,6 +317,9 @@ class ChangePackageFlowTest extends TestCase
 
     public function test_initiation_pdf_after_approve(): void
     {
+        $this->setUserSignature($this->staf);
+        $this->setUserSignature($this->kepalaTim);
+
         [$initId] = $this->createSubmittedPackage();
         Sanctum::actingAs($this->kepalaTim);
         $this->postJson("/api/changes/{$initId}/approve");
@@ -328,6 +331,9 @@ class ChangePackageFlowTest extends TestCase
 
     public function test_implementation_pdf_after_approve(): void
     {
+        $this->setUserSignature($this->staf);
+        $this->setUserSignature($this->kepalaTim);
+
         [$initId] = $this->createSubmittedPackage();
         Sanctum::actingAs($this->kepalaTim);
         $this->postJson("/api/changes/{$initId}/approve");
@@ -335,6 +341,35 @@ class ChangePackageFlowTest extends TestCase
         $this->get("/api/changes/{$initId}/pdf/implementation")
             ->assertStatus(200)
             ->assertHeader('Content-Type', 'application/pdf');
+    }
+
+    public function test_initiation_pdf_rejected_when_signature_unset(): void
+    {
+        $this->setUserSignature($this->staf);
+        // kepalaTim (reviewer) intentionally left without signature.
+
+        [$initId] = $this->createSubmittedPackage();
+        Sanctum::actingAs($this->kepalaTim);
+        $this->postJson("/api/changes/{$initId}/approve");
+        Sanctum::actingAs($this->admin);
+        // staf (initiator) has signature but reviewer (kepalaTim) does not.
+        $this->getJson("/api/changes/{$initId}/pdf/initiation")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
+    }
+
+    public function test_implementation_pdf_rejected_if_signature_unset(): void
+    {
+        // evaluator unset (skipped by guard). reviewer = responsible =
+        // kepalaTim — intentionally left without signature.
+
+        [$initId] = $this->createSubmittedPackage();
+        Sanctum::actingAs($this->kepalaTim);
+        $this->postJson("/api/changes/{$initId}/approve");
+        Sanctum::actingAs($this->admin);
+        $this->getJson("/api/changes/{$initId}/pdf/implementation")
+            ->assertStatus(422)
+            ->assertJsonPath('success', false);
     }
 
     public function test_pdf_before_approve_returns_422(): void

@@ -31,6 +31,7 @@ class TeamReportPdfTest extends TestCase
         $admin = User::factory()->create(['team_id' => $team->id]);
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
+        $this->setUserSignature($admin);
 
         $teamReport = WfhTeamReport::create([
             'team_id' => $team->id,
@@ -56,6 +57,8 @@ class TeamReportPdfTest extends TestCase
 
         $admin = User::factory()->create(['team_id' => $team->id]);
         $admin->assignRole('admin');
+        $this->setUserSignature($admin);
+        $this->setUserSignature($kb);
         Sanctum::actingAs($admin);
 
         $teamReport = WfhTeamReport::create([
@@ -80,6 +83,7 @@ class TeamReportPdfTest extends TestCase
 
         $admin = User::factory()->create(['team_id' => $team->id]);
         $admin->assignRole('admin');
+        $this->setUserSignature($admin);
         Sanctum::actingAs($admin);
 
         $captured = $this->capturePdfViewData($team, null);
@@ -96,6 +100,7 @@ class TeamReportPdfTest extends TestCase
         $admin = User::factory()->create(['team_id' => $team->id]);
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
+        $this->setUserSignature($admin);
 
         $captured = $this->capturePdfViewData($team, 99999);
 
@@ -137,6 +142,7 @@ class TeamReportPdfTest extends TestCase
         $admin = User::factory()->create(['team_id' => $adminTeam->id]);
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
+        $this->setUserSignature($admin);
 
         $memberWithPhoto = User::factory()->create([
             'team_id' => $team->id, 'is_active' => true, 'name' => 'User A',
@@ -244,6 +250,7 @@ class TeamReportPdfTest extends TestCase
         $admin = User::factory()->create(['team_id' => $adminTeam->id]);
         $admin->assignRole('admin');
         Sanctum::actingAs($admin);
+        $this->setUserSignature($admin);
 
         $member1 = User::factory()->create([
             'team_id' => $team->id, 'is_active' => true, 'name' => 'User A',
@@ -303,6 +310,7 @@ class TeamReportPdfTest extends TestCase
         $adminTeam = Team::create(['field_id' => $field->id, 'name' => 'Tim Admin']);
         $admin = User::factory()->create(['team_id' => $adminTeam->id]);
         $admin->assignRole('admin');
+        $this->setUserSignature($admin);
         Sanctum::actingAs($admin);
 
         User::factory()->count(2)->create([
