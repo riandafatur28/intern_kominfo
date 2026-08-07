@@ -119,23 +119,42 @@ export default function ImportUsersModal({ open, onClose, onImported }: ImportUs
                             setDragOver(false);
                             pickFile(e.dataTransfer.files?.[0]);
                         }}
-                        className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-10 text-center cursor-pointer transition-colors ${dragOver ? "border-[#256EEF] bg-[#F6FAFF]" : "border-[#C2C6D8]"
+                        className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center cursor-pointer transition-colors ${file
+                                ? "border-[#15803D] bg-[#F0FDF4]"
+                                : dragOver
+                                    ? "border-[#256EEF] bg-[#F6FAFF]"
+                                    : "border-[#C2C6D8]"
                             }`}
                     >
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#767676]">
-                            <path
-                                d="M12 16V4m0 0L8 8m4-4l4 4M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"
-                                stroke="currentColor"
-                                strokeWidth="1.5"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                            />
-                        </svg>
-                        <p className="text-sm text-[#424655]">
-                            {file ? file.name : "Seret & lepas file di sini"}
-                        </p>
-                        <p className="text-xs text-[#767676]">atau klik untuk memilih file</p>
-                        <p className="text-xs text-[#767676]">Mendukung: .xlsx, .xls, .csv</p>
+                        {file ? (
+                            <>
+                                <span className="flex items-center justify-center w-10 h-10 rounded-full bg-[#DCFCE7] text-[#15803D]">
+                                    <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                                        <path d="M5 10.5L8.5 14L15 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </span>
+                                <p className="text-sm font-semibold text-[#15803D]">File siap diimpor</p>
+                                <p className="text-sm text-[#141D23] break-all">{file.name}</p>
+                                <p className="text-xs text-[#767676]">
+                                    {(file.size / 1024).toFixed(1)} KB · klik untuk ganti file
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-[#767676]">
+                                    <path
+                                        d="M12 16V4m0 0L8 8m4-4l4 4M4 17v2a1 1 0 001 1h14a1 1 0 001-1v-2"
+                                        stroke="currentColor"
+                                        strokeWidth="1.5"
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                    />
+                                </svg>
+                                <p className="text-sm text-[#424655]">Seret &amp; lepas file di sini</p>
+                                <p className="text-xs text-[#767676]">atau klik untuk memilih file</p>
+                                <p className="text-xs text-[#767676]">Mendukung: .xlsx, .xls, .csv</p>
+                            </>
+                        )}
                         <input
                             ref={inputRef}
                             type="file"
@@ -144,6 +163,12 @@ export default function ImportUsersModal({ open, onClose, onImported }: ImportUs
                             onChange={(e) => pickFile(e.target.files?.[0])}
                         />
                     </div>
+
+                    {file && !importing && (
+                        <p className="text-xs text-[#15803D]">
+                            ✓ File terpilih. Klik "Import" untuk memproses.
+                        </p>
+                    )}
 
                     {error && (
                         <div className="rounded-lg bg-[#FEF2F2] border border-[#FCA5A5] px-4 py-2 text-sm text-[#B91C1C]">

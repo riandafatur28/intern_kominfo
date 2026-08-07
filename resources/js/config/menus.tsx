@@ -1,5 +1,14 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
-import { ProfilIcon, UsersIcon, SettingsIcon, ShieldIcon } from "../components/ui/icons";
+import {
+  UsersIcon,
+  SettingsIcon,
+  ShieldIcon,
+  WfhAbsensiIcon,
+  WfhMonitorIcon,
+  ChangeMonitorIcon,
+  ChangeApprovalIcon,
+  ChangeInisiasiIcon,
+} from "../components/ui/icons";
 
 interface MenuDef {
   label: string;
@@ -7,12 +16,14 @@ interface MenuDef {
   permissions?: string[];   // user needs ANY of these
   roles?: string[];         // user needs ANY of these
   icon?: React.ComponentType<{ size?: number; className?: string }>;
+  pngIcon?: boolean;        // icon uses embedded PNG → needs CSS filter for active state
 }
 
 /**
  * All possible menus. Each entry declares which permissions or roles
  * grant access. Empty permissions = visible to everyone authenticated.
  */
+
 const allMenuDefs: MenuDef[] = [
   {
     label: "Manajemen Pengguna",
@@ -33,9 +44,36 @@ const allMenuDefs: MenuDef[] = [
     icon: SettingsIcon,
   },
   {
-    label: "Profil Saya",
-    href: "/profil",
-    icon: ProfilIcon,
+    label: "Absensi WFH",
+    href: "/wfh/absensi",
+    permissions: ["wfh.report.create"],
+    icon: WfhAbsensiIcon,
+    pngIcon: true,
+  },
+  {
+    label: "Monitoring WFH",
+    href: "/wfh/monitoring",
+    permissions: ["wfh.monitoring.view"],
+    icon: WfhMonitorIcon,
+    pngIcon: true,
+  },
+  {
+    label: "Monitoring Perubahan",
+    href: "/change-management/monitoring",
+    roles: ["admin"],
+    icon: ChangeMonitorIcon,
+  },
+  {
+    label: "Persetujuan Perubahan",
+    href: "/change-management/persetujuan",
+    roles: ["kepala_tim"],
+    icon: ChangeApprovalIcon,
+  },
+  {
+    label: "Inisiasi Perubahan",
+    href: "/change-management/inisiasi",
+    roles: ["staf", "admin"],
+    icon: ChangeInisiasiIcon,
   },
 ];
 
@@ -58,9 +96,10 @@ export function getFilteredMenus(
         return true;
       return false;
     })
-    .map(({ label, href, icon }) => ({
+    .map(({ label, href, icon, pngIcon }) => ({
       label,
       href,
       icon,
+      pngIcon,
     }));
 }
