@@ -8,6 +8,7 @@ use App\Models\Setting;
 use App\Models\Team;
 use App\Support\Pdf\PdfRendererService;
 use App\Support\QrCode\QrCodeService;
+use App\Support\Signature\SignatureGuard;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -43,6 +44,15 @@ class ReportPdfController extends Controller
             ], 422);
         }
 
+        // PDF embeds real signatures; refuse export when any involved user
+        // has not configured theirs yet.
+        if ($missing = SignatureGuard::missing([
+            $report->user,
+            $report->status === 'approved' ? $report->supervisor : null,
+        ])) {
+            return response()->json(SignatureGuard::missingMessage($missing->name), 422);
+        }
+
         $isApproved = $report->status === 'approved';
 
         $user = $report->user;
@@ -65,7 +75,6 @@ class ReportPdfController extends Controller
             $verifyUrl = $this->qrCodeService->generateVerificationUrl($report->verification_token);
             $qrSvg = $this->qrCodeService->generate($verifyUrl);
         }
-
         // Signature paths (absolute for dompdf)
         $makerSig = $user->signature_path
             ? public_path('storage/'.$user->signature_path)
@@ -75,14 +84,6 @@ class ReportPdfController extends Controller
         $supervisorSig = null;
         if ($isApproved && $supervisor?->signature_path) {
             $supervisorSig = public_path('storage/'.$supervisor->signature_path);
-        }
-
-        // Use test signatures as fallback if user hasn't set one
-        if (! $makerSig || ! file_exists($makerSig)) {
-            $makerSig = public_path('storage/signatures/test-sig-1.png');
-        }
-        if ($isApproved && (! $supervisorSig || ! file_exists($supervisorSig))) {
-            $supervisorSig = public_path('storage/signatures/test-sig-2.png');
         }
 
         $data = [
@@ -168,21 +169,24 @@ class ReportPdfController extends Controller
             $isApproved = $teamReport && $teamReport->status === 'approved';
         }
 
+        // PDF embeds real signatures; refuse export when any involved user
+        // has not configured theirs yet.
+        if ($missing = SignatureGuard::missing([
+            $admin,
+            $isApproved ? $head : null,
+        ])) {
+            return response()->json(SignatureGuard::missingMessage($missing->name), 422);
+        }
+
         // Admin (maker) signature — always shown
         $makerSig = $admin->signature_path
             ? public_path('storage/'.$admin->signature_path)
             : null;
-        if (! $makerSig || ! file_exists($makerSig)) {
-            $makerSig = public_path('storage/signatures/test-sig-1.png');
-        }
 
         // KB (atasan langsung) signature — only when team report is approved
         $supervisorSig = null;
         if ($isApproved && $head?->signature_path) {
             $supervisorSig = public_path('storage/'.$head->signature_path);
-        }
-        if ($isApproved && (! $supervisorSig || ! file_exists($supervisorSig))) {
-            $supervisorSig = public_path('storage/signatures/test-sig-2.png');
         }
 
         $tanggal = Carbon::parse($date)->isoFormat('D MMMM Y');

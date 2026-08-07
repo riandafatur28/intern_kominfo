@@ -7,6 +7,7 @@ use App\Domains\Organization\Http\Requests\UpdateUserRequest;
 use App\Domains\Organization\Http\Resources\UserResource;
 use App\Domains\Organization\Repositories\UserRepositoryInterface;
 use App\Models\Setting;
+use App\Models\User;
 use App\Support\Import\UserImport;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;

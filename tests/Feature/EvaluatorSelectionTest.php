@@ -36,8 +36,8 @@ class EvaluatorSelectionTest extends TestCase
                 'reason' => 'Testing',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
             ],
         ]);
 
@@ -67,8 +67,8 @@ class EvaluatorSelectionTest extends TestCase
                 'reason' => 'Testing',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
                 'evaluator_id' => $evaluator->id,
             ],
         ]);
@@ -125,7 +125,7 @@ class EvaluatorSelectionTest extends TestCase
                 'description' => 'Test',
                 'reason' => 'Testing',
             ],
-            'implementation' => ['priority' => 'low', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ])->json('data.initiation');
 
         // Submit with a cross-field evaluator → should fail validation
@@ -137,14 +137,13 @@ class EvaluatorSelectionTest extends TestCase
                 'needed_by_date' => '2026-09-01',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
                 'change_type_ids' => [],
                 'test_plan' => 'plan',
                 'execution_date' => '2026-09-10',
                 'release_date' => '2026-09-15',
                 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
                 'evaluator_id' => $otherFieldUser->id,
             ],
         ])

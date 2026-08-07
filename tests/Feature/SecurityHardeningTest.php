@@ -119,7 +119,7 @@ class SecurityHardeningTest extends TestCase
                 'description' => 'Test change',
                 'reason' => 'Testing',
             ],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ]);
         $pkgId = $response->json('data.initiation.id');
 
@@ -149,7 +149,7 @@ class SecurityHardeningTest extends TestCase
                 'description' => 'Test change',
                 'reason' => 'Testing',
             ],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ]);
         $pkgId = $response->json('data.initiation.id');
 
@@ -161,14 +161,13 @@ class SecurityHardeningTest extends TestCase
                 'needed_by_date' => '2026-09-01',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
                 'change_type_ids' => [$changeType->id],
                 'test_plan' => 'Test plan',
                 'execution_date' => '2026-08-10',
                 'release_date' => '2026-08-15',
                 'implementation_result' => 'Done',
-                'testing_result' => 'Pass',
             ],
         ])->assertStatus(200);
 
@@ -213,7 +212,7 @@ class SecurityHardeningTest extends TestCase
                 'description' => 'Test',
                 'reason' => 'Testing',
             ],
-            'implementation' => ['priority' => 'medium', 'impact' => 'low'],
+            'implementation' => ['priority' => 'normal', 'impact' => 'Minor'],
         ]);
         $pkgId = $response->json('data.initiation.id');
 

@@ -4,6 +4,7 @@
 use App\Domains\Auth\Http\Controllers\AuthController;
 use App\Domains\ChangeManagement\Http\Controllers\ChangeManagementPdfController;
 use App\Domains\ChangeManagement\Http\Controllers\ChangePackageController;
+use App\Domains\ChangeManagement\Http\Controllers\ChangeTypeController;
 use App\Domains\Organization\Http\Controllers\PermissionController;
 use App\Domains\Organization\Http\Controllers\ProfileController;
 use App\Domains\Organization\Http\Controllers\RoleController;
@@ -144,4 +145,7 @@ Route::middleware(['auth:sanctum', 'password.changed'])->group(function () {
         ->middleware('permission:change.initiation.export_pdf');
     Route::get('/changes/{id}/pdf/implementation', [ChangeManagementPdfController::class, 'exportImplementation'])
         ->middleware('permission:change.implementation.export_pdf');
+
+    // Change Types — reference data, no additional permission
+    Route::get('/change-types', [ChangeTypeController::class, 'index']);
 });
