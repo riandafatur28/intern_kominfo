@@ -29,17 +29,17 @@ export default function LoginPage() {
   };
 
   const inputClasses =
-    "w-full h-[51px] px-4 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-body-md font-body-md placeholder-outline-variant focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-all";
+    "w-full h-[51px] px-4 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-sm placeholder-outline-variant focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-all";
 
   return (
     <div className="flex w-full h-full">
       {/* Left Side: Login Form */}
       <div className="w-full lg:w-1/2 bg-gradient-to-br from-surface to-surface-container flex flex-col justify-center items-center p-gutter relative">
         <div className="w-full max-w-[448px] bg-surface-container-lowest p-10 rounded-2xl shadow-[0_25px_50px_-12px_rgba(0,59,181,0.10)] border border-outline-variant/30">
-          <h1 className="font-headline-lg text-headline-lg text-primary mb-2">
+          <h1 className="font-headline-md text-headline-md text-primary mb-2">
             Hi! Selamat Datang
           </h1>
-          <p className="font-body-md text-body-md text-on-surface-variant">
+          <p className="text-sm text-on-surface-variant">
             Silakan masukkan data Anda.
           </p>
 
@@ -63,20 +63,12 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <div className="flex justify-between items-center mb-1">
-                <label
-                  className="block font-label-md text-label-md text-on-surface"
-                  htmlFor="password"
-                >
-                  Kata sandi
-                </label>
-                <a
-                  className="font-label-md text-label-md text-primary hover:underline"
-                  href="#"
-                >
-                  Lupa sandi?
-                </a>
-              </div>
+              <label
+                className="block font-label-md text-label-md text-on-surface mb-1"
+                htmlFor="password"
+              >
+                Kata sandi
+              </label>
               <div className="relative">
                 <input
                   className={`${inputClasses} pr-12`}
@@ -109,7 +101,7 @@ export default function LoginPage() {
                 onChange={(e) => setRemember(e.target.checked)}
               />
               <label
-                className="ml-2 block font-body-md text-body-md text-on-surface-variant"
+                className="ml-2 block text-sm text-on-surface-variant"
                 htmlFor="remember-me"
               >
                 Ingat saya di perangkat ini
@@ -135,16 +127,6 @@ export default function LoginPage() {
               )}
             </button>
           </form>
-
-          <div className="mt-8 text-center font-caption text-caption text-on-surface-variant">
-            Butuh bantuan?{" "}
-            <a
-              className="text-primary font-label-md text-label-md hover:underline"
-              href="#"
-            >
-              Hubungi Admin TI
-            </a>
-          </div>
         </div>
 
         <div className="absolute bottom-8 w-full px-4 flex flex-col items-center gap-1 font-caption text-caption text-on-surface-variant/70">
@@ -210,13 +192,13 @@ export default function LoginPage() {
 
           <div className="flex-grow flex flex-col justify-center">
             <div className="bg-white/10 border border-white/20 rounded-2xl backdrop-blur-md shadow-2xl p-8 flex flex-col gap-4">
-              <span className="self-start inline-flex items-center bg-white/20 border border-white/30 rounded-full px-4 py-1.5 font-label-md text-label-md text-white tracking-[0.35px]">
+              <span className="self-start inline-flex items-center bg-white/20 border border-white/30 rounded-full px-4 py-1.5 font-label-sm text-label-sm text-white tracking-[0.35px]">
                 SISTEM INTERNAL
               </span>
-              <h2 className="font-display-lg text-display-lg text-white">
+              <h2 className="font-headline-md text-headline-md text-white">
                 APTIKA E-Office
               </h2>
-              <p className="font-body-lg text-body-lg text-inverse-primary/90">
+              <p className="text-sm text-inverse-primary/90">
                 Platform terintegrasi untuk efisiensi administrasi dan
                 kolaborasi digital di lingkungan Bidang Aplikasi dan
                 Informatika (APTIKA), Diskominfo Jawa Timur.
@@ -224,28 +206,11 @@ export default function LoginPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-8 font-caption text-caption text-inverse-primary/80">
-            <span>© 2026 Diskominfo Jatim. Hak Cipta Dilindungi.</span>
-            <div className="flex items-center gap-4">
-              <a className="hover:underline" href="#">
-                Kebijakan
-              </a>
-              <a className="hover:underline" href="#">
-                Bantuan
-              </a>
-            </div>
+          <div className="pt-8 font-caption text-caption text-inverse-primary/80">
+            © 2026 Diskominfo Jatim. Hak Cipta Dilindungi.
           </div>
         </div>
       </div>
-
-      {/* Floating Action Button */}
-      <button
-        type="button"
-        className="hidden lg:flex fixed bottom-6 right-6 w-[50px] h-[50px] rounded-full bg-surface-variant border border-outline-variant/30 items-center justify-center z-50 hover:bg-surface-container-highest transition-colors shadow-md"
-        aria-label="Bantuan"
-      >
-        <span className="material-symbols-outlined text-primary">support_agent</span>
-      </button>
     </div>
   );
 }

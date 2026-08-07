@@ -121,3 +121,15 @@ html, body, #app {
   background-image: radial-gradient(rgba(255, 255, 255, 0.2) 1px, transparent 1px);
   background-size: 20px 20px;
 }
+
+/* Sembunyikan native password reveal/clear icon browser (Edge/Chrome) —
+   biar HANYA icon toggle custom yang tampil di field password. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+  display: none;
+}
+
+input[type="password"]::-webkit-credentials-auto-fill-button,
+input[type="password"]::-webkit-strong-password-auto-fill-button {
+  display: none !important;
+}
