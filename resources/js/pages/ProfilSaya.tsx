@@ -6,13 +6,34 @@ import FormField from "../components/ui/FormField";
 import Button from "../components/ui/Button";
 import SignatureUpload from "../components/ui/SignatureUpload";
 import { useAuth } from "../hooks/useAuth";
-import { fetchProfile, updateProfile, uploadSignature } from "../api/profile";
+import { fetchProfile, updateProfile, uploadSignature, deleteSignature } from "../api/profile";
 import { extractErrorMessage } from "../lib/errors";
+
+
+function bustCache(url: string | null): string | null {
+  if (!url) return url;
+  return `${url}${url.includes("?") ? "&" : "?"}v=${Date.now()}`;
+}
+
+const LockIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
+    <rect x="4" y="9" width="12" height="8" rx="2" stroke="currentColor" strokeWidth="1.5" />
+    <path d="M7 9V6a3 3 0 016 0v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+  </svg>
+);
+
+const SaveIcon = ({ size = 14, className = "" }: { size?: number; className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 20 20" fill="none" className={className}>
+    <path d="M4 3h9l3 3v11a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    <path d="M7 3v4h5V3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+    <rect x="6.5" y="12" width="7" height="5" rx="1" stroke="currentColor" strokeWidth="1.5" />
+  </svg>
+);
 
 type PageStatus = "loading" | "ready" | "saving" | "error" | "success";
 
 export default function ProfilSaya() {
-  const { setUser, user, changePassword } = useAuth();
+  const { setUser, changePassword } = useAuth();
 
   const [name, setName] = useState("");
   const [nip, setNip] = useState("");
@@ -46,7 +67,7 @@ export default function ProfilSaya() {
         setPhone(u.phone ?? "");
         setPosition(u.position ?? "");
         setRank(u.rank ?? "");
-        setSignatureUrl(u.signature_url ?? null);
+        setSignatureUrl(bustCache(u.signature_url ?? null));
         setTeamName(u.team?.field?.name ?? u.team?.name ?? "");
         setStatus("ready");
       })
@@ -78,11 +99,24 @@ export default function ProfilSaya() {
     setProfileError("");
     try {
       const result = await uploadSignature(file);
-      setSignatureUrl(result.signature_url);
+      setSignatureUrl(bustCache(result.signature_url));
       setSignatureFile(null);
       setProfileMsg("Tanda tangan berhasil diunggah.");
     } catch (e: unknown) {
       setProfileError(extractErrorMessage(e, "Gagal mengunggah tanda tangan."));
+    }
+  };
+
+  const handleSignatureDelete = async () => {
+    setSignatureFile(null);
+    setProfileMsg("");
+    setProfileError("");
+    try {
+      await deleteSignature();
+      setSignatureUrl(null);
+      setProfileMsg("Tanda tangan berhasil dihapus.");
+    } catch (e: unknown) {
+      setProfileError(extractErrorMessage(e, "Gagal menghapus tanda tangan."));
     }
   };
 
@@ -208,7 +242,7 @@ export default function ProfilSaya() {
             value={signatureFile || signatureUrl}
             onChange={(f) => {
               if (f) handleSignatureUpload(f);
-              else setSignatureFile(null);
+              else handleSignatureDelete();
             }}
           />
         </FormSection>
@@ -258,6 +292,7 @@ export default function ProfilSaya() {
 
             <div className="flex items-center gap-4 mt-6">
               <Button variant="primary" type="submit" size="sm" disabled={passLoading}>
+                <LockIcon className="mr-1.5" />
                 {passLoading ? "Memproses..." : "Ubah Password"}
               </Button>
             </div>
@@ -271,6 +306,7 @@ export default function ProfilSaya() {
             form="profile-form"
             disabled={status === "saving"}
           >
+            <SaveIcon className="mr-1.5" />
             {status === "saving" ? "Menyimpan..." : "Simpan Perubahan"}
           </Button>
           {profileError && (

@@ -292,9 +292,12 @@ class ChangePackageFoundationTest extends TestCase
         $this->assertArrayHasKey('initiation.needed_by_date', $validator->errors()->toArray());
         $this->assertArrayHasKey('implementation.change_type_ids', $validator->errors()->toArray());
         $this->assertArrayHasKey('implementation.test_plan', $validator->errors()->toArray());
-        $this->assertArrayHasKey('implementation.execution_date', $validator->errors()->toArray());
         $this->assertArrayHasKey('implementation.release_date', $validator->errors()->toArray());
-        $this->assertArrayHasKey('implementation.implementation_result', $validator->errors()->toArray());
+        // execution_date and implementation_result describe the implementation
+        // outcome, filled later by whoever carries it out — not required from the
+        // staf initiator at submit time.
+        $this->assertArrayNotHasKey('implementation.execution_date', $validator->errors()->toArray());
+        $this->assertArrayNotHasKey('implementation.implementation_result', $validator->errors()->toArray());
     }
 
     public function test_submit_change_package_request_passes_with_full_payload(): void

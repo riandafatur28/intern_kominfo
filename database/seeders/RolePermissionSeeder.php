@@ -137,10 +137,12 @@ class RolePermissionSeeder extends Seeder
             'change.initiation.create',
             'change.initiation.update',
             'change.initiation.submit',
+            'change.initiation.export_pdf',
             'change.implementation.view',
             'change.implementation.create',
             'change.implementation.update',
             'change.implementation.submit',
+            'change.implementation.export_pdf',
         ]);
     }
 }

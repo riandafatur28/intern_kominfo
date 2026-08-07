@@ -22,9 +22,10 @@ export default function DatePicker({
           type="date"
           value={value}
           onChange={(e) => onChange?.(e.target.value)}
+          aria-invalid={error ? true : undefined}
           className={`w-full px-4 py-[10px] text-sm text-[#141D23] rounded-[10px] border outline-none transition-colors [color-scheme:light] ${
             error
-              ? "border-[#FF0000]"
+              ? "border-[#FF0000] bg-red-50 focus:ring-2 focus:ring-red-200"
               : "border-[#C2C6D8] hover:border-[#A0A0A0] focus:border-[#256EEF]"
           } ${!value ? "text-[#767676]" : ""}`}
         />

@@ -5,11 +5,14 @@ namespace Database\Seeders;
 use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
+use Database\Seeders\Concerns\SeedsPlaceholderSignature;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Str;
 
 class AdminUserSeeder extends Seeder
 {
+    use SeedsPlaceholderSignature;
+
     public function run(): void
     {
         $field = Field::firstOrCreate(
@@ -31,6 +34,7 @@ class AdminUserSeeder extends Seeder
             ],
         );
         $admin->assignRole('admin');
+        $this->applyPlaceholderIdentity($admin, 'Administrator');
 
         // Set circular refs
         $field->update(['head_id' => $admin->id]);

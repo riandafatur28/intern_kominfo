@@ -26,9 +26,10 @@ export default function TextArea({
         value={value}
         onChange={(e) => onChange?.(e.target.value)}
         rows={rows}
+        aria-invalid={error ? true : undefined}
         className={`w-full px-4 py-[10px] text-sm text-[#141D23] rounded-[10px] border outline-none resize-none transition-colors placeholder:text-[#767676] ${
           error
-            ? "border-[#FF0000]"
+            ? "border-[#FF0000] bg-red-50 focus:ring-2 focus:ring-red-200"
             : "border-[#C2C6D8] hover:border-[#A0A0A0] focus:border-[#256EEF]"
         } ${className}`}
         {...rest}

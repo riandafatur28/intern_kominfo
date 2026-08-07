@@ -1,289 +1,319 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <style>
-        @page { margin: 60px 50px 40px 50px; size: A4; }
-        * { box-sizing: border-box; }
-        body {
-            font-family: "DejaVu Sans", Arial, sans-serif;
-            font-size: 11px;
-            color: #000;
-            line-height: 1.4;
-            margin: 0;
-            padding: 0;
-        }
+<meta charset="UTF-8">
+<title>Laporan Pelaksanaan Tugas WFH</title>
+<style>
+  @page { size: letter; margin: 30pt 55pt 35pt 55pt; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000;
+    margin: 0;
+    padding: 0;
+    background: #ffffff;
+  }
+  .page {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    background: #fff;
+  }
 
-        /* === KOP SURAT === */
-        .kop-surat {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 5px;
-            padding-bottom: 8px;
-            border-bottom: 3px solid #000;
-        }
-        .logo {
-            width: 80px;
-            height: 85px;
-            border: 1px dashed #999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 9px;
-            color: #999;
-            flex-shrink: 0;
-            margin-right: 15px;
-        }
-        .kop-text {
-            text-align: center;
-            flex-grow: 1;
-        }
-        .kop-text h3 {
-            margin: 0;
-            font-size: 16px;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-        .kop-text h2 {
-            margin: 2px 0;
-            font-size: 20px;
-            text-transform: uppercase;
-            font-weight: bold;
-        }
-        .kop-text p {
-            margin: 3px 0 0;
-            font-size: 9px;
-        }
+  /* ===== HEADER / KOP SURAT ===== */
+  .kop {
+    display: table;
+    width: 100%;
+    margin-bottom: 6pt;
+  }
+  .kop-logo {
+    display: table-cell;
+    width: 70pt;
+    vertical-align: middle;
+    text-align: center;
+  }
+  .kop-logo img {
+    width: 45pt;
+    height: auto;
+  }
+  .kop-text {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
+  }
+  .kop-text .instansi1 {
+    font-size: 12pt;
+    letter-spacing: 0.2px;
+    margin: 0;
+  }
+  .kop-text .instansi2 {
+    font-size: 18pt;
+    font-weight: 700;
+    margin: 1pt 0 3pt 0;
+  }
+  .kop-text .alamat {
+    font-size: 8pt;
+    margin: 0;
+  }
+  .kop-text .kontak {
+    font-size: 8pt;
+    margin: 0;
+  }
+  .kop-divider {
+    border: none;
+    border-top: 2.5pt solid #000;
+    margin: 6pt 0 18pt 0;
+  }
 
-        /* === JUDUL === */
-        .judul {
-            text-align: center;
-            margin: 18px 0 15px 0;
-            text-decoration: underline;
-            font-size: 13px;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
+  /* ===== TITLE ===== */
+  .judul {
+    text-align: center;
+    font-size: 12pt;
+    letter-spacing: 0.3px;
+    margin: 0 0 16pt 0;
+    text-transform: uppercase;
+  }
 
-        /* === IDENTITAS === */
-        .identitas {
-            margin-bottom: 15px;
-        }
-        .identitas table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .identitas td {
-            padding: 2px 0;
-            vertical-align: top;
-        }
-        .identitas td.label {
-            width: 170px;
-        }
+  /* ===== INFO BLOCK ===== */
+  table.info {
+    font-size: 10.5pt;
+    border-collapse: collapse;
+    margin-bottom: 14pt;
+  }
+  table.info td {
+    padding: 2pt 0;
+    vertical-align: top;
+  }
+  table.info td.label { width: 118pt; }
+  table.info td.titik { width: 14pt; }
 
-        /* === TABEL KEGIATAN === */
-        table.kegiatan {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 15px;
-        }
-        table.kegiatan th, table.kegiatan td {
-            border: 1px solid #000;
-            padding: 6px 8px;
-            text-align: left;
-            vertical-align: top;
-        }
-        table.kegiatan th {
-            background-color: #f0f0f0;
-            text-align: center;
-            font-weight: bold;
-        }
-        table.kegiatan td.no {
-            text-align: center;
-            width: 30px;
-        }
-        table.kegiatan td.waktu {
-            width: 120px;
-            white-space: nowrap;
-        }
-        table.kegiatan td.links {
-            font-size: 9px;
-            color: #333;
-            line-height: 1.3;
-        }
+  /* ===== TABLE (KEGIATAN) ===== */
+  table.data {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10pt;
+  }
+  table.data th, table.data td {
+    border: 1pt solid #000;
+    padding: 7pt 8pt;
+  }
+  table.data th {
+    font-weight: normal;
+    text-align: center;
+    vertical-align: middle;
+  }
+  table.data td {
+    text-align: center;
+    vertical-align: middle;
+  }
+  table.data td.link {
+    text-align: left;
+    word-break: break-all;
+  }
+  table.data td.link a {
+    color: #0b57d0;
+    text-decoration: underline;
+  }
 
-        /* === KLAUSA LEGAL === */
-        .legal {
-            font-size: 8px;
-            text-align: justify;
-            line-height: 1.3;
-            margin: 10px 0 15px 0;
-            color: #333;
-        }
+  col.no { width: 6%; }
+  col.waktu { width: 22%; }
+  col.kegiatan { width: 24%; }
+  col.link { width: 48%; }
 
-        /* === BLOK TANDA TANGAN === */
-        .signature-area {
-            position: relative;
-            margin-top: 20px;
-        }
-        .signature-table {
-            width: 100%;
-            border-collapse: collapse;
-        }
-        .signature-table td {
-            width: 50%;
-            text-align: center;
-            vertical-align: top;
-            padding: 0 10px;
-        }
-        .signature-role {
-            font-weight: bold;
-            margin-bottom: 50px;
-        }
-        .signature-box {
-            /* Signature image rendered via relative position to test M1 precision */
-            position: relative;
-            height: 70px;
-            margin: 0 auto 5px;
-            width: 200px;
-        }
-        .signature-box img {
-            position: absolute;
-            top: -55px;
-            left: 0;
-            height: 65px;
-            width: auto;
-        }
-        .signature-name {
-            font-weight: bold;
-            border-top: 1px solid #000;
-            padding-top: 3px;
-            margin-top: 2px;
-        }
-        .signature-nip {
-            font-size: 10px;
-            margin-top: 1px;
-        }
-
-        /* === TEMPAT/TANGGAL + QR === */
-        .footer-bar {
-            position: relative;
-            margin-top: 10px;
-        }
-        .tanggal {
-            text-align: right;
-            margin-bottom: 8px;
-        }
-        .qr-box {
-            position: absolute;
-            top: 0;
-            right: 0;
-            width: 60px;
-            height: 60px;
-        }
-        .qr-box svg {
-            width: 60px;
-            height: 60px;
-        }
-    </style>
-    <title>Laporan WFH</title>
+  /* ===== FOOTER / TTD ===== */
+  .footer-wrap {
+    margin-top: 40pt;
+  }
+  .tanggal-kanan {
+    text-align: center;
+    font-size: 10.5pt;
+    margin-bottom: 0;
+    margin-left: 50%;
+  }
+  table.ttd {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 10.5pt;
+    margin-top: 0;
+  }
+  table.ttd td {
+    width: 50%;
+    text-align: center;
+    vertical-align: top;
+    padding: 0;
+  }
+  .ttd-label {
+    margin: 0;
+    margin-bottom: 16pt;
+  }
+  .ttd-img {
+    width: 120pt;
+    height: 36pt;
+    display: block;
+    margin: 0 auto 4pt;
+  }
+  .ttd-nama {
+    font-weight: bold;
+    text-decoration: underline;
+    margin-bottom: 1pt;
+  }
+  .ttd-nip {
+    margin: 0;
+  }
+</style>
 </head>
 <body>
 
-    {{-- KOP SURAT --}}
-    <div class="kop-surat">
-        <div class="logo">LOGO<br>(80x85)</div>
-        <div class="kop-text">
-            <h3>PEMERINTAH PROVINSI JAWA TIMUR</h3>
-            <h2>DINAS KOMUNIKASI DAN INFORMATIKA</h2>
-            <p>Jalan Ahmad Yani Nomor 242-244, Gayungan, Surabaya, Jawa Timur 60235<br>
-            Tlp. (031) 8294608, Fak. (031) 8294517, Laman kominfo.jatimprov.go.id, Pos-el kominfo@jatimprov.go.id</p>
-        </div>
-    </div>
+@php
+    // Controller mengirim tanggal "30 July 2026" (locale en). Kalau belum
+    // berbahasa Indonesia, ubah ke "30 Juli 2026".
+    $bulanId = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    $tanggalDisplay = collect($bulanId)->contains(fn ($b) => str_contains($tanggalPelaksanaan, $b))
+        ? $tanggalPelaksanaan
+        : \Illuminate\Support\Carbon::parse($tanggalPelaksanaan)->locale('id')->isoFormat('D MMMM Y');
+    $ttdMaker = ucwords(strtolower($makerName));
+    $ttdAtasan = ucwords(strtolower($supervisorName));
+    // Controller kirim waktu "2026-07-31 08:00:00 – 11:00:00" (cast datetime)
+    // atau "08:00:00 – 11:00:00" -> tampilkan "08.00 - 11.00".
+    $kegiatan = collect($kegiatan)->map(function ($k) {
+        try {
+            $parts = preg_split('/\s*–\s*/u', $k['waktu']);
+            if (count($parts) === 2) {
+                $fmt = function ($t) {
+                    $t = trim($t);
+                    if (preg_match('/(\d{1,2}):(\d{2})/', $t, $m)) {
+                        return $m[1].'.'.$m[2];
+                    }
+                    return $t;
+                };
+                return array_merge($k, ['waktu' => $fmt($parts[0]).' - '.$fmt($parts[1])]);
+            }
+        } catch (\Throwable $e) {
+        }
+        return $k;
+    })->all();
+@endphp
 
-    {{-- JUDUL --}}
-    <div class="judul">
-        LAPORAN PELAKSANAAN TUGAS WORK FROM HOME (WFH)
-    </div>
+<div class="page">
 
-    {{-- IDENTITAS --}}
-    <div class="identitas">
-        <table>
-            <tr><td class="label">Nama</td><td>: {{ $nama }}</td></tr>
-            <tr><td class="label">NIP</td><td>: {{ $nip }}</td></tr>
-            <tr><td class="label">Pangkat/Gol</td><td>: {{ $pangkat }}</td></tr>
-            <tr><td class="label">Jabatan</td><td>: {{ $jabatan }}</td></tr>
-            <tr><td class="label">Unit Kerja</td><td>: {{ $unitKerja }}</td></tr>
-            <tr><td class="label">Tanggal Pelaksanaan</td><td>: {{ $tanggalPelaksanaan }}</td></tr>
-        </table>
+  <!-- KOP SURAT -->
+  <div class="kop">
+    <div class="kop-logo">
+      <img src="{{ public_path('images/logo-jatim.png') }}" alt="Logo Jawa Timur">
     </div>
+    <div class="kop-text">
+      <p class="instansi1">PEMERINTAH PROVINSI JAWA TIMUR</p>
+      <p class="instansi2">DINAS KOMUNIKASI DAN INFORMATIKA</p>
+      <p class="alamat">Jalan Ahmad Yani Nomor 242-244, Gayungan, Surabaya, Jawa Timur 60235</p>
+      <p class="kontak">Tlp. (031) 8294608, Fak. (031) 8294517, Laman kominfo.jatimprov.go.id, Pos-el kominfo@jatimprov.go.id</p>
+    </div>
+  </div>
+  <hr class="kop-divider">
 
-    {{-- TABEL KEGIATAN --}}
-    <table class="kegiatan">
-        <thead>
-            <tr>
-                <th style="width:30px;">No</th>
-                <th style="width:120px;">Waktu Pelaksanaan</th>
-                <th>Kegiatan</th>
-                <th style="width:180px;">Link Bukti Kerja</th>
-            </tr>
-        </thead>
-        <tbody>
-            @foreach($kegiatan as $i => $item)
-                <tr>
-                    <td class="no">{{ $i + 1 }}.</td>
-                    <td class="waktu">{{ $item['waktu'] }}</td>
-                    <td>{{ $item['kegiatan'] }}</td>
-                    <td class="links">
-                        @foreach($item['links'] as $link)
-                            <div>{{ $link }}</div>
-                        @endforeach
-                    </td>
-                </tr>
-            @endforeach
-        </tbody>
+  <!-- JUDUL -->
+  <p class="judul">Laporan Pelaksanaan Tugas Work From Home (WFH)</p>
+
+  <!-- INFO PEGAWAI -->
+  <table class="info">
+    <tr>
+      <td class="label">Nama</td>
+      <td class="titik">:</td>
+      <td>{{ $nama }}</td>
+    </tr>
+    <tr>
+      <td class="label">NIP</td>
+      <td class="titik">:</td>
+      <td>{{ $nip }}</td>
+    </tr>
+    <tr>
+      <td class="label">Pangkat/Gol</td>
+      <td class="titik">:</td>
+      <td>{{ $pangkat }}</td>
+    </tr>
+    <tr>
+      <td class="label">Jabatan</td>
+      <td class="titik">:</td>
+      <td>{{ $jabatan }}</td>
+    </tr>
+    <tr>
+      <td class="label">Unit Kerja</td>
+      <td class="titik">:</td>
+      <td>{{ $unitKerja }}</td>
+    </tr>
+    <tr>
+      <td class="label">Tanggal Pelaksanaan</td>
+      <td class="titik">:</td>
+      <td>{{ $tanggalDisplay }}</td>
+    </tr>
+  </table>
+
+  <!-- TABEL KEGIATAN -->
+  <table class="data">
+    <colgroup>
+      <col class="no">
+      <col class="waktu">
+      <col class="kegiatan">
+      <col class="link">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>No</th>
+        <th>Waktu Pelaksanaan</th>
+        <th>Kegiatan</th>
+        <th>Link Bukti Kerja</th>
+      </tr>
+    </thead>
+    <tbody>
+      @forelse($kegiatan as $i => $k)
+        <tr>
+          <td>{{ $i + 1 }}.</td>
+          <td>{{ $k['waktu'] }}</td>
+          <td>{{ $k['kegiatan'] }}</td>
+          <td class="link">
+            @forelse($k['links'] as $link)
+              <a class="link-biru" href="{{ $link }}">{{ $link }}</a>@if (!$loop->last)<br><br>@endif
+            @empty
+              -
+            @endforelse
+          </td>
+        </tr>
+      @empty
+        <tr>
+          <td colspan="4">Belum ada kegiatan</td>
+        </tr>
+      @endforelse
+    </tbody>
+  </table>
+
+  <!-- TANDA TANGAN -->
+  <div class="footer-wrap">
+    <p class="tanggal-kanan">Surabaya, {{ $tanggalDisplay }}</p>
+    <table class="ttd">
+      <tr>
+        <td><p class="ttd-label">Yang Membuat Laporan</p></td>
+        <td><p class="ttd-label">Atasan Langsung</p></td>
+      </tr>
+      <tr>
+        <td>
+          @if ($signatureMakerPath)
+            <img class="ttd-img" src="{{ $signatureMakerPath }}" alt="Tanda tangan">
+          @endif
+          <p class="ttd-nama">{{ $ttdMaker }}</p>
+          <p class="ttd-nip">NIP. {{ $makerNip }}</p>
+        </td>
+        <td>
+          @if ($signatureSupervisorPath)
+            <img class="ttd-img" src="{{ $signatureSupervisorPath }}" alt="Tanda tangan">
+          @endif
+          <p class="ttd-nama">{{ $ttdAtasan }}</p>
+          <p class="ttd-nip">NIP. {{ $supervisorNip }}</p>
+        </td>
+      </tr>
     </table>
+  </div>
 
-    {{-- KLAUSA LEGAL --}}
-    <div class="legal">
-        Sesuai dengan ketentuan perundang-undangan yang berlaku, surat ini telah ditandatangani secara elektronik menggunakan sertifikat elektronik yang diterbitkan oleh Balai Besar Sertifikasi Elektronik Badan Siber dan Sandi Negara (BSrE-BSSN). Legalitas berkas secara digital diatur oleh Dinas Komunikasi dan Informatika Provinsi Jawa Timur. Untuk mengetahui keabsahan berkas dapat dilakukan dengan memindai qrcode yang tersedia.
-    </div>
-
-    {{-- FOOTER: TANGGAL + QR --}}
-    <div class="footer-bar">
-        <div class="tanggal">Surabaya, {{ $tanggalPelaksanaan }}</div>
-        <div class="qr-box">
-            @if ($isApproved && $qrSvg)
-                {!! $qrSvg !!}
-            @endif
-        </div>
-    </div>
-
-    {{-- BLOK TANDA TANGAN --}}
-    <div class="signature-area">
-        <table class="signature-table">
-            <tr>
-                <td>
-                    <div class="signature-role">Yang Membuat Laporan</div>
-                    <div class="signature-box">
-                        <img src="{{ $signatureMakerPath }}" alt="signature">
-                    </div>
-                    <div class="signature-name">{{ $makerName }}</div>
-                    <div class="signature-nip">NIP. {{ $makerNip }}</div>
-                </td>
-                <td>
-                    <div class="signature-role">Atasan Langsung</div>
-                    <div class="signature-box">
-                        @if ($isApproved && $signatureSupervisorPath)
-                            <img src="{{ $signatureSupervisorPath }}" alt="signature">
-                        @endif
-                    </div>
-                    <div class="signature-name">{{ $supervisorName }}</div>
-                    <div class="signature-nip">NIP. {{ $supervisorNip }}</div>
-                </td>
-            </tr>
-        </table>
-    </div>
+</div>
 
 </body>
 </html>

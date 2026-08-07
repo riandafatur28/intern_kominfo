@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Repositories\EloquentRepository;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use InvalidArgumentException;
 
 class EloquentChangeManagementRepository extends EloquentRepository implements ChangeManagementRepositoryInterface
@@ -125,10 +126,15 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
 
         if ($actor && ! $actor->hasRole('admin')) {
             if ($actor->hasAnyRole(['kepala_tim', 'kepala_bidang'])) {
-                // Team scope; null team sees nothing (deny-by-default).
+                // Team scope; null team sees nothing (deny-by-default). Packages
+                // initiated by an admin are also visible regardless of team — admin
+                // doesn't sit inside any kepala_tim's team roster, so a same-team-only
+                // rule would leave admin-submitted packages invisible (and therefore
+                // unapprovable by anyone, since admin can't approve its own).
                 $actor->team_id === null
                     ? $query->whereRaw('false')
-                    : $query->whereHas('initiator', fn ($q) => $q->where('team_id', $actor->team_id));
+                    : $query->whereHas('initiator', fn ($q) => $q->where('team_id', $actor->team_id)
+                        ->orWhereHas('roles', fn ($r) => $r->where('name', 'admin')));
             } else {
                 // staf / default: own packages only
                 $query->where('initiator_id', $actor->id);
@@ -173,7 +179,12 @@ class EloquentChangeManagementRepository extends EloquentRepository implements C
             $impl = $parent->implementation;
 
             if ($impl) {
-                // Attachments have no soft-delete; hard-delete rows only.
+                // Attachments have no soft-delete; hard-delete rows AND the underlying
+                // files, or they leak on disk forever (never referenced by any row again).
+                $paths = $impl->attachments()->pluck('path')->all();
+                if (! empty($paths)) {
+                    Storage::disk('public')->delete($paths);
+                }
                 $impl->attachments()->delete();
                 $impl->delete();
             }

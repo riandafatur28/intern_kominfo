@@ -1,5 +1,4 @@
 import { Link } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 
 export interface BreadcrumbItem {
   label: string;
@@ -17,11 +16,8 @@ export default function TopAppBar({
   sidebarOpen = true,
   onToggleSidebar,
 }: TopAppBarProps) {
-  const { user } = useAuth();
-  const initial = user?.name?.charAt(0)?.toUpperCase() ?? "U";
-
   return (
-    <header className="flex items-center justify-between px-8 bg-[#F6FAFF] border-b border-[#E0E9F2]/20 h-[59px] shrink-0">
+    <header className="flex items-center gap-6 px-8 bg-[#F6FAFF] border-b border-[#E0E9F2]/20 h-[59px] shrink-0">
       <div className="flex items-center gap-6">
         {/* Hamburger / Toggle */}
         <button
@@ -61,18 +57,6 @@ export default function TopAppBar({
             </span>
           ))}
         </nav>
-      </div>
-
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-[38px] h-[38px] rounded-full bg-[#256EEF] flex items-center justify-center text-white text-[18px] font-medium">
-            {initial}
-          </div>
-          <div className="hidden sm:block text-right">
-            <p className="text-xs font-semibold text-[#141D23] leading-4">{user?.name ?? "User"}</p>
-            <p className="text-[11px] text-[#424655] leading-[14px]">{user?.team?.field?.name ?? user?.position ?? "-"}</p>
-          </div>
-        </div>
       </div>
     </header>
   );
