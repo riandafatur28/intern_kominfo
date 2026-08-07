@@ -1,6 +1,5 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
 import {
-  ProfilIcon,
   UsersIcon,
   SettingsIcon,
   ShieldIcon,
@@ -75,11 +74,6 @@ const allMenuDefs: MenuDef[] = [
     href: "/change-management/inisiasi",
     roles: ["staf", "admin"],
     icon: ChangeInisiasiIcon,
-  },
-  {
-    label: "Profil Saya",
-    href: "/profil",
-    icon: ProfilIcon,
   },
 ];
 
