@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
 import { importUsers, type ImportSummary } from "../../../api/users";
+import { CloseIcon, UploadIcon } from "../../../components/ui/AdminActionIcons";
 
 interface ImportUsersModalProps {
     open: boolean;
@@ -58,13 +59,18 @@ export default function ImportUsersModal({ open, onClose, onImported }: ImportUs
     }
 
     const footer = result ? (
-        <Button onClick={close}>Selesai</Button>
+        <Button onClick={close} className="gap-2">
+            <CloseIcon size={16} />
+            Selesai
+        </Button>
     ) : (
         <>
-            <Button variant="outline" onClick={close} disabled={importing}>
+            <Button variant="outline" onClick={close} disabled={importing} className="gap-2">
+                <CloseIcon size={16} />
                 Batal
             </Button>
-            <Button onClick={handleImport} disabled={!file || importing}>
+            <Button onClick={handleImport} disabled={!file || importing} className="gap-2">
+                <UploadIcon size={16} />
                 {importing ? "Mengimpor..." : "Import"}
             </Button>
         </>
@@ -120,10 +126,10 @@ export default function ImportUsersModal({ open, onClose, onImported }: ImportUs
                             pickFile(e.dataTransfer.files?.[0]);
                         }}
                         className={`flex flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center cursor-pointer transition-colors ${file
-                                ? "border-[#15803D] bg-[#F0FDF4]"
-                                : dragOver
-                                    ? "border-[#256EEF] bg-[#F6FAFF]"
-                                    : "border-[#C2C6D8]"
+                            ? "border-[#15803D] bg-[#F0FDF4]"
+                            : dragOver
+                                ? "border-[#256EEF] bg-[#F6FAFF]"
+                                : "border-[#C2C6D8]"
                             }`}
                     >
                         {file ? (

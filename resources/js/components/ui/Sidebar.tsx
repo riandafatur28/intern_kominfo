@@ -91,11 +91,10 @@ export default function Sidebar({
 
     const content = (
       <span
-        className={`relative flex items-center gap-[27px] pl-[15px] pr-4 h-[54px] rounded-[10px] text-sm font-medium leading-5 transition-colors ${
-          active
-            ? "text-[#256EEF]"
-            : "text-[#767676] hover:bg-[#F6FAFF]"
-        } ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
+        className={`relative flex items-center gap-[27px] pl-[15px] pr-4 h-[54px] rounded-[10px] text-sm font-medium leading-5 transition-colors ${active
+          ? "text-[#256EEF]"
+          : "text-[#767676] hover:bg-[#F6FAFF]"
+          } ${item.disabled ? "opacity-40 cursor-not-allowed" : ""}`}
         style={{ paddingLeft: `${paddingLeft}px` }}
       >
         <span className="shrink-0 w-5 h-5 flex items-center justify-center">
@@ -112,7 +111,7 @@ export default function Sidebar({
             fill="none"
             className={`transition-transform ${isExpanded ? "rotate-90" : ""}`}
           >
-            <path d="M4.5 2.25L7.5 6L4.5 9.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+            <path d="M4.5 2.25L7.5 6L4.5 9.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
       </span>
