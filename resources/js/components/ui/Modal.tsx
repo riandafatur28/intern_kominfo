@@ -1,5 +1,23 @@
 import { type ReactNode } from "react";
 
+// Workaround: app.css @theme redefines --spacing-* tokens (e.g. --spacing-lg: 24px),
+// which shadows Tailwind v4's scale. `max-w-<name>` compiles to
+// `max-width: var(--spacing-<name>)`, so `max-w-lg` = 24px instead of 32rem —
+// dialogs render as a thin vertical bar. Map to equivalent arbitrary values.
+const MAX_WIDTH_FIX: Record<string, string> = {
+    "max-w-xs": "max-w-[20rem]",
+    "max-w-sm": "max-w-[24rem]",
+    "max-w-md": "max-w-[28rem]",
+    "max-w-lg": "max-w-[32rem]",
+    "max-w-xl": "max-w-[36rem]",
+    "max-w-2xl": "max-w-[42rem]",
+    "max-w-3xl": "max-w-[48rem]",
+    "max-w-4xl": "max-w-[56rem]",
+    "max-w-5xl": "max-w-[64rem]",
+    "max-w-6xl": "max-w-[72rem]",
+    "max-w-7xl": "max-w-[80rem]",
+};
+
 export interface ModalProps {
     open: boolean;
     title?: string;
@@ -24,13 +42,15 @@ export default function Modal({
 }: ModalProps) {
     if (!open) return null;
 
+    const resolvedMaxWidth = MAX_WIDTH_FIX[maxWidth] ?? maxWidth;
+
     return (
         <div
             className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
             onClick={onClose}
         >
             <div
-                className={`rounded-2xl shadow-xl w-full ${maxWidth} max-h-[90vh] flex flex-col ${className || "bg-white"}`}
+                className={`rounded-2xl shadow-xl w-full ${resolvedMaxWidth} max-h-[90vh] overflow-y-auto ${className || "bg-white"}`}
                 onClick={(e) => e.stopPropagation()}
             >
                 {title && (

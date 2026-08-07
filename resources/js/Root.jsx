@@ -12,6 +12,8 @@ import RolePermissionPage from "./pages/admin/RolePermissionPage";
 import AdminMonitoring from "./pages/change-management/AdminMonitoring";
 import LeadApproval from "./pages/change-management/LeadApproval";
 import UserInisiasi from "./pages/change-management/UserInisiasi";
+// DEV-ONLY preview page (QA pribadi) — hapus route ini sebelum deploy production
+import UiPreviewPage from "./pages/dev/UiPreviewPage";
 
 
 export default function Root() {
@@ -102,6 +104,16 @@ export default function Root() {
           element={
             <ProtectedRoute>
               <UserInisiasi />
+            </ProtectedRoute>
+          }
+        />
+
+        {/* DEV-ONLY UI Kit preview — hapus sebelum production */}
+        <Route
+          path="/dev/components"
+          element={
+            <ProtectedRoute>
+              <UiPreviewPage />
             </ProtectedRoute>
           }
         />
