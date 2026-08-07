@@ -39,3 +39,12 @@ export function EyeIcon(props: IconProps) {
 export function SparklesIcon(props: IconProps) {
     return <Icon {...props}><path d="M10 2l1.1 4.1L15 7.2l-3.9 1.1L10 12.5 8.9 8.3 5 7.2l3.9-1.1L10 2zm5.2 10.1l.5 1.8 1.8.5-1.8.5-.5 1.8-.5-1.8-1.8-.5 1.8-.5.5-1.8z" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" /></Icon>;
 }
+
+
+export function EditIcon(props: IconProps) {
+    return <Icon {...props}><path d="M4 13.5V16h2.5l7.4-7.4-2.5-2.5L4 13.5zm8.2-7.3l2.5 2.5 1.1-1.1a1 1 0 000-1.4l-1.1-1.1a1 1 0 00-1.4 0l-1.1 1.1z" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" /></Icon>;
+}
+
+export function MoreVerticalIcon(props: IconProps) {
+    return <Icon {...props}><circle cx="10" cy="4" r="1" fill="currentColor" /><circle cx="10" cy="10" r="1" fill="currentColor" /><circle cx="10" cy="16" r="1" fill="currentColor" /></Icon>;
+}

@@ -281,9 +281,9 @@ export default function SettingsPage() {
                     >
                         <div className="flex flex-col gap-4 max-w-md">
                             <div className="flex flex-col gap-[6px]">
-                                <label className="text-sm font-medium text-[#424655]">Password User</label>
-                                <p className="text-xs text-[#767676]">
-                                    Berlaku untuk semua akun pegawai baru dan saat reset password.
+                                <label className="text-sm font-medium text-[#424655] whitespace-nowrap">Password User</label>
+                                <p className="text-xs leading-5 text-[#767676] sm:whitespace-nowrap">
+                                    Berlaku untuk akun pegawai baru dan reset password.
                                 </p>
                                 <div className="flex gap-2">
                                     <input
@@ -305,7 +305,7 @@ export default function SettingsPage() {
                             </div>
 
                             <div className="flex flex-col gap-[6px]">
-                                <label className="text-sm font-medium text-[#424655]">Password Admin</label>
+                                <label className="text-sm font-medium text-[#424655] whitespace-nowrap">Password Admin</label>
                                 <div className="flex gap-2">
                                     <input
                                         type={showPwAdmin ? "text" : "password"}
