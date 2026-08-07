@@ -19,6 +19,12 @@ import {
 import UserFormModal from "./components/UserFormModal";
 import DeleteUserModal from "./components/DeleteUserModal";
 import ImportUsersModal from "./components/ImportUsersModal";
+import {
+    AddIcon,
+    ChevronDownIcon,
+    FilterIcon,
+    UploadIcon,
+} from "../../components/ui/AdminActionIcons";
 
 const PAGE_SIZE = 10;
 
@@ -217,7 +223,8 @@ export default function UserManagementPage() {
                 />
                 <div className="flex gap-2">
                     {canImport && (
-                        <Button variant="outline" onClick={() => setImportOpen(true)}>
+                        <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+                            <UploadIcon size={17} />
                             Import Excel
                         </Button>
                     )}
@@ -227,8 +234,10 @@ export default function UserManagementPage() {
                                 setEditing(null);
                                 setFormMode("create");
                             }}
+                            className="gap-2"
                         >
-                            + Tambah Pengguna
+                            <AddIcon size={17} />
+                            Tambah Pengguna
                         </Button>
                     )}
                 </div>
@@ -250,27 +259,49 @@ export default function UserManagementPage() {
                         className="w-full pl-9 pr-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] placeholder:text-[#767676]"
                     />
                 </div>
-                <select
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                    className="px-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
-                >
-                    <option value="">Semua Peran</option>
-                    {roles.map((r) => (
-                        <option key={r.id} value={r.name}>
-                            {roleLabel(r.name)}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
-                >
-                    <option value="">Semua Status</option>
-                    <option value="active">Aktif</option>
-                    <option value="inactive">Tidak Aktif</option>
-                </select>
+                <details className="relative shrink-0 group">
+                    <summary className="list-none inline-flex items-center gap-2 px-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] bg-white text-[#424655] cursor-pointer hover:border-[#A0A0A0] transition-colors [&::-webkit-details-marker]:hidden">
+                        <FilterIcon size={16} />
+                        Filter
+                        {(roleFilter || statusFilter) && (
+                            <span className="flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-[#DBEAFE] text-[#256EEF] text-[11px] font-semibold">
+                                {Number(!!roleFilter) + Number(!!statusFilter)}
+                            </span>
+                        )}
+                        <ChevronDownIcon size={15} className="transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-[#E0E9F2] bg-white p-3 shadow-xl">
+                        <div className="flex flex-col gap-3">
+                            <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                                Peran
+                                <select
+                                    value={roleFilter}
+                                    onChange={(e) => setRoleFilter(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                                >
+                                    <option value="">Semua Peran</option>
+                                    {roles.map((r) => (
+                                        <option key={r.id} value={r.name}>
+                                            {roleLabel(r.name)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                                Status
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                                >
+                                    <option value="">Semua Status</option>
+                                    <option value="active">Aktif</option>
+                                    <option value="inactive">Tidak Aktif</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                </details>
                 <span className="text-sm text-[#767676] whitespace-nowrap">
                     {filtered.length} dari {users.length} pengguna
                 </span>

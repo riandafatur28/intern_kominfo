@@ -1,7 +1,6 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
 import {
   UsersIcon,
-  SettingsIcon,
   ShieldIcon,
   WfhAbsensiIcon,
   WfhMonitorIcon,
@@ -32,18 +31,6 @@ const allMenuDefs: MenuDef[] = [
     icon: UsersIcon,
   },
   {
-    label: "Kelola Hak Akses",
-    href: "/admin/roles",
-    permissions: ["role.manage"],
-    icon: ShieldIcon,
-  },
-  {
-    label: "Pengaturan",
-    href: "/admin/settings",
-    permissions: ["setting.manage"],
-    icon: SettingsIcon,
-  },
-  {
     label: "Absensi WFH",
     href: "/wfh/absensi",
     permissions: ["wfh.report.create"],
@@ -60,20 +47,26 @@ const allMenuDefs: MenuDef[] = [
   {
     label: "Monitoring Perubahan",
     href: "/change-management/monitoring",
-    roles: ["admin"],
+    permissions: ["change.initiation.view"],
     icon: ChangeMonitorIcon,
   },
   {
     label: "Persetujuan Perubahan",
     href: "/change-management/persetujuan",
-    roles: ["kepala_tim"],
+    permissions: ["change.initiation.approve"],
     icon: ChangeApprovalIcon,
   },
   {
     label: "Inisiasi Perubahan",
     href: "/change-management/inisiasi",
-    roles: ["staf", "admin"],
+    permissions: ["change.initiation.create"],
     icon: ChangeInisiasiIcon,
+  },
+  {
+    label: "Kelola Hak Akses",
+    href: "/admin/roles",
+    permissions: ["role.manage"],
+    icon: ShieldIcon,
   },
 ];
 

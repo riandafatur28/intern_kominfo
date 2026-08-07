@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 import ConfirmModal from "./ConfirmModal";
-import { ProfilIcon } from "./icons";
+import { ProfilIcon, SettingsIcon } from "./icons";
 
 export interface SidebarProfileMenuProps {
     confirmTitle?: string;
@@ -25,7 +25,7 @@ export default function SidebarProfileMenu({
     confirmTitle = "Konfirmasi Keluar",
     confirmMessage = "Apakah Anda yakin ingin keluar?",
 }: SidebarProfileMenuProps) {
-    const { user, logout, hasRole } = useAuth();
+    const { user, logout, hasPermission, hasRole } = useAuth();
     const navigate = useNavigate();
 
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -110,6 +110,11 @@ export default function SidebarProfileMenu({
         navigate("/profil");
     }
 
+    function handleSettingsClick() {
+        closePopover();
+        navigate("/admin/settings");
+    }
+
     function handleLogoutClick() {
         closePopover();
         setConfirmOpen(true);
@@ -139,9 +144,8 @@ export default function SidebarProfileMenu({
                     height="14"
                     viewBox="0 0 14 14"
                     fill="none"
-                    className={`shrink-0 text-[#767676] transition-transform duration-150 ${
-                        phase === "visible" ? "rotate-180" : ""
-                    }`}
+                    className={`shrink-0 text-[#767676] transition-transform duration-150 ${phase === "visible" ? "rotate-180" : ""
+                        }`}
                 >
                     <path
                         d="M3.5 5.25L7 8.75L10.5 5.25"
@@ -158,9 +162,8 @@ export default function SidebarProfileMenu({
                     ref={popoverRef}
                     role="menu"
                     style={{ position: "fixed", left: rect.left, bottom: rect.bottom, width: rect.width, zIndex: 40 }}
-                    className={`rounded-xl border border-[#E0E9F2] bg-white shadow-xl overflow-hidden transition-all duration-150 ease-out ${
-                        phase === "visible" ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
-                    }`}
+                    className={`rounded-xl border border-[#E0E9F2] bg-white shadow-xl overflow-hidden transition-all duration-150 ease-out ${phase === "visible" ? "opacity-100 translate-y-0" : "opacity-0 translate-y-1"
+                        }`}
                 >
                     <div className="flex items-center gap-3 px-4 py-3">
                         <div className="w-10 h-10 rounded-full bg-[#256EEF] flex items-center justify-center text-white text-sm font-semibold shrink-0">
@@ -183,6 +186,17 @@ export default function SidebarProfileMenu({
                         <ProfilIcon size={18} />
                         Profil Saya
                     </button>
+                    {hasPermission("setting.manage") && (
+                        <button
+                            type="button"
+                            role="menuitem"
+                            onClick={handleSettingsClick}
+                            className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-[#424655] hover:bg-[#F6FAFF] transition-colors"
+                        >
+                            <SettingsIcon size={18} />
+                            Pengaturan
+                        </button>
+                    )}
                     <div className="border-t border-[#E0E9F2]" />
                     <button
                         type="button"
