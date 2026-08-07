@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 6.2.0
+  version: 6.3.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,6 +9,23 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+    **v6.3.0 — Public password reset (OTP via Resend):**
+    - Added 3 public endpoints (no auth, throttle:auth 5/min per email|ip):
+      `POST /api/auth/forgot-password`, `POST /api/auth/verify-otp`,
+      `POST /api/auth/reset-password`.
+    - Anti-enumeration: forgot-password always returns 200 generic; no OTP
+      dispatched for unregistered or inactive users.
+    - OTP is 6-digit, hashed (argon2id) in `password_reset_otps`, expires in
+      15 min, single-use (verified once then `used_at` set), brute-force lockout
+      after 5 failed attempts.
+    - Verify-otp issues a 60-char reset token cached for 5 min (one-time);
+      the OTP code itself is never sent to the reset endpoint.
+    - Reset-password consumes the cached reset token and sets the new password,
+      clearing `must_change_password`.
+    - Dropped the default Laravel `password_reset_tokens` table (unused).
+    - New schemas: `ForgotPasswordRequest`, `VerifyOtpRequest`,
+      `ResetPasswordRequest`, `VerifyOtpResponse`, `ResetPasswordSuccessResponse`.
 
     **v6.2.0 — Added GET /change-types (reference data):
     - Added `GET /api/change-types` — returns all change types (no permission
@@ -1889,6 +1906,95 @@ components:
         current_password: rahasiaLama123
         new_password: rahasiaBaru123
         new_password_confirmation: rahasiaBaru123
+    # ── Auth: Public Password Reset (OTP) ────────────────────────────
+    ForgotPasswordRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+          description: Email akun yang lupa password. Tidak membocorkan status pendaftaran — respons selalu 200 generic.
+          example: budi@kominfo.go.id
+      example:
+        email: budi@kominfo.go.id
+    VerifyOtpRequest:
+      type: object
+      required: [email, code]
+      properties:
+        email:
+          type: string
+          format: email
+          example: budi@kominfo.go.id
+        code:
+          type: string
+          pattern: '^[0-9]{6}$'
+          minLength: 6
+          maxLength: 6
+          description: Kode OTP 6-digit yang dikirim ke email. Hashed di DB (argon2id); satu kali pakai; kedaluwarsa 15 menit; lockout setelah 5 percobaan gagal.
+          example: "829341"
+      example:
+        email: budi@kominfo.go.id
+        code: "829341"
+    ResetPasswordRequest:
+      type: object
+      required: [reset_token, new_password, new_password_confirmation]
+      properties:
+        reset_token:
+          type: string
+          minLength: 60
+          description: Token reset 60-char yang diterbitkan oleh verify-otp. Disimpan di cache TTL 5 menit, satu kali pakai.
+          example: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+        new_password:
+          type: string
+          format: password
+          minLength: 8
+          example: rahasiaBaru123
+        new_password_confirmation:
+          type: string
+          format: password
+          example: rahasiaBaru123
+      example:
+        reset_token: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+        new_password: rahasiaBaru123
+        new_password_confirmation: rahasiaBaru123
+    VerifyOtpResponse:
+      type: object
+      required: [success, message, data]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: OTP terverifikasi. Gunakan reset_token untuk mengatur password baru.
+        data:
+          type: object
+          required: [reset_token]
+          properties:
+            reset_token:
+              type: string
+              minLength: 60
+              description: Token reset satu kali pakai (cache TTL 5 menit). Kirim ke POST /api/auth/reset-password.
+              example: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+      example:
+        success: true
+        message: OTP terverifikasi. Gunakan reset_token untuk mengatur password baru.
+        data:
+          reset_token: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+    ResetPasswordSuccessResponse:
+      type: object
+      required: [success, message]
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Password berhasil diatur. Silakan login.
+      example:
+        success: true
+        message: Password berhasil diatur. Silakan login.
     # ── WFH Team Reports ─────────────────────────────────────────────
     WfhTeamReport:
       type: object
@@ -2320,6 +2426,182 @@ paths:
                   value:
                     success: false
                     message: "Konfirmasi password baru tidak sesuai."
+  /api/auth/forgot-password:
+    post:
+      tags: [Auth]
+      summary: Request a password-reset OTP to be emailed
+      operationId: forgotPassword
+      security: []
+      description: |
+        Public endpoint (no auth). Triggers `PasswordResetService::sendOtp`:
+        looks up the user by email; if none or `is_active=false`, the request
+        is a silent no-op (no OTP dispatched) but the response is always the
+        same 200 generic message — this prevents email enumeration. When a valid
+        active user is found, a 6-digit OTP is generated, hashed (argon2id) and
+        stored in `password_reset_otps` (expires in 15 min), and a queued
+        `ResetPasswordOtpNotification` is dispatched via Resend.
+
+        A 60-second resend cooldown is enforced via `last_sent_at`; a second
+        request within 60s returns 200 without dispatching a new OTP.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordRequest"
+      responses:
+        "200":
+          description: Generic acknowledgement — does NOT confirm the email exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SuccessResponse"
+              example:
+                success: true
+                message: Jika email terdaftar, kode OTP telah dikirim ke email Anda.
+        "422":
+          description: email missing or malformed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                emailMissing:
+                  summary: email field absent
+                  value:
+                    success: false
+                    message: Email wajib diisi.
+                emailInvalid:
+                  summary: email format invalid
+                  value:
+                    success: false
+                    message: Format email tidak valid.
+        "429":
+          description: Too many requests (throttle:auth — 5/min per email|ip)
+  /api/auth/verify-otp:
+    post:
+      tags: [Auth]
+      summary: Verify the OTP and obtain a one-time reset token
+      operationId: verifyOtp
+      security: []
+      description: |
+        Public endpoint (no auth). Validates the 6-digit OTP against the
+        hashed `code_hash` in `password_reset_otps`. On success, the OTP row is
+        marked `used_at` (single-use) and a 60-char reset token is generated,
+        cached for 5 minutes (`pwreset:{token}`), and returned in `data.reset_token`.
+        The OTP code itself is never sent to the reset-password endpoint.
+
+        Brute-force lockout: after 5 failed attempts the OTP is invalidated
+        (`used_at` set) and must be re-requested via forgot-password. The OTP
+        expires 15 minutes after issuance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyOtpRequest"
+      responses:
+        "200":
+          description: OTP verified — reset token issued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerifyOtpResponse"
+              example:
+                success: true
+                message: OTP terverifikasi. Gunakan reset_token untuk mengatur password baru.
+                data:
+                  reset_token: "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2"
+        "422":
+          description: OTP invalid, expired, already used, or brute-force-locked-out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                otpInvalid:
+                  summary: wrong code (attempt incremented)
+                  value:
+                    success: false
+                    message: Kode OTP tidak valid atau telah kedaluwarsa.
+                otpExpired:
+                  summary: OTP expired (15 min passed)
+                  value:
+                    success: false
+                    message: Kode OTP tidak valid atau telah kedaluwarsa.
+                otpReused:
+                  summary: OTP already used (used_at set)
+                  value:
+                    success: false
+                    message: Kode OTP tidak valid atau telah kedaluwarsa.
+                otpLocked:
+                  summary: 5 failed attempts — OTP invalidated, request a new one
+                  value:
+                    success: false
+                    message: Kode OTP tidak valid atau telah kedaluwarsa.
+                codeFormat:
+                  summary: code not 6 digits
+                  value:
+                    success: false
+                    message: Kode OTP harus 6 digit.
+        "429":
+          description: Too many requests (throttle:auth)
+  /api/auth/reset-password:
+    post:
+      tags: [Auth]
+      summary: Set a new password using a reset token
+      operationId: resetPassword
+      security: []
+      description: |
+        Public endpoint (no auth). Consumes the cached reset token issued by
+        verify-otp. On success, the token is forgotten from cache (one-time),
+        the user's password is updated and `must_change_password` is cleared.
+        The token is valid for 5 minutes from issuance.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordRequest"
+      responses:
+        "200":
+          description: Password set — proceed to login
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResetPasswordSuccessResponse"
+              example:
+                success: true
+                message: Password berhasil diatur. Silakan login.
+        "422":
+          description: reset_token invalid/expired, or new_password invalid/unconfirmed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                tokenInvalid:
+                  summary: reset_token not found or expired (>5 min)
+                  value:
+                    success: false
+                    message: Token reset tidak valid atau telah kedaluwarsa.
+                tokenMissing:
+                  summary: reset_token field absent
+                  value:
+                    success: false
+                    message: Token reset wajib diisi.
+                weakPassword:
+                  summary: new_password shorter than 8 chars
+                  value:
+                    success: false
+                    message: Password baru minimal 8 karakter.
+                notConfirmed:
+                  summary: new_password confirmation mismatch
+                  value:
+                    success: false
+                    message: Konfirmasi password baru tidak sesuai.
+        "429":
+          description: Too many requests (throttle:auth)
   # ── Profile ──────────────────────────────────────────────────────
   /api/profile:
     get:
