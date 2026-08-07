@@ -1465,8 +1465,8 @@ components:
         implementation:
           type: object
           properties:
-            priority: { type: string, enum: [low, medium, high, critical], nullable: true, example: high }
-            impact: { type: string, enum: [low, medium, high], nullable: true, example: high }
+            priority: { type: string, enum: [normal, emergency], nullable: true, example: normal }
+            impact: { type: string, enum: [Minor, Mayor], nullable: true, example: Minor }
             change_type_ids: { type: array, nullable: true, items: { type: integer }, example: [1, 3] }
             test_plan: { type: string, nullable: true, example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama." }
             execution_date: { type: string, format: date, nullable: true, example: "2025-11-10" }
@@ -1485,8 +1485,8 @@ components:
           description: "Migrasi server aplikasi e-Office dari on-premise ke cloud Kominfo"
           reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu."
         implementation:
-          priority: high
-          impact: high
+          priority: normal
+          impact: Minor
           change_type_ids: [1, 3]
           test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
           production_impact: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data."
@@ -1510,8 +1510,8 @@ components:
           type: object
           required: [priority, impact, change_type_ids, test_plan, execution_date, release_date, implementation_result]
           properties:
-            priority: { type: string, enum: [low, medium, high, critical], example: high }
-            impact: { type: string, enum: [low, medium, high], example: high }
+            priority: { type: string, enum: [normal, emergency], example: normal }
+            impact: { type: string, enum: [Minor, Mayor], example: Minor }
             change_type_ids: { type: array, minItems: 1, items: { type: integer }, example: [1, 3] }
             test_plan: { type: string, example: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama." }
             execution_date: { type: string, format: date, example: "2025-11-10" }
@@ -1530,8 +1530,8 @@ components:
           reason: "Server on-premise saat ini sudah tidak memadai untuk menangani lonjakan trafik pengguna dan sering mengalami downtime 2-3 jam per minggu."
           needed_by_date: "2025-12-15"
         implementation:
-          priority: high
-          impact: high
+          priority: normal
+          impact: Minor
           change_type_ids: [1, 3]
           test_plan: "Smoke test semua endpoint API, load test dengan 100 concurrent users, uji rollback ke server lama."
           execution_date: "2025-11-10"
@@ -1572,8 +1572,8 @@ components:
         implementation:
           id: 9
           change_initiation_id: 12
-          priority: high
-          impact: high
+          priority: normal
+          impact: Minor
           production_impact: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data."
           required_effort: "3 orang x 5 hari kerja"
           cost_needed: true
@@ -1651,8 +1651,8 @@ components:
       properties:
         id: { type: integer, example: 9 }
         change_initiation_id: { type: integer, example: 12 }
-        priority: { type: string, enum: [low, medium, high, critical], nullable: true, example: high }
-        impact: { type: string, enum: [low, medium, high], nullable: true, example: high }
+        priority: { type: string, enum: [normal, emergency], nullable: true, example: normal }
+        impact: { type: string, enum: [Minor, Mayor], nullable: true, example: Minor }
         production_impact: { type: string, nullable: true, example: "Aplikasi tidak dapat diakses selama 2 jam pada saat migrasi data." }
         required_effort: { type: string, nullable: true, example: "3 orang x 5 hari kerja" }
         cost_needed: { type: boolean, nullable: true, example: true }
@@ -1722,8 +1722,8 @@ components:
             implementation:
               id: 9
               change_initiation_id: 12
-              priority: high
-              impact: high
+              priority: normal
+              impact: Minor
               test_plan: "Smoke test semua endpoint API."
               status: submitted
               change_types:
@@ -4223,8 +4223,11 @@ paths:
         - bearerAuth: []
       description: |
         Generates a personal WFH report PDF (Laporan Pelaksanaan Tugas WFH).
-        Available from `pending` status — staff signature auto-filled from profile.
-        Kepala Bidang signature + QR code appear only when `approved`.
+        Available from `pending` status — the maker (staf) must have set their
+        signature in their profile first; export is refused with 422 otherwise.
+        Kepala Bidang signature + QR code appear only when `approved`, and the
+        supervisor must also have set their signature before an approved report
+        can be exported.
       parameters:
         - $ref: "#/components/parameters/ReportIdPath"
       responses:
@@ -4263,14 +4266,22 @@ paths:
                 success: false
                 message: Laporan tidak ditemukan.
         "422":
-          description: Report not approved
+          description: Report not exportable (not submitted) or a signer's signature is not set
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-              example:
-                success: false
-                message: PDF hanya dapat di-generate untuk laporan yang sudah disubmit atau disetujui.
+              examples:
+                unsubmitted:
+                  summary: Laporan belum disubmit
+                  value:
+                    success: false
+                    message: PDF hanya dapat di-generate untuk laporan yang sudah disubmit atau disetujui.
+                missing-signature:
+                  summary: Tanda tangan belum diatur
+                  value:
+                    success: false
+                    message: Andi belum mengatur tanda tangan. Atur tanda tangan terlebih dahulu sebelum mengekspor PDF.
   /api/wfh/session-config:
     get:
       tags: [WFH Settings]
@@ -4480,6 +4491,15 @@ paths:
               example:
                 success: false
                 message: Tim tidak ditemukan dalam bidang Anda.
+        "422":
+          description: A signer's signature is not set (maker or, when approved, the Kepala Bidang)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: Andi belum mengatur tanda tangan. Atur tanda tangan terlebih dahulu sebelum mengekspor PDF.
 
   # ── WFH Team Reports ──────────────────────────────────────────────
   /api/admin/wfh/team-reports:
@@ -5015,19 +5035,18 @@ paths:
                     type: array
                     items:
                       type: object
-                      properties:
-                        id: { type: integer, example: 15 }
-                        path: { type: string, example: "change-attachments/diagram-arsitektur.png" }
-                        url: { type: string, format: uri, example: "http://localhost/storage/change-attachments/diagram-arsitektur.png" }
-                        sort_order: { type: integer, example: 1 }
-        "401": { $ref: "#/components/responses/Unauthenticated" }
-        "403": { $ref: "#/components/responses/Forbidden" }
-        "422": { $ref: "#/components/responses/ValidationError" }
   /api/changes/{id}/pdf/initiation:
     get:
       tags: [Change Package]
       summary: Export initiation PDF (must be approved)
       operationId: exportInitiationPdf
+      security:
+        - bearerAuth: []
+      description: |
+        Exports the Formulir Inisiasi Perubahan as PDF. Only for packages with
+        status `approved`. Both the initiator (Inisiator) and the reviewer
+        (Disetujui Oleh) must have set their profile signature; otherwise the
+        export is refused with 422 so no PDF ships with a missing signature.
       parameters:
         - $ref: "#/components/parameters/PackageIdPath"
       responses:
@@ -5042,16 +5061,35 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422":
-          description: Package not yet approved
+          description: Package not approved or a signer's signature is not set
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                not-approved:
+                  summary: Paket belum disetujui
+                  value:
+                    success: false
+                    message: PDF hanya dapat di-generate untuk paket yang sudah disetujui.
+                missing-signature:
+                  summary: Tanda tangan belum diatur
+                  value:
+                    success: false
+                    message: Budi belum mengatur tanda tangan. Atur tanda tangan terlebih dahulu sebelum mengekspor PDF.
   /api/changes/{id}/pdf/implementation:
     get:
       tags: [Change Package]
       summary: Export implementation PDF (package approved, impl completed)
       operationId: exportImplementationPdf
+      security:
+        - bearerAuth: []
+      description: |
+        Exports the Formulir Implementasi Perubahan as PDF. Only for packages
+        where implementation status is `completed`. The three involved roles
+        (Dievaluasi Oleh, Ditinjau Oleh, Penanggungjawab) must all have set
+        their profile signature; otherwise the export is refused with 422.
+        Unassigned roles (e.g. evaluator is nullable) are gracefully skipped.
       parameters:
         - $ref: "#/components/parameters/PackageIdPath"
       responses:
@@ -5066,8 +5104,19 @@ paths:
         "403": { $ref: "#/components/responses/Forbidden" }
         "404": { $ref: "#/components/responses/NotFound" }
         "422":
-          description: Implementation not completed
+          description: Implementation not completed or a signer's signature is not set
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+              examples:
+                not-completed:
+                  summary: Implementasi belum selesai
+                  value:
+                    success: false
+                    message: PDF hanya dapat di-generate untuk implementasi yang sudah selesai (diterima).
+                missing-signature:
+                  summary: Tanda tangan belum diatur
+                  value:
+                    success: false
+                    message: Andi belum mengatur tanda tangan. Atur tanda tangan terlebih dahulu sebelum mengekspor PDF.

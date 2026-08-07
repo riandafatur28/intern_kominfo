@@ -5,6 +5,7 @@ import DataTable, { type Column } from "../../components/ui/DataTable";
 import Button from "../../components/ui/Button";
 import Pagination from "../../components/ui/Pagination";
 import Toast, { type ToastType } from "../../components/ui/Toast";
+import DropdownMenu from "../../components/ui/DropdownMenu";
 import { useAuth } from "../../hooks/useAuth";
 import { listUsers, type UserResource } from "../../api/users";
 import { listRoles, type Role } from "../../api/roles";
@@ -19,6 +20,15 @@ import {
 import UserFormModal from "./components/UserFormModal";
 import DeleteUserModal from "./components/DeleteUserModal";
 import ImportUsersModal from "./components/ImportUsersModal";
+import {
+    AddIcon,
+    ChevronDownIcon,
+    EditIcon,
+    FilterIcon,
+    MoreVerticalIcon,
+    TrashIcon,
+    UploadIcon,
+} from "../../components/ui/AdminActionIcons";
 
 const PAGE_SIZE = 10;
 
@@ -159,42 +169,38 @@ export default function UserManagementPage() {
                 return <span className="text-[#424655]">{formatDate(u.created_at)}</span>;
             case "aksi":
                 return (
-                    <div className="flex items-center gap-2">
-                        <button
-                            aria-label="Edit"
-                            disabled={!canManage}
-                            onClick={() => {
-                                setEditing(u);
-                                setFormMode("edit");
-                            }}
-                            className="p-1.5 rounded-lg text-[#256EEF] hover:bg-[#EFF6FF] disabled:opacity-40"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                <path
-                                    d="M4 13.5V16h2.5l7.4-7.4-2.5-2.5L4 13.5zM15.7 6.3a1 1 0 000-1.4l-1.6-1.6a1 1 0 00-1.4 0l-1.2 1.2 3 3 1.2-1.2z"
-                                    stroke="currentColor"
-                                    strokeWidth="1.3"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
-                        </button>
-                        <button
-                            aria-label="Hapus"
-                            disabled={!canManage}
-                            onClick={() => setDeleting(u)}
-                            className="p-1.5 rounded-lg text-[#DC2626] hover:bg-[#FEF2F2] disabled:opacity-40"
-                        >
-                            <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
-                                <path
-                                    d="M3 5h14M8 5V3.5A1.5 1.5 0 019.5 2h1A1.5 1.5 0 0112 3.5V5m2 0v11a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 016 16V5"
-                                    stroke="currentColor"
-                                    strokeWidth="1.3"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
-                        </button>
-                    </div>
+                    <DropdownMenu
+                        align="end"
+                        trigger={
+                            <button
+                                type="button"
+                                aria-label={`Aksi untuk ${u.name}`}
+                                disabled={!canManage}
+                                className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF] disabled:opacity-40"
+                            >
+                                <MoreVerticalIcon size={18} />
+                            </button>
+                        }
+                        items={[
+                            {
+                                label: "Edit pengguna",
+                                icon: <EditIcon size={16} />,
+                                disabled: !canManage,
+                                onClick: () => {
+                                    setEditing(u);
+                                    setFormMode("edit");
+                                },
+                            },
+                            {
+                                label: "Hapus pengguna",
+                                icon: <TrashIcon size={16} />,
+                                variant: "destructive",
+                                separator: true,
+                                disabled: !canManage,
+                                onClick: () => setDeleting(u),
+                            },
+                        ]}
+                    />
                 );
             default:
                 return null;
@@ -217,7 +223,8 @@ export default function UserManagementPage() {
                 />
                 <div className="flex gap-2">
                     {canImport && (
-                        <Button variant="outline" onClick={() => setImportOpen(true)}>
+                        <Button variant="outline" onClick={() => setImportOpen(true)} className="gap-2">
+                            <UploadIcon size={17} />
                             Import Excel
                         </Button>
                     )}
@@ -227,8 +234,10 @@ export default function UserManagementPage() {
                                 setEditing(null);
                                 setFormMode("create");
                             }}
+                            className="gap-2"
                         >
-                            + Tambah Pengguna
+                            <AddIcon size={17} />
+                            Tambah Pengguna
                         </Button>
                     )}
                 </div>
@@ -250,27 +259,49 @@ export default function UserManagementPage() {
                         className="w-full pl-9 pr-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] placeholder:text-[#767676]"
                     />
                 </div>
-                <select
-                    value={roleFilter}
-                    onChange={(e) => setRoleFilter(e.target.value)}
-                    className="px-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
-                >
-                    <option value="">Semua Peran</option>
-                    {roles.map((r) => (
-                        <option key={r.id} value={r.name}>
-                            {roleLabel(r.name)}
-                        </option>
-                    ))}
-                </select>
-                <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="px-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
-                >
-                    <option value="">Semua Status</option>
-                    <option value="active">Aktif</option>
-                    <option value="inactive">Tidak Aktif</option>
-                </select>
+                <details className="relative shrink-0 group">
+                    <summary className="list-none inline-flex items-center gap-2 px-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] bg-white text-[#424655] cursor-pointer hover:border-[#A0A0A0] transition-colors [&::-webkit-details-marker]:hidden">
+                        <FilterIcon size={16} />
+                        Filter
+                        {(roleFilter || statusFilter) && (
+                            <span className="flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-[#DBEAFE] text-[#256EEF] text-[11px] font-semibold">
+                                {Number(!!roleFilter) + Number(!!statusFilter)}
+                            </span>
+                        )}
+                        <ChevronDownIcon size={15} className="transition-transform group-open:rotate-180" />
+                    </summary>
+                    <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-[#E0E9F2] bg-white p-3 shadow-xl">
+                        <div className="flex flex-col gap-3">
+                            <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                                Peran
+                                <select
+                                    value={roleFilter}
+                                    onChange={(e) => setRoleFilter(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                                >
+                                    <option value="">Semua Peran</option>
+                                    {roles.map((r) => (
+                                        <option key={r.id} value={r.name}>
+                                            {roleLabel(r.name)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                            <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                                Status
+                                <select
+                                    value={statusFilter}
+                                    onChange={(e) => setStatusFilter(e.target.value)}
+                                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                                >
+                                    <option value="">Semua Status</option>
+                                    <option value="active">Aktif</option>
+                                    <option value="inactive">Tidak Aktif</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+                </details>
                 <span className="text-sm text-[#767676] whitespace-nowrap">
                     {filtered.length} dari {users.length} pengguna
                 </span>

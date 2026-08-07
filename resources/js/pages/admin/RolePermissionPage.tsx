@@ -4,6 +4,8 @@ import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
 import Checkbox from "../../components/ui/Checkbox";
 import Toast, { type ToastType } from "../../components/ui/Toast";
+import { SaveIcon } from "../../components/ui/AdminActionIcons";
+import { useAuth } from "../../hooks/useAuth";
 import { listRoles, updateRolePermissions, type Role } from "../../api/roles";
 import { listPermissions, type Permission } from "../../api/permissions";
 import { roleLabel } from "../../utils/userDisplay";
@@ -29,6 +31,7 @@ function groupOf(permissionName: string): string {
 }
 
 export default function RolePermissionPage() {
+    const { refreshUser } = useAuth();
     const [roles, setRoles] = useState<Role[]>([]);
     const [permissions, setPermissions] = useState<Permission[]>([]);
     const [selectedRoleId, setSelectedRoleId] = useState<number | null>(null);
@@ -114,6 +117,9 @@ export default function RolePermissionPage() {
             setRoles((prev) => prev.map((r) => (r.id === updated.id ? updated : r)));
             setChecked(new Set(updated.permissions));
             setInitial(new Set(updated.permissions));
+            // Refresh the current session too, so the sidebar/actions immediately
+            // reflect a permission change when the edited role is the admin's role.
+            void refreshUser();
             setToast({ message: "Hak akses role berhasil diperbarui.", type: "success" });
         } catch (err: unknown) {
             const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
@@ -159,8 +165,8 @@ export default function RolePermissionPage() {
                                         type="button"
                                         onClick={() => selectRole(role)}
                                         className={`text-left px-4 py-3 rounded-lg text-sm font-medium transition-colors ${active
-                                                ? "bg-[#DBEAFE] text-[#256EEF]"
-                                                : "text-[#424655] hover:bg-[#F6FAFF]"
+                                            ? "bg-[#DBEAFE] text-[#256EEF]"
+                                            : "text-[#424655] hover:bg-[#F6FAFF]"
                                             }`}
                                     >
                                         <div>{roleLabel(role.name)}</div>
@@ -185,7 +191,8 @@ export default function RolePermissionPage() {
                                         {checked.size} dari {permissions.length} permission aktif
                                     </p>
                                 </div>
-                                <Button onClick={handleSave} disabled={saving || !dirty}>
+                                <Button onClick={handleSave} disabled={saving || !dirty} className="gap-2">
+                                    <SaveIcon size={17} />
                                     {saving ? "Menyimpan..." : "Simpan Perubahan"}
                                 </Button>
                             </div>

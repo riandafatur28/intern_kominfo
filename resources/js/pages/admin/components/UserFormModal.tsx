@@ -13,6 +13,7 @@ import {
 import type { Role } from "../../../api/roles";
 import type { Team } from "../../../api/teams";
 import { roleLabel, generatePassword } from "../../../utils/userDisplay";
+import { AddIcon, CloseIcon, SaveIcon, SparklesIcon } from "../../../components/ui/AdminActionIcons";
 
 interface UserFormModalProps {
     open: boolean;
@@ -158,14 +159,16 @@ export default function UserFormModal({
 
     const footer = (
         <>
-            <Button variant="outline" onClick={onClose} disabled={saving}>
+            <Button variant="outline" onClick={onClose} disabled={saving} className="gap-2">
+                <CloseIcon size={16} />
                 Batal
             </Button>
-            <Button onClick={handleSubmit} disabled={saving}>
+            <Button onClick={handleSubmit} disabled={saving} className="gap-2">
+                {mode === "create" ? <AddIcon size={16} /> : <SaveIcon size={16} />}
                 {saving
                     ? "Menyimpan..."
                     : mode === "create"
-                        ? "+ Buat Akun"
+                        ? "Buat Akun"
                         : "Simpan Perubahan"}
             </Button>
         </>
@@ -277,15 +280,17 @@ export default function UserFormModal({
                                 onChange={(e) => set("password", e.target.value)}
                                 placeholder="Kosongkan untuk pakai password default"
                                 className={`flex-1 px-4 py-[10px] text-sm text-[#141D23] rounded-[10px] border outline-none transition-colors placeholder:text-[#767676] ${errors.password
-                                        ? "border-[#FF0000]"
-                                        : "border-[#C2C6D8] hover:border-[#A0A0A0] focus:border-[#256EEF]"
+                                    ? "border-[#FF0000]"
+                                    : "border-[#C2C6D8] hover:border-[#A0A0A0] focus:border-[#256EEF]"
                                     }`}
                             />
                             <Button
                                 type="button"
                                 variant="outline"
                                 onClick={() => set("password", generatePassword())}
+                                className="gap-1.5"
                             >
+                                <SparklesIcon size={16} />
                                 Generate
                             </Button>
                         </div>

@@ -4,8 +4,6 @@ import AppLayout from "../../layouts/AppLayout";
 import Button from "../../components/ui/Button";
 import Toast from "../../components/ui/Toast";
 import Modal from "../../components/ui/Modal";
-import Input from "../../components/ui/Input";
-import { useAuth } from "../../hooks/useAuth";
 import {
   getWfhSessionConfig,
   createWfhReport,
@@ -78,7 +76,6 @@ function todayDisplay(d?: string): string {
 
 export default function WfhAbsensi() {
   const nav = useNavigate();
-  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -131,6 +128,7 @@ export default function WfhAbsensi() {
   /* ── Init ────────────────────────────────────────────────────── */
   useEffect(() => {
     loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init-only, run once
   }, []);
 
   async function loadData() {

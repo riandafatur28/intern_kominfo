@@ -2,6 +2,7 @@ import { useState } from "react";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
 import { deleteUser, type UserResource } from "../../../api/users";
+import { CloseIcon, TrashIcon } from "../../../components/ui/AdminActionIcons";
 
 interface DeleteUserModalProps {
     user: UserResource | null;
@@ -31,14 +32,16 @@ export default function DeleteUserModal({ user, onClose, onDeleted }: DeleteUser
 
     const footer = (
         <>
-            <Button variant="outline" onClick={onClose} disabled={deleting}>
+            <Button variant="outline" onClick={onClose} disabled={deleting} className="gap-2">
+                <CloseIcon size={16} />
                 Batal
             </Button>
             <button
                 onClick={handleDelete}
                 disabled={deleting}
-                className="px-6 py-3 text-sm font-medium text-white bg-[#DC2626] rounded-xl hover:bg-[#b91c1c] transition-colors disabled:opacity-60"
+                className="inline-flex items-center justify-center gap-2 px-6 py-3 text-sm font-medium text-white bg-[#DC2626] rounded-xl hover:bg-[#b91c1c] transition-colors disabled:opacity-60"
             >
+                <TrashIcon size={16} />
                 {deleting ? "Menghapus..." : "Ya, Hapus"}
             </button>
         </>
@@ -50,15 +53,7 @@ export default function DeleteUserModal({ user, onClose, onDeleted }: DeleteUser
                 <div className="flex flex-col gap-4">
                     <div className="flex gap-3">
                         <span className="flex items-center justify-center w-10 h-10 shrink-0 rounded-full bg-[#FEE2E2] text-[#DC2626]">
-                            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
-                                <path
-                                    d="M3 5h14M8 5V3.5A1.5 1.5 0 019.5 2h1A1.5 1.5 0 0112 3.5V5m2 0v11a1.5 1.5 0 01-1.5 1.5h-5A1.5 1.5 0 016 16V5"
-                                    stroke="currentColor"
-                                    strokeWidth="1.5"
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                />
-                            </svg>
+                            <TrashIcon size={20} />
                         </span>
                         <div className="text-sm text-[#424655]">
                             Hapus akun{" "}

@@ -27,7 +27,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export default function WfhLaporanTim() {
-  const { user, hasPermission } = useAuth();
+  const { hasPermission } = useAuth();
 
   /* ── List state ──────────────────────────────────────────────── */
   const [status, setStatus] = useState<PageStatus>("loading");
@@ -62,7 +62,7 @@ export default function WfhLaporanTim() {
     try {
       const res = await listTeamReports({ per_page: 15 });
       // BE returns raw paginator without meta envelope
-      const raw = (res as any).meta ?? res;
+      const raw = ((res as unknown as { meta?: { data?: WfhTeamReport[]; current_page?: number; last_page?: number; total?: number } }).meta ?? res) as { data?: WfhTeamReport[]; current_page?: number; last_page?: number; total?: number };
       setReports(raw.data ?? []);
       setPage(raw.current_page ?? 1);
       setLastPage(raw.last_page ?? 1);

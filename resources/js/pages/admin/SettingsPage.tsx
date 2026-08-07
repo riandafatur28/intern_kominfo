@@ -3,7 +3,9 @@ import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
 import Toggle from "../../components/ui/Toggle";
+import TimePicker from "../../components/ui/TimePicker";
 import Toast, { type ToastType } from "../../components/ui/Toast";
+import { EyeIcon, SaveIcon } from "../../components/ui/AdminActionIcons";
 import { getSettings, updateSetting } from "../../api/settings";
 
 const DAYS = [
@@ -204,8 +206,8 @@ export default function SettingsPage() {
                                         type="button"
                                         onClick={() => toggleDay(d.num)}
                                         className={`flex items-center justify-center gap-2 min-w-[110px] px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${active
-                                                ? "bg-[#256EEF] text-white border-[#256EEF]"
-                                                : "bg-white text-[#424655] border-[#C2C6D8] hover:border-[#A0A0A0]"
+                                            ? "bg-[#256EEF] text-white border-[#256EEF]"
+                                            : "bg-white text-[#424655] border-[#C2C6D8] hover:border-[#A0A0A0]"
                                             }`}
                                     >
                                         {active && (
@@ -259,17 +261,15 @@ export default function SettingsPage() {
                         title="Peringatan Notifikasi Otomatis"
                         subtitle="Jam pengiriman pengingat harian ke pegawai WFH"
                     >
-                        <div className="flex flex-col gap-[6px] max-w-[220px]">
-                            <label className="text-sm font-medium text-[#424655]">Jam Pengiriman Notifikasi</label>
-                            <div className="flex items-center gap-2">
-                                <input
-                                    type="time"
-                                    value={form.notifyTime}
-                                    onChange={(e) => setForm((f) => ({ ...f, notifyTime: e.target.value }))}
-                                    className="px-4 py-[10px] text-sm text-[#141D23] rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF]"
-                                />
-                                <span className="text-sm text-[#767676]">WIB</span>
-                            </div>
+                        <div className="max-w-[220px]">
+                            <TimePicker
+                                label="Jam Pengiriman Notifikasi"
+                                value={form.notifyTime}
+                                onChange={(value) => setForm((f) => ({ ...f, notifyTime: value }))}
+                                format="24h"
+                                step={5}
+                            />
+                            <p className="mt-1 text-xs text-[#767676]">Waktu Indonesia Barat (WIB)</p>
                         </div>
                     </SectionCard>
 
@@ -281,9 +281,9 @@ export default function SettingsPage() {
                     >
                         <div className="flex flex-col gap-4 max-w-md">
                             <div className="flex flex-col gap-[6px]">
-                                <label className="text-sm font-medium text-[#424655]">Password User</label>
-                                <p className="text-xs text-[#767676]">
-                                    Berlaku untuk semua akun pegawai baru dan saat reset password.
+                                <label className="text-sm font-medium text-[#424655] whitespace-nowrap">Password User</label>
+                                <p className="text-xs leading-5 text-[#767676] sm:whitespace-nowrap">
+                                    Berlaku untuk akun pegawai baru dan reset password.
                                 </p>
                                 <div className="flex gap-2">
                                     <input
@@ -292,14 +292,20 @@ export default function SettingsPage() {
                                         onChange={(e) => setForm((f) => ({ ...f, pwUser: e.target.value }))}
                                         className={pwInputClass}
                                     />
-                                    <Button variant="outline" type="button" onClick={() => setShowPwUser((v) => !v)}>
+                                    <Button
+                                        variant="outline"
+                                        type="button"
+                                        onClick={() => setShowPwUser((v) => !v)}
+                                        className="gap-1.5"
+                                    >
+                                        <EyeIcon size={16} />
                                         {showPwUser ? "Sembunyikan" : "Tampilkan"}
                                     </Button>
                                 </div>
                             </div>
 
                             <div className="flex flex-col gap-[6px]">
-                                <label className="text-sm font-medium text-[#424655]">Password Admin</label>
+                                <label className="text-sm font-medium text-[#424655] whitespace-nowrap">Password Admin</label>
                                 <div className="flex gap-2">
                                     <input
                                         type={showPwAdmin ? "text" : "password"}
@@ -307,7 +313,13 @@ export default function SettingsPage() {
                                         onChange={(e) => setForm((f) => ({ ...f, pwAdmin: e.target.value }))}
                                         className={pwInputClass}
                                     />
-                                    <Button variant="outline" type="button" onClick={() => setShowPwAdmin((v) => !v)}>
+                                    <Button
+                                        variant="outline"
+                                        type="button"
+                                        onClick={() => setShowPwAdmin((v) => !v)}
+                                        className="gap-1.5"
+                                    >
+                                        <EyeIcon size={16} />
                                         {showPwAdmin ? "Sembunyikan" : "Tampilkan"}
                                     </Button>
                                 </div>
@@ -322,7 +334,8 @@ export default function SettingsPage() {
                     )}
 
                     <div>
-                        <Button onClick={handleSave} disabled={saving}>
+                        <Button onClick={handleSave} disabled={saving} className="gap-2">
+                            <SaveIcon size={17} />
                             {saving ? "Menyimpan..." : "Simpan Pengaturan"}
                         </Button>
                     </div>
