@@ -24,6 +24,7 @@ services:
         condition: service_healthy
     stdin_open: true
     tty: true
+    command: php artisan serve --host=0.0.0.0 --port=8000
 
   postgres:
     image: postgres:15
@@ -46,3 +47,4 @@ services:
 volumes:
   postgres_data:
   vendor_data:
+  

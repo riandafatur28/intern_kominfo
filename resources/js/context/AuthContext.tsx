@@ -13,6 +13,8 @@ export interface AuthState {
   changePassword: (currentPassword: string, newPassword: string, newPasswordConfirmation: string) => Promise<void>;
   hasPermission: (perm: string) => boolean;
   hasRole: (role: string) => boolean;
+  /** Re-fetches /auth/me so permission-gated menus follow the latest server state. */
+  refreshUser: () => Promise<UserPayload>;
   needsPasswordChange: boolean;
   setUser: (u: UserPayload) => void;
 }
@@ -24,6 +26,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [needsPasswordChange, setNeedsPasswordChange] = useState(false);
+
+  const refreshUser = useCallback(async (): Promise<UserPayload> => {
+    const nextUser = await fetchMe();
+    setUser(nextUser);
+    localStorage.setItem("permissions", JSON.stringify(nextUser.permissions));
+    localStorage.setItem("roles", JSON.stringify(nextUser.roles));
+    if (nextUser.must_change_password) {
+      setNeedsPasswordChange(true);
+      localStorage.setItem("must_change_password", "true");
+    } else {
+      setNeedsPasswordChange(false);
+      localStorage.removeItem("must_change_password");
+    }
+    return nextUser;
+  }, []);
 
   // Restore session on mount
   useEffect(() => {
@@ -39,16 +56,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
       return;
     }
-    fetchMe()
-      .then((u) => {
-        setUser(u);
-        localStorage.setItem("permissions", JSON.stringify(u.permissions));
-        localStorage.setItem("roles", JSON.stringify(u.roles));
-        if (u.must_change_password) {
-          setNeedsPasswordChange(true);
-          localStorage.setItem("must_change_password", "true");
-        }
-      })
+    refreshUser()
       .catch(() => {
         localStorage.removeItem("token");
         localStorage.removeItem("must_change_password");
@@ -56,7 +64,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem("roles");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [refreshUser]);
+
+  // Permission dapat berubah saat admin mengedit role. Saat pengguna kembali
+  // ke tab aplikasi, ambil ulang /auth/me agar sidebar dan tombol terkini.
+  useEffect(() => {
+    const refreshOnFocus = () => {
+      if (
+        localStorage.getItem("token") &&
+        localStorage.getItem("must_change_password") !== "true"
+      ) {
+        void refreshUser().catch(() => undefined);
+      }
+    };
+    window.addEventListener("focus", refreshOnFocus);
+    return () => window.removeEventListener("focus", refreshOnFocus);
+  }, [refreshUser]);
 
   // Jaga token SW tetap sinkron (login/logout/mount)
   useEffect(() => {
@@ -138,6 +161,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         changePassword,
         hasPermission,
         hasRole,
+        refreshUser,
         needsPasswordChange,
         setUser,
       }}

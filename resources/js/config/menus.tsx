@@ -1,10 +1,7 @@
 import type { SidebarMenuItem } from "../components/ui/Sidebar";
 import {
-  ProfilIcon,
   UsersIcon,
-  SettingsIcon,
   ShieldIcon,
-  WfhIcon,
   WfhAbsensiIcon,
   WfhMonitorIcon,
   ChangeMonitorIcon,
@@ -25,9 +22,6 @@ interface MenuDef {
  * All possible menus. Each entry declares which permissions or roles
  * grant access. Empty permissions = visible to everyone authenticated.
  */
-function capFirst(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1);
-}
 
 const allMenuDefs: MenuDef[] = [
   {
@@ -35,18 +29,6 @@ const allMenuDefs: MenuDef[] = [
     href: "/admin/users",
     permissions: ["user.manage"],
     icon: UsersIcon,
-  },
-  {
-    label: "Kelola Hak Akses",
-    href: "/admin/roles",
-    permissions: ["role.manage"],
-    icon: ShieldIcon,
-  },
-  {
-    label: "Pengaturan",
-    href: "/admin/settings",
-    permissions: ["setting.manage"],
-    icon: SettingsIcon,
   },
   {
     label: "Absensi WFH",
@@ -65,25 +47,26 @@ const allMenuDefs: MenuDef[] = [
   {
     label: "Monitoring Perubahan",
     href: "/change-management/monitoring",
-    roles: ["admin"],
+    permissions: ["change.initiation.view"],
     icon: ChangeMonitorIcon,
   },
   {
     label: "Persetujuan Perubahan",
     href: "/change-management/persetujuan",
-    roles: ["kepala_tim"],
+    permissions: ["change.initiation.approve"],
     icon: ChangeApprovalIcon,
   },
   {
     label: "Inisiasi Perubahan",
     href: "/change-management/inisiasi",
-    roles: ["staf", "admin"],
+    permissions: ["change.initiation.create"],
     icon: ChangeInisiasiIcon,
   },
   {
-    label: "Profil Saya",
-    href: "/profil",
-    icon: ProfilIcon,
+    label: "Kelola Hak Akses",
+    href: "/admin/roles",
+    permissions: ["role.manage"],
+    icon: ShieldIcon,
   },
 ];
 

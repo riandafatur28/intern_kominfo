@@ -65,8 +65,8 @@ class ChangePackageFoundationTest extends TestCase
 
         ChangeImplementation::create([
             'change_initiation_id' => $package->id,
-            'priority' => 'low',
-            'impact' => 'low',
+            'priority' => 'normal',
+            'impact' => 'Minor',
             'status' => 'draft',
         ]);
     }
@@ -84,8 +84,8 @@ class ChangePackageFoundationTest extends TestCase
                 'status' => 'draft',
             ],
             [
-                'priority' => 'high',
-                'impact' => 'medium',
+                'priority' => 'emergency',
+                'impact' => 'Mayor',
                 'test_plan' => 'Plan A',
                 'status' => 'draft',
             ],
@@ -96,7 +96,7 @@ class ChangePackageFoundationTest extends TestCase
         $this->assertNotNull($package->implementation);
         $this->assertEquals('draft', $package->status);
         $this->assertEquals('draft', $package->implementation->status);
-        $this->assertEquals('high', $package->implementation->priority);
+        $this->assertEquals('emergency', $package->implementation->priority);
         $this->assertCount(1, $package->implementation->changeTypes);
         $this->assertEquals(1, ChangeImplementation::where('change_initiation_id', $package->id)->count());
     }
@@ -110,8 +110,8 @@ class ChangePackageFoundationTest extends TestCase
             $package->id,
             ['description' => 'Updated desc', 'needed_by_date' => '2026-08-01'],
             [
-                'priority' => 'critical',
-                'impact' => 'high',
+                'priority' => 'emergency',
+                'impact' => 'Mayor',
                 'test_plan' => 'New plan',
                 'execution_date' => '2026-08-02',
                 'release_date' => '2026-08-03',
@@ -122,7 +122,7 @@ class ChangePackageFoundationTest extends TestCase
 
         $this->assertEquals('Updated desc', $updated->description);
         $this->assertEquals('2026-08-01', $updated->needed_by_date->toDateString());
-        $this->assertEquals('critical', $updated->implementation->priority);
+        $this->assertEquals('emergency', $updated->implementation->priority);
         $this->assertEquals('New plan', $updated->implementation->test_plan);
         $this->assertEquals([$otherType->id], $updated->implementation->changeTypes->pluck('id')->all());
     }
@@ -265,7 +265,7 @@ class ChangePackageFoundationTest extends TestCase
                 'reason' => 'y',
             ],
             'implementation' => [
-                'priority' => 'medium',
+                'priority' => 'normal',
             ],
         ], $rules);
 
@@ -283,8 +283,8 @@ class ChangePackageFoundationTest extends TestCase
                 'reason' => 'y',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
             ],
         ], $rules);
 
@@ -312,8 +312,8 @@ class ChangePackageFoundationTest extends TestCase
                 'needed_by_date' => '2026-08-01',
             ],
             'implementation' => [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
                 'change_type_ids' => [$this->changeType->id],
                 'test_plan' => 'plan',
                 'execution_date' => '2026-08-02',
@@ -355,8 +355,8 @@ class ChangePackageFoundationTest extends TestCase
                 'status' => 'draft',
             ],
             [
-                'priority' => 'medium',
-                'impact' => 'low',
+                'priority' => 'normal',
+                'impact' => 'Minor',
                 'status' => 'draft',
             ],
             [$this->changeType->id],

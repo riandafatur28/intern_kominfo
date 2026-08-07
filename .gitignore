@@ -35,3 +35,7 @@ tmp/
 Screenshot*.png
 .env.testing
 MEMORY.md
+
+# screenshot/QA artifacts (dev-only)
+public/assets/*.png
+public/assets/profile/
