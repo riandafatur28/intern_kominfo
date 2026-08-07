@@ -212,7 +212,7 @@
   <hr class="kop-divider">
 
   <!-- JUDUL -->
-  <p class="judul">Laporan Pelaksanaan Tugas Work From Home (WFH)</p>
+  <p class="judul">Laporan Pelaksanaan Tugas <i>Work From Home</i> (WFH)</p>
 
   <!-- INFO PEGAWAI -->
   <table class="info">

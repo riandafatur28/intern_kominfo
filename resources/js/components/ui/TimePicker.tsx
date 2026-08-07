@@ -303,7 +303,7 @@ export default function TimePicker({
                         role="listbox"
                         tabIndex={-1}
                         onKeyDown={handlePanelKeyDown}
-                        style={{ position: "fixed", left: pos?.left ?? 0, top: pos?.top ?? 0, zIndex: 40 }}
+                        style={{ position: "fixed", left: pos?.left ?? 0, top: pos?.top ?? 0, zIndex: 60 }}
                         className={`flex gap-1 p-1.5 rounded-xl border border-[#E0E9F2] bg-white shadow-xl transition-all duration-150 ease-out ${
                             phase === "visible" ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-1"
                         }`}

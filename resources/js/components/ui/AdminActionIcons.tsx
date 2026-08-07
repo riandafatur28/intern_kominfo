@@ -12,6 +12,10 @@ export function UploadIcon(props: IconProps) {
     return <Icon {...props}><path d="M10 13V3m0 0L6.5 6.5M10 3l3.5 3.5M4 12.5V16h12v-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></Icon>;
 }
 
+export function DownloadIcon(props: IconProps) {
+    return <Icon {...props}><path d="M10 3v10m0 0l-3.5-3.5M10 13l3.5-3.5M4 12.5V16h12v-3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" /></Icon>;
+}
+
 export function FilterIcon(props: IconProps) {
     return <Icon {...props}><path d="M3 4h14l-5.4 6.1v4.2l-3.2 1.7v-5.9L3 4z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" /></Icon>;
 }

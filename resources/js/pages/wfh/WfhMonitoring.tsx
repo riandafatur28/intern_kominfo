@@ -6,6 +6,13 @@ import Modal from "../../components/ui/Modal";
 import TextArea from "../../components/ui/TextArea";
 import Pagination from "../../components/ui/Pagination";
 import Toast from "../../components/ui/Toast";
+import DropdownMenu from "../../components/ui/DropdownMenu";
+import {
+  DownloadIcon,
+  EyeIcon,
+  MoreVerticalIcon,
+} from "../../components/ui/AdminActionIcons";
+import FilterDropdown from "../../components/ui/FilterDropdown";
 import { useAuth } from "../../hooks/useAuth";
 import { listTeams, type Team } from "../../api/teams";
 import {
@@ -24,6 +31,7 @@ import {
 } from "../../api/wfh";
 import { openPdfDirect } from "../../utils/swAuth";
 import { formatTanggalLengkap } from "../../utils/userDisplay";
+import { catatanLaporan } from "../../utils/wfhReportNote";
 
 type PageStatus = "loading" | "ready" | "error";
 type Tab = "individu" | "tim";
@@ -37,8 +45,16 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 const SESI = ["pagi", "siang", "sore"] as const;
 
+const TODAY = new Date().toISOString().slice(0, 10);
+
 export default function WfhMonitoring() {
   const { user, hasPermission } = useAuth();
+
+  const canExportPdf = hasPermission("wfh.report.export_pdf");
+  const canApprove = hasPermission("wfh.report.approve");
+  const canReject = hasPermission("wfh.report.reject");
+  const canTApprove = hasPermission("wfh.team_report.approve");
+  const canTReject = hasPermission("wfh.team_report.reject");
 
   /* ── Tabs & shared ───────────────────────────────────────────── */
   const [tab, setTab] = useState<Tab>("individu");
@@ -48,7 +64,7 @@ export default function WfhMonitoring() {
   const [toastType, setToastType] = useState<"success" | "error">("success");
 
   /* ── Individu filters ────────────────────────────────────────── */
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(TODAY);
   const [teamId, setTeamId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -76,9 +92,7 @@ export default function WfhMonitoring() {
   /* ── Tim create ──────────────────────────────────────────────── */
   const [showCreate, setShowCreate] = useState(false);
   const [createTeamId, setCreateTeamId] = useState("");
-  const [createDate, setCreateDate] = useState(
-    new Date().toISOString().slice(0, 10)
-  );
+  const [createDate, setCreateDate] = useState(TODAY);
   const [createMsg, setCreateMsg] = useState("");
   const [createErr, setCreateErr] = useState("");
 
@@ -327,19 +341,6 @@ export default function WfhMonitoring() {
     return att ? att.checked_in : null;
   }
 
-  function catatanLaporan(r: WfhReport): string {
-    if (r.status === "rejected" && r.reject_reason) return r.reject_reason;
-    if (r.status === "draft") return "Belum dikirim";
-    const missing = SESI.filter((s) => attendanceState(r, s) === false);
-    const nAtt = (r.attendances ?? []).length;
-    if (nAtt === 0) return "Tidak ada absensi";
-    if (missing.length === 0) return "Lengkap";
-    const names = { pagi: "Pagi", siang: "Siang", sore: "Sore" };
-    return `Tidak absen ${missing.map((s) => names[s]).join(", ")}`;
-  }
-
-  const canApprove = hasPermission("wfh.report.approve");
-
   /* ── Render ──────────────────────────────────────────────────── */
   return (
     <AppLayout
@@ -379,82 +380,71 @@ export default function WfhMonitoring() {
       {tab === "individu" ? (
         /* ══════════════ TAB INDIVIDU ══════════════ */
         <>
-          {/* Filters */}
-          <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-end gap-4">
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-[#767676]">Tim</label>
-              <select
-                value={teamId}
-                onChange={(e) => {
-                  setTeamId(e.target.value);
-                  setPage(1);
-                }}
-                className="border border-[#D0D5DD] rounded-lg px-3 py-2 text-sm bg-white min-w-[160px]"
-              >
-                <option value="">Semua Tim</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-[#767676]">
-                Status Laporan
-              </label>
-              <select
-                value={statusFilter}
-                onChange={(e) => {
-                  setStatusFilter(e.target.value);
-                  setPage(1);
-                }}
-                className="border border-[#D0D5DD] rounded-lg px-3 py-2 text-sm bg-white"
-              >
-                <option value="">Semua Status</option>
-                <option value="draft">Draf</option>
-                <option value="pending">Terkirim</option>
-                <option value="approved">Disetujui</option>
-                <option value="rejected">Ditolak</option>
-              </select>
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-[#767676]">Tanggal</label>
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                className="border border-[#D0D5DD] rounded-lg px-3 py-2 text-sm"
-              />
-            </div>
-            <div className="flex flex-col gap-1">
-              <label className="text-xs font-medium text-[#767676]">
-                Cari Pegawai
-              </label>
+          {/* Filters: satu dropdown + cari (pola Manajemen Pengguna) */}
+          <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[220px]">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#767676]">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                  <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M14 14l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </span>
               <input
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Cari nama pegawai..."
-                className="border border-[#D0D5DD] rounded-lg px-3 py-2 text-sm min-w-[200px]"
+                className="w-full pl-9 pr-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] placeholder:text-[#767676]"
               />
             </div>
-            <div className="flex gap-2 ml-auto">
-              <Button variant="outline" onClick={loadReports}>
-                Perbarui
-              </Button>
-              <Button
-                onClick={() => {
-                  setTeamId("");
-                  setStatusFilter("");
-                  setSearch("");
-                  setDate(new Date().toISOString().slice(0, 10));
-                  setPage(1);
-                }}
-              >
-                Lihat Semua
-              </Button>
-            </div>
+            <FilterDropdown badge={Number(!!teamId) + Number(!!statusFilter) + Number(date !== TODAY)}>
+              <div className="flex flex-col gap-3">
+                  <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                    Tim
+                    <select
+                      value={teamId}
+                      onChange={(e) => {
+                        setTeamId(e.target.value);
+                        setPage(1);
+                      }}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                    >
+                      <option value="">Semua Tim</option>
+                      {teams.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                    Status Laporan
+                    <select
+                      value={statusFilter}
+                      onChange={(e) => {
+                        setStatusFilter(e.target.value);
+                        setPage(1);
+                      }}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                    >
+                      <option value="">Semua Status</option>
+                      <option value="draft">Draf</option>
+                      <option value="pending">Terkirim</option>
+                      <option value="approved">Disetujui</option>
+                      <option value="rejected">Ditolak</option>
+                    </select>
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                    Tanggal
+                    <input
+                      type="date"
+                      value={date}
+                      onChange={(e) => setDate(e.target.value)}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                    />
+                  </label>
+                </div>
+            </FilterDropdown>
           </div>
 
           {/* Table */}
@@ -577,39 +567,44 @@ export default function WfhMonitoring() {
                         <td className="px-4 py-3 text-[#767676] text-xs">
                           {catatanLaporan(r)}
                         </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <button
-                              className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
-                              onClick={() => openPdf(r)}
-                            >
-                              <EyeIcon /> Preview
-                            </button>
-                            <button
-                              className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
-                              onClick={() => openPdf(r)}
-                            >
-                              Unduh PDF
-                            </button>
-                            {r.status === "pending" && canApprove && (
-                              <>
-                                <button
-                                  className="text-green-600 hover:underline text-xs"
-                                  onClick={() => handleApprove(r)}
-                                  disabled={saving}
-                                >
-                                  Setujui
-                                </button>
-                                <button
-                                  className="text-red-500 hover:underline text-xs"
-                                  onClick={() => openReject(r)}
-                                  disabled={saving}
-                                >
-                                  Tolak
-                                </button>
-                              </>
-                            )}
-                          </div>
+                        <td className="px-4 py-3 text-right">
+                          {renderActions([
+                            ...(canExportPdf
+                              ? [
+                                  {
+                                    label: "Preview",
+                                    icon: <EyeIcon size={16} />,
+                                    onClick: () => openPdf(r),
+                                  },
+                                  {
+                                    label: "Unduh PDF",
+                                    icon: <DownloadIcon size={16} />,
+                                    onClick: () => openPdf(r),
+                                  },
+                                ]
+                              : []),
+                            ...(r.status === "pending" && canApprove
+                              ? [
+                                  {
+                                    label: "Setujui",
+                                    icon: <ApproveIcon />,
+                                    disabled: saving,
+                                    onClick: () => handleApprove(r),
+                                  },
+                                ]
+                              : []),
+                            ...(r.status === "pending" && canReject
+                              ? [
+                                  {
+                                    label: "Tolak",
+                                    icon: <RejectIcon />,
+                                    variant: "destructive" as const,
+                                    disabled: saving,
+                                    onClick: () => openReject(r),
+                                  },
+                                ]
+                              : []),
+                          ])}
                         </td>
                       </tr>
                     );
@@ -684,39 +679,43 @@ export default function WfhMonitoring() {
                         {r.creator.name}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
-                            onClick={() => openTPdf(r)}
-                          >
-                            <EyeIcon /> Preview
-                          </button>
-                          <button
-                            className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
-                            onClick={() => openTPdf(r)}
-                          >
-                            Unduh PDF
-                          </button>
-                          {r.status === "pending" &&
-                            hasPermission("wfh.team_report.approve") && (
-                              <>
-                                <button
-                                  className="text-green-600 hover:underline text-xs"
-                                  onClick={() => handleTApprove(r.id)}
-                                  disabled={saving}
-                                >
-                                  Setujui
-                                </button>
-                                <button
-                                  className="text-red-500 hover:underline text-xs"
-                                  onClick={() => openTReject(r.id)}
-                                  disabled={saving}
-                                >
-                                  Tolak
-                                </button>
-                              </>
-                            )}
-                        </div>
+                        {renderActions([
+                          ...(canExportPdf
+                            ? [
+                                {
+                                  label: "Preview",
+                                  icon: <EyeIcon size={16} />,
+                                  onClick: () => openTPdf(r),
+                                },
+                                {
+                                  label: "Unduh PDF",
+                                  icon: <DownloadIcon size={16} />,
+                                  onClick: () => openTPdf(r),
+                                },
+                              ]
+                            : []),
+                          ...(r.status === "pending" && canTApprove
+                            ? [
+                                {
+                                  label: "Setujui",
+                                  icon: <ApproveIcon />,
+                                  disabled: saving,
+                                  onClick: () => handleTApprove(r.id),
+                                },
+                              ]
+                            : []),
+                          ...(r.status === "pending" && canTReject
+                            ? [
+                                {
+                                  label: "Tolak",
+                                  icon: <RejectIcon />,
+                                  variant: "destructive" as const,
+                                  disabled: saving,
+                                  onClick: () => openTReject(r.id),
+                                },
+                              ]
+                            : []),
+                        ])}
                       </td>
                     </tr>
                   );
@@ -870,6 +869,73 @@ function inisial(name?: string | null): string {
     .join("");
 }
 
+/* ── Render aksi: 1 aksi → icon+label langsung; >1 → dropdown ── */
+interface RowAction {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+  variant?: "default" | "destructive";
+}
+
+function renderActions(acts: RowAction[]) {
+  if (acts.length === 0) {
+    return <span className="text-[#D9D9D9] text-xs">—</span>;
+  }
+  if (acts.length === 1) {
+    const a = acts[0];
+    return (
+      <button
+        type="button"
+        disabled={a.disabled}
+        onClick={a.onClick}
+        className={`text-xs inline-flex items-center gap-1.5 hover:underline disabled:opacity-40 disabled:cursor-not-allowed ${
+          a.variant === "destructive" ? "text-red-500" : "text-[#256EEF]"
+        }`}
+      >
+        {a.icon} {a.label}
+      </button>
+    );
+  }
+  return (
+    <DropdownMenu
+      align="end"
+      trigger={
+        <button
+          type="button"
+          aria-label="Aksi"
+          className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+        >
+          <MoreVerticalIcon size={18} />
+        </button>
+      }
+      items={acts.map((a) => ({
+        label: a.label,
+        icon: a.icon,
+        disabled: a.disabled,
+        variant: a.variant,
+        onClick: a.onClick,
+      }))}
+    />
+  );
+}
+
+function ApproveIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-label="Setujui">
+      <path d="M4 10.5l4 4 8-9" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function RejectIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-label="Tolak">
+      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
+
 function CheckIcon() {
   return (
     <svg
@@ -913,20 +979,4 @@ function CloseIcon() {
   );
 }
 
-function EyeIcon() {
-  return (
-    <svg
-      width="14"
-      height="14"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
+
