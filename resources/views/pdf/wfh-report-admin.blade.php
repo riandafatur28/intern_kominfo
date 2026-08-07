@@ -73,6 +73,11 @@
     margin: 0 0 6pt 0;
     text-transform: uppercase;
   }
+
+  /* Judul halaman 1 laporan tim: selalu satu baris (ukuran sama dgn halaman 2) */
+  .judul-satu-baris {
+    white-space: nowrap;
+  }
   .subjudul {
     text-align: center;
     font-size: 10.5pt;
@@ -231,7 +236,7 @@
   </div>
   <hr class="kop-divider">
 
-  <p class="judul">Laporan Pelaksanaan Tugas Work From Home (WFH) - Tim</p>
+  <p class="judul judul-satu-baris">Laporan Pelaksanaan Tugas <i>Work From Home</i> (WFH) - {{ $namaTim }}</p>
 
   <br>
 
@@ -330,7 +335,7 @@
   </div>
   <hr class="kop-divider">
 
-  <p class="judul">Laporan Bukti Absensi Work From Home - Tim</p>
+  <p class="judul">Laporan Bukti Absensi <i>Work From Home</i> - {{ $namaTim }}</p>
   <p class="subjudul">{{ $unitKerja }} &bull; {{ $tanggalPelaksanaan }}</p>
 
   <table class="data">

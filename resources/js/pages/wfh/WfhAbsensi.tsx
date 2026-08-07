@@ -1,25 +1,43 @@
-import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import AppLayout from "../../layouts/AppLayout";
 import Button from "../../components/ui/Button";
 import Toast from "../../components/ui/Toast";
 import Modal from "../../components/ui/Modal";
+import DropdownMenu from "../../components/ui/DropdownMenu";
+import TimePicker from "../../components/ui/TimePicker";
 import {
-  getWfhSessionConfig,
-  createWfhReport,
-  listWfhReports,
-  getWfhReport,
-  addReportAttendance,
-  deleteReportAttendance,
-  createReportActivity,
+  AddIcon,
+  EditIcon,
+  EyeIcon,
+  MoreVerticalIcon,
+  TrashIcon,
+} from "../../components/ui/AdminActionIcons";
+import FilterDropdown from "../../components/ui/FilterDropdown";
+import { addReportAttendance, createReportActivity, createWfhReport,
   deleteReportActivity,
-  updateWfhReport,
+  deleteReportAttendance,
+  extractWfhError,
+  getWfhReport,
+  getWfhSessionConfig,
+  listWfhReports,
   submitWfhReport,
+  updateWfhReport,
   type WfhReport,
   type WfhReportActivity,
-  extractWfhError,
 } from "../../api/wfh";
 import { openPdfDirect } from "../../utils/swAuth";
+import { catatanLaporan } from "../../utils/wfhReportNote";
+
+const SESI = ["pagi", "siang", "sore"] as const;
+
+const STATUS_LABEL: Record<string, { label: string; color: string }> = {
+  draft: { label: "Belum Dikirim", color: "bg-gray-100 text-gray-600" },
+  pending: { label: "Terkirim", color: "bg-yellow-100 text-yellow-700" },
+  approved: { label: "Disetujui", color: "bg-green-100 text-green-700" },
+  rejected: { label: "Ditolak", color: "bg-red-100 text-red-700" },
+};
+
+const DAY_NAMES = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
 
 function capFirst(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -46,22 +64,11 @@ function fmtWaktu(iso?: string): string {
   return `${pad(d.getHours())}.${pad(d.getMinutes())}`;
 }
 
-function parseTimeRange(input: string): { start_time: string; end_time: string } | null {
-  const m = input.match(/(\d{1,2})[.:](\d{2})\s*[-–]\s*(\d{1,2})[.:](\d{2})/);
-  if (m) {
-    return {
-      start_time: `${m[1].padStart(2, "0")}:${m[2]}`,
-      end_time: `${m[3].padStart(2, "0")}:${m[4]}`,
-    };
-  }
-  const single = input.match(/(\d{1,2})[.:](\d{2})/);
-  if (single) {
-    return {
-      start_time: `${single[1].padStart(2, "0")}:${single[2]}`,
-      end_time: `${single[1].padStart(2, "0")}:${single[2]}`,
-    };
-  }
-  return null;
+/** report_date ISO UTC ("2026-07-30T17:00:00.000000Z") → "YYYY-MM-DD" WIB */
+function normDate(iso: string): string {
+  return iso.includes("T") || iso.includes("Z")
+    ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+    : iso.slice(0, 10);
 }
 
 function todayDisplay(d?: string): string {
@@ -75,16 +82,23 @@ function todayDisplay(d?: string): string {
 }
 
 export default function WfhAbsensi() {
-  const nav = useNavigate();
-
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [errMsg, setErrMsg] = useState("");
 
+  /* ── Riwayat (tabel) ────────────────────────────────────────── */
+  const [reports, setReports] = useState<WfhReport[]>([]);
+  const [allowedDays, setAllowedDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [dateFilter, setDateFilter] = useState("");
+  const [monthFilter, setMonthFilter] = useState("");
+  const [dayFilter, setDayFilter] = useState("");
+
+  /* ── Form absensi + bukti kerja ─────────────────────────────── */
+  const [formOpen, setFormOpen] = useState(false);
+  const formRef = useRef<HTMLDivElement>(null);
+  const [formDate, setFormDate] = useState(todayStr());
   const [report, setReport] = useState<WfhReport | null>(null);
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [activities, setActivities] = useState<WfhReportActivity[]>([]);
-  const [reportDate, setReportDate] = useState(todayStr());
   const [imgFailed, setImgFailed] = useState<Record<string, boolean>>({});
 
   /* ── Upload ──────────────────────────────────────────────────── */
@@ -96,17 +110,29 @@ export default function WfhAbsensi() {
   interface KegFormRow {
     id: number;
     nama: string;
-    waktu: string;
+    start_time: string;
+    end_time: string;
     link: string;
   }
   const [kegModal, setKegModal] = useState(false);
-  const [kegRows, setKegRows] = useState<KegFormRow[]>([{ id: 1, nama: "", waktu: "", link: "" }]);
+  const [kegRows, setKegRows] = useState<KegFormRow[]>([
+    { id: 1, nama: "", start_time: "", end_time: "", link: "" },
+  ]);
 
   function addKegRow() {
-    setKegRows((prev) => [...prev, { id: Date.now(), nama: "", waktu: "", link: "" }]);
+    setKegRows((prev) => [...prev, { id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
   }
 
-  function updateKegRow(id: number, field: "nama" | "waktu" | "link", value: string) {
+  /* Simpan/Batal hanya muncul saat inputan terakhir terisi */
+  const lastKegRow = kegRows[kegRows.length - 1];
+  const lastKegFilled =
+    !!lastKegRow &&
+    (lastKegRow.nama.trim() !== "" ||
+      lastKegRow.start_time !== "" ||
+      lastKegRow.end_time !== "" ||
+      lastKegRow.link.trim() !== "");
+
+  function updateKegRow(id: number, field: "nama" | "start_time" | "end_time" | "link", value: string) {
     setKegRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
   }
 
@@ -125,101 +151,87 @@ export default function WfhAbsensi() {
     setToastOpen(true);
   }
 
+  /* ── Data ────────────────────────────────────────────────────── */
+  async function loadTable() {
+    try {
+      const [cfgRes, listRes] = await Promise.all([
+        getWfhSessionConfig(),
+        listWfhReports({ per_page: 100 }),
+      ]);
+      setAllowedDays(cfgRes.data.allowed_days);
+      setReports(listRes.data);
+    } catch (e: unknown) {
+      showToast(extractWfhError(e, "Gagal memuat data."), "error");
+    }
+  }
+
+  async function loadFormForDate(date: string) {
+    let currentReport: WfhReport | null = null;
+    try {
+      const listRes = await listWfhReports({ per_page: 100 });
+      const found = listRes.data.find((r) => normDate(r.report_date) === date);
+      if (found) {
+        const detailRes = await getWfhReport(found.id);
+        currentReport = detailRes.data;
+      }
+    } catch {
+      // belum ada laporan untuk tanggal itu
+    }
+
+    const cfgRes = await getWfhSessionConfig();
+    const init: SessionState[] = cfgRes.data.sessions.map((name) => ({
+      name,
+      label: capFirst(name),
+      checkedIn: false,
+      photoUrl: null,
+      attendanceId: null,
+    }));
+
+    if (currentReport?.attendances) {
+      for (const att of currentReport.attendances) {
+        const found = init.find((s) => s.name === att.session);
+        if (found) {
+          found.checkedIn = true;
+          found.photoUrl = att.photo_url;
+          found.attendanceId = att.id;
+        }
+      }
+    }
+
+    setReport(currentReport);
+    setSessions(init);
+    setActivities(currentReport?.activities ?? []);
+  }
+
   /* ── Init ────────────────────────────────────────────────────── */
   useEffect(() => {
-    loadData();
+    (async () => {
+      setLoading(true);
+      await loadTable();
+      await loadFormForDate(todayStr());
+      setLoading(false);
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init-only, run once
   }, []);
 
-  async function loadData() {
-    setLoading(true);
-    setErrMsg("");
-    try {
-      const cfgRes = await getWfhSessionConfig();
-      const sessionNames = cfgRes.data.sessions;
-      const today = todayStr();
-
-      // Find today's report
-      let currentReport: WfhReport | null = null;
-      try {
-        const listRes = await listWfhReports({ per_page: 100 });
-        // report_date bisa ISO UTC ("2026-07-30T17:00:00.000000Z") = hari ini WIB
-        const todayReport = listRes.data.find((r) => {
-          const d = r.report_date.includes("T") || r.report_date.includes("Z")
-            ? new Date(r.report_date).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
-            : r.report_date.slice(0, 10);
-          return d === today;
-        });
-        if (todayReport) {
-          const detailRes = await getWfhReport(todayReport.id);
-          currentReport = detailRes.data;
-        }
-      } catch {
-        // no report yet
-      }
-
-      // Build session states
-      const init: SessionState[] = sessionNames.map((name) => ({
-        name,
-        label: capFirst(name),
-        checkedIn: false,
-        photoUrl: null,
-        attendanceId: null,
-      }));
-
-      if (currentReport?.attendances) {
-        for (const att of currentReport.attendances) {
-          const found = init.find((s) => s.name === att.session);
-          if (found) {
-            found.checkedIn = true;
-            found.photoUrl = att.photo_url;
-            found.attendanceId = att.id;
-          }
-        }
-      }
-
-      setReport(currentReport);
-      setSessions(init);
-
-      // Load activities
-      if (currentReport) {
-        loadActivities(currentReport.id);
-      }
-    } catch (e: unknown) {
-      setErrMsg(extractWfhError(e, "Gagal memuat data."));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function loadActivities(reportId: number) {
-    try {
-      // GET /activities route doesn't exist; report detail embeds activities
-      const res = await getWfhReport(reportId);
-      setActivities(res.data?.activities ?? []);
-    } catch {
-      // no activities yet
-    }
-  }
-
-  /* ── Ensure report exists ────────────────────────────────────── */
+  /* ── Ensure report exists (get-or-create per spec) ───────────── */
   async function ensureReport(date: string): Promise<WfhReport> {
-    if (report) return report;
+    if (report && normDate(report.report_date) === date) return report;
     const res = await createWfhReport({ report_date: date, status: "draft" });
     setReport(res.data);
     return res.data;
   }
 
-  /* ── Date change ──────────────────────────────────────────────── */
-  async function handleDateChange(date: string) {
-    setReportDate(date);
-    if (report) {
-      try {
-        await updateWfhReport(report.id, { report_date: date });
-      } catch (e: unknown) {
-        showToast(extractWfhError(e, "Gagal ubah tanggal."), "error");
-      }
-    }
+  /* ── Open form ───────────────────────────────────────────────── */
+  async function openFormDate(date: string) {
+    setFormDate(date);
+    await loadFormForDate(date);
+    setFormOpen(true);
+    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  }
+
+  function handleTambahAbsensi() {
+    openFormDate(dateFilter || todayStr());
   }
 
   /* ── Upload photo ────────────────────────────────────────────── */
@@ -234,10 +246,9 @@ export default function WfhAbsensi() {
 
     setSaving(true);
     setUploadingSession(activeSession);
-    setErrMsg("");
 
     try {
-      const rpt = await ensureReport(reportDate);
+      const rpt = await ensureReport(formDate);
       const attRes = await addReportAttendance(rpt.id, {
         session: activeSession,
         photo: file,
@@ -288,18 +299,17 @@ export default function WfhAbsensi() {
     if (filled.length === 0) return;
     setSaving(true);
     try {
-      const rpt = report || (await ensureReport(reportDate));
+      const rpt = await ensureReport(formDate);
       for (const row of filled) {
-        const times = parseTimeRange(row.waktu);
         await createReportActivity(rpt.id, {
-          start_time: times?.start_time ?? "00:00",
-          end_time: times?.end_time ?? "00:00",
+          start_time: row.start_time || "00:00",
+          end_time: row.end_time || "00:00",
           activity: row.nama.trim(),
           links: row.link.trim() ? [{ url: row.link.trim() }] : undefined,
         });
       }
-      await loadActivities(rpt.id);
-      setKegRows([{ id: Date.now(), nama: "", waktu: "", link: "" }]);
+      await loadFormForDate(formDate);
+      setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
       setKegModal(false);
       showToast("Kegiatan ditambahkan.", "success");
     } catch (e: unknown) {
@@ -324,28 +334,29 @@ export default function WfhAbsensi() {
     }
   }
 
-
-
   /* ── PDF bukti kerja ──────────────────────────────────────────── */
-  async function handlePdfButton() {
+  function openPdf(id: number) {
+    openPdfDirect(`/api/wfh/reports/${id}/pdf`, (msg) => showToast(msg, "error"));
+  }
+
+  function handlePdfButton() {
     if (!report) return;
     if (report.status === "draft" || report.status === "rejected") {
       showToast("PDF bukti kerja tersedia setelah laporan disubmit.", "error");
       return;
     }
-    // Buka langsung di tab (tanpa blob) — auth header dipasang Service Worker.
-    openPdfDirect(`/api/wfh/reports/${report.id}/pdf`, (msg) => showToast(msg, "error"));
+    openPdf(report.id);
   }
 
   /* ── Submit report ────────────────────────────────────────────── */
   async function handleSubmit() {
     setSaving(true);
     try {
-      // Buat draft dulu kalau belum ada, lalu submit (guard konten ada di BE)
-      const rpt = report || (await ensureReport(reportDate));
+      const rpt = await ensureReport(formDate);
       const res = await submitWfhReport(rpt.id);
       setReport(res.data);
       showToast("Laporan berhasil dikirim.", "success");
+      loadTable();
     } catch (e: unknown) {
       showToast(extractWfhError(e, "Gagal kirim laporan."), "error");
     } finally {
@@ -357,15 +368,54 @@ export default function WfhAbsensi() {
   async function handleSaveReport() {
     setSaving(true);
     try {
-      const rpt = report || (await ensureReport(reportDate));
-      await updateWfhReport(rpt.id, { report_date: reportDate });
+      const rpt = await ensureReport(formDate);
+      await updateWfhReport(rpt.id, { report_date: formDate });
       showToast("Laporan disimpan.", "success");
+      loadTable();
     } catch (e: unknown) {
       showToast(extractWfhError(e, "Gagal menyimpan laporan."), "error");
     } finally {
       setSaving(false);
     }
   }
+
+  /* ── Riwayat rows ────────────────────────────────────────────── */
+  function datesInMonth(month: string, day: string): string[] {
+    const [y, m] = month.split("-").map(Number);
+    const out: string[] = [];
+    const count = new Date(y, m, 0).getDate();
+    for (let d = 1; d <= count; d++) {
+      const iso = new Date(y, m - 1, d).getDay(); // 0=Min..6=Sab
+      const isoDay = iso === 0 ? 7 : iso;
+      if (isoDay === Number(day)) {
+        out.push(`${month}-${String(d).padStart(2, "0")}`);
+      }
+    }
+    return out;
+  }
+
+  const rows = useMemo(() => {
+    let dates: string[];
+    if (dateFilter) {
+      dates = [dateFilter];
+    } else if (monthFilter && dayFilter) {
+      dates = datesInMonth(monthFilter, dayFilter);
+    } else if (monthFilter) {
+      dates = reports
+        .map((r) => normDate(r.report_date))
+        .filter((d) => d.startsWith(monthFilter))
+        .sort()
+        .reverse();
+    } else {
+      dates = [...new Set(reports.map((r) => normDate(r.report_date)))]
+        .sort()
+        .reverse();
+    }
+    return dates.map((date) => ({
+      date,
+      report: reports.find((r) => normDate(r.report_date) === date) ?? null,
+    }));
+  }, [reports, dateFilter, monthFilter, dayFilter]);
 
   /* ── Render ──────────────────────────────────────────────────── */
   if (loading) {
@@ -378,22 +428,6 @@ export default function WfhAbsensi() {
         ]}
       >
         <div className="text-center py-12 text-sm text-[#767676]">Memuat...</div>
-      </AppLayout>
-    );
-  }
-
-  if (errMsg && !report && sessions.length === 0) {
-    return (
-      <AppLayout
-        breadcrumbs={[
-          { label: "Beranda", href: "/profil" },
-          { label: "Pegawai" },
-          { label: "Absensi WFH" },
-        ]}
-      >
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
-          {errMsg}
-        </div>
       </AppLayout>
     );
   }
@@ -411,217 +445,401 @@ export default function WfhAbsensi() {
         <h1 className="text-[32px] font-bold text-black leading-10">
           Absensi WFH
         </h1>
-        <p className="text-lg font-bold text-black mt-1">
-          Status Kehadiran Hari Ini
+        <p className="text-lg text-[#767676]">
+          Pantau status kehadiran dan pengumpulan tugas WFH Anda.
         </p>
-        <p className="text-lg text-[#767676]">{todayDisplay(reportDate)}</p>
       </div>
 
-      {/* ── Card: Tanggal WFH ──────────────────────────────────── */}
-      <div className="bg-white border border-[#e5e7eb] rounded-lg p-4">
-        <label className="text-xs font-bold text-[#374151] block mb-1.5">
-          Tanggal WFH
-        </label>
-        <input
-          type="date"
-          value={reportDate}
-          onChange={(e) => handleDateChange(e.target.value)}
-          className="w-[214px] h-[35px] border border-[#d1d5db] rounded px-3 text-[13px] text-[#374151] outline-none focus:border-[#256EEF] transition-colors"
-        />
-      </div>
-
-      {/* ── Card: Absen ────────────────────────────────────────── */}
-      <div className="bg-white border border-[#e5e7eb] rounded-lg p-5">
-        <h3 className="text-[15px] font-bold text-[#1f2937] mb-4">Absen</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-          {sessions.map((session) => (
-            <div
-              key={session.name}
-              className="border-2 border-[#fbbf24] rounded-lg p-3"
-            >
-              {/* Header: name + badge */}
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[13px] font-bold text-[#1f2937]">
-                  Sesi {session.label}
-                </span>
-                <span
-                  className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
-                    session.checkedIn
-                      ? "bg-[#DCFCE7] text-[#15803D]"
-                      : "bg-[#f59e0b] text-white"
-                  }`}
+      {/* ── Toolbar: filter + tombol tambah ────────────────────── */}
+      <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
+        <FilterDropdown
+          align="left"
+          badge={Number(!!dateFilter) + Number(!!monthFilter) + Number(!!dayFilter)}
+        >
+          <div className="flex flex-col gap-3">
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                Tanggal
+                <input
+                  type="date"
+                  value={dateFilter}
+                  onChange={(e) => {
+                    setDateFilter(e.target.value);
+                    if (e.target.value) {
+                      setMonthFilter("");
+                      setDayFilter("");
+                    }
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                Bulan
+                <input
+                  type="month"
+                  value={monthFilter}
+                  onChange={(e) => {
+                    setMonthFilter(e.target.value);
+                    if (e.target.value) setDateFilter("");
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                />
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                Hari WFH
+                <select
+                  value={dayFilter}
+                  onChange={(e) => {
+                    setDayFilter(e.target.value);
+                    if (e.target.value) setDateFilter("");
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
                 >
-                  {session.checkedIn ? "Terisi" : "Belum Diisi"}
-                </span>
-              </div>
-
-              {/* Photo area */}
-              {session.checkedIn && session.photoUrl ? (
-                imgFailed[session.name] ? (
-                  <div className="bg-[#f9fafb] border border-dashed border-[#d1d5db] rounded h-[97px] flex flex-col items-center justify-center">
-                    <span className="text-[11px] text-[#9ca3af]">Foto tidak tersedia</span>
-                  </div>
-                ) : (
-                <div className="relative">
-                  <img
-                    src={session.photoUrl}
-                    alt={`Foto ${session.label}`}
-                    className="w-full h-[97px] object-cover rounded border border-[#e5e7eb]"
-                    onError={(e) => {
-                      const el = e.currentTarget;
-                      // Fallback 1: retry path relatif (host API absolut beda origin/port)
-                      const rel = session.photoUrl?.replace(/^https?:\/\/[^/]+/, "");
-                      if (rel && !el.src.startsWith(window.location.origin)) {
-                        el.src = rel;
-                        return;
-                      }
-                      // Fallback 2: placeholder
-                      setImgFailed((p) => ({ ...p, [session.name]: true }));
-                    }}
-                  />
-                  <button
-                    onClick={() => handleDeleteAttendance(session)}
-                    disabled={saving}
-                    className="absolute top-1 right-1 bg-white/80 hover:bg-white rounded-full p-1 text-[#b91c1c] text-xs"
-                    title="Hapus foto"
-                    hidden={!session.attendanceId}
-                  >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-                      <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    </svg>
-                  </button>
-                </div>
-                )
-              ) : (
-                <div
-                  className="bg-[#f9fafb] border border-dashed border-[#d1d5db] rounded h-[97px] flex flex-col items-center justify-center cursor-pointer hover:border-[#f59e0b] transition-colors"
-                  onClick={() => !saving && handlePickFile(session.name)}
-                >
-                  {uploadingSession === session.name ? (
-                    <span className="text-[11px] text-[#f59e0b]">Mengunggah...</span>
-                  ) : (
-                    <>
-                      <span className="text-[28px] text-[#f59e0b] leading-none">+</span>
-                      <span className="text-[11px] text-[#9ca3af] mt-0.5">Unggah Foto</span>
-                    </>
-                  )}
-                </div>
-              )}
+                  <option value="">Semua Hari</option>
+                  {allowedDays.map((d) => (
+                    <option key={d} value={d}>
+                      {DAY_NAMES[d]}
+                    </option>
+                  ))}
+                </select>
+              </label>
             </div>
-          ))}
-        </div>
+          </FilterDropdown>
+        <span className="text-sm text-[#767676]">{rows.length} hari</span>
+        <Button onClick={handleTambahAbsensi} className="gap-2 ml-auto">
+          <AddIcon size={17} />
+          Tambah Absensi
+        </Button>
       </div>
 
-      {/* ── Card: Daftar Kegiatan ──────────────────────────────── */}
-      <div className="bg-white border border-[#e5e7eb] rounded-lg p-5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-[15px] font-bold text-[#1f2937]">
-            Daftar Kegiatan
-          </h3>
-          <button
-            onClick={() => setKegModal(true)}
-            className="bg-[#1E3A5F] text-white text-xs font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
-          >
-            + Tambah Kegiatan
-          </button>
-        </div>
-
-        {activities.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="bg-[#F9FAFB]">
-                  <th className="text-left px-4 py-2.5 text-xs font-bold text-[#4B5563]">
-                    Nama Kegiatan
+      {/* ── Tabel riwayat absensi ───────────────────────────────── */}
+      <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
+        {rows.length === 0 ? (
+          <p className="text-center text-[13px] text-[#9CA3AF] py-8">
+            Belum ada data. Klik &quot;+ Tambah Absensi&quot; untuk mengisi.
+          </p>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
+                <th className="text-left px-4 py-3 font-medium text-[#767676]">Tanggal</th>
+                {SESI.map((s) => (
+                  <th key={s} className="text-center px-4 py-3 font-medium text-[#767676]">
+                    {capFirst(s)}
                   </th>
-                  <th className="text-left px-4 py-2.5 text-xs font-bold text-[#4B5563]">
-                    Waktu
-                  </th>
-                  <th className="text-left px-4 py-2.5 text-xs font-bold text-[#4B5563]">
-                    Bukti Kegiatan
-                  </th>
-                  <th className="text-center px-4 py-2.5 text-xs font-bold text-[#4B5563] w-[100px]">
-                    Aksi
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {activities.map((act) => (
-                  <tr key={act.id} className="border-t border-[#E5E7EB]">
-                    <td className="px-4 py-3 text-[#374151] text-[13px]">
-                      {act.activity}
+                ))}
+                <th className="text-left px-4 py-3 font-medium text-[#767676]">
+                  Catatan
+                </th>
+                <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map(({ date, report: rep }) => {
+                const acts: {
+                  label: string;
+                  icon: React.ReactNode;
+                  onClick: () => void;
+                  disabled?: boolean;
+                }[] = [
+                  {
+                    label: "Buka",
+                    icon: <EditIcon size={16} />,
+                    onClick: () => openFormDate(date),
+                  },
+                ];
+                if (rep && (rep.status === "pending" || rep.status === "approved")) {
+                  acts.push({
+                    label: "Preview PDF",
+                    icon: <EyeIcon size={16} />,
+                    onClick: () => openPdf(rep.id),
+                  });
+                }
+                return (
+                  <tr key={date} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
+                    <td className="px-4 py-3 text-[#333] whitespace-nowrap">
+                      {todayDisplay(date)}
                     </td>
-                    <td className="px-4 py-3 text-[#767676] text-[13px] whitespace-nowrap">
-                      {act.start_time && act.start_time !== "00:00"
-                        ? `${fmtWaktu(act.start_time)} – ${fmtWaktu(act.end_time)}`
-                        : "-"}
+                    {SESI.map((s) => {
+                      const att = rep?.attendances?.find((a) => a.session === s);
+                      return (
+                        <td key={s} className="px-4 py-3 text-center">
+                          {att && att.checked_in ? <CheckIcon /> : <CloseIcon />}
+                        </td>
+                      );
+                    })}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        {rep ? (
+                          <span
+                            className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
+                              STATUS_LABEL[rep.status]?.color ?? "bg-gray-100 text-gray-600"
+                            }`}
+                          >
+                            {STATUS_LABEL[rep.status]?.label ?? rep.status}
+                          </span>
+                        ) : (
+                          <span className="inline-block text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                            Belum Laporan
+                          </span>
+                        )}
+                        <span className="text-xs text-[#767676]">
+                          {rep
+                            ? catatanLaporan(rep)
+                            : "Belum ada absensi · Belum upload tugas"}
+                        </span>
+                      </div>
                     </td>
-                    <td className="px-4 py-3 text-[13px]">
-                      {act.links && act.links.length > 0 ? (
-                        <a
-                          href={act.links[0].url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-[#256EEF] hover:underline"
+                    <td className="px-4 py-3 text-right">
+                      {acts.length === 1 ? (
+                        <button
+                          type="button"
+                          onClick={acts[0].onClick}
+                          className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
                         >
-                          {act.links[0].url.length > 40
-                            ? act.links[0].url.slice(0, 40) + "..."
-                            : act.links[0].url}
-                        </a>
+                          {acts[0].icon} {acts[0].label}
+                        </button>
                       ) : (
-                        <span className="text-[#9CA3AF]">-</span>
+                        <DropdownMenu
+                          align="end"
+                          trigger={
+                            <button
+                              type="button"
+                              aria-label={`Aksi untuk ${todayDisplay(date)}`}
+                              className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+                            >
+                              <MoreVerticalIcon size={18} />
+                            </button>
+                          }
+                          items={acts.map((a) => ({
+                            label: a.label,
+                            icon: a.icon,
+                            disabled: a.disabled,
+                            onClick: a.onClick,
+                          }))}
+                        />
                       )}
                     </td>
-                    <td className="px-4 py-3 text-center">
-                      <button
-                        onClick={() => handleDeleteActivity(act.id)}
-                        disabled={saving}
-                        className="text-[#F87171] hover:text-red-700 text-xs font-medium"
-                      >
-                        Hapus
-                      </button>
-                    </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <p className="text-center text-[13px] text-[#9CA3AF] py-8">
-            Belum ada kegiatan. Klik &quot;+ Tambah Kegiatan&quot;.
-          </p>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
 
-      {/* ── Action buttons ──────────────────────────────────────── */}
-      <div className="flex items-center gap-3">
-        <Button
-          variant="outline"
-          className="!bg-[#1E3A5F] !border-[#1E3A5F] !text-white hover:!bg-[#16304f]"
-          disabled={saving}
-          onClick={handlePdfButton}
-        >
-          {report?.status === "approved" ? "Download" : "Preview"} PDF
-        </Button>
-        <Button variant="primary" disabled={saving} onClick={handleSaveReport}>
-          Simpan
-        </Button>
-        <Button
-          variant="primary"
-          className="!bg-[#22c55e] !border-[#22c55e] hover:!bg-[#16a34a]"
-          disabled={saving}
-          onClick={handleSubmit}
-        >
-          Kirim Laporan
-        </Button>
-        <Button
-          variant="outline"
-          className="!bg-[#e5e7eb] !border-[#e5e7eb] !text-[#374151] hover:!bg-gray-200"
-          onClick={() => nav("/profil")}
-        >
-          Kembali
-        </Button>
-      </div>
+      {/* ── Form: absensi + bukti kerja ─────────────────────────── */}
+      {formOpen && (
+        <div ref={formRef} className="flex flex-col gap-4 mt-6 scroll-mt-6">
+          {/* Tanggal WFH */}
+          <div className="bg-white border border-[#e5e7eb] rounded-lg p-4">
+            <label className="text-xs font-bold text-[#374151] block mb-1.5">
+              Tanggal WFH
+            </label>
+            <input
+              type="date"
+              value={formDate}
+              onChange={(e) => {
+                setFormDate(e.target.value);
+                loadFormForDate(e.target.value);
+              }}
+              className="w-[214px] h-[35px] border border-[#d1d5db] rounded px-3 text-[13px] text-[#374151] outline-none focus:border-[#256EEF] transition-colors"
+            />
+          </div>
+
+          {/* Absen */}
+          <div className="bg-white border border-[#e5e7eb] rounded-lg p-5">
+            <h3 className="text-[15px] font-bold text-[#1f2937] mb-4">Absen</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+              {sessions.map((session) => (
+                <div
+                  key={session.name}
+                  className="border-2 border-[#fbbf24] rounded-lg p-3"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[13px] font-bold text-[#1f2937]">
+                      Sesi {session.label}
+                    </span>
+                    <span
+                      className={`text-[10px] font-bold px-2.5 py-1 rounded-full ${
+                        session.checkedIn
+                          ? "bg-[#DCFCE7] text-[#15803D]"
+                          : "bg-[#f59e0b] text-white"
+                      }`}
+                    >
+                      {session.checkedIn ? "Terisi" : "Belum Diisi"}
+                    </span>
+                  </div>
+
+                  {session.checkedIn && session.photoUrl ? (
+                    imgFailed[session.name] ? (
+                      <div className="bg-[#f9fafb] border border-dashed border-[#d1d5db] rounded h-[97px] flex flex-col items-center justify-center">
+                        <span className="text-[11px] text-[#9ca3af]">Foto tidak tersedia</span>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <img
+                          src={session.photoUrl}
+                          alt={`Foto ${session.label}`}
+                          className="w-full h-[97px] object-cover rounded border border-[#e5e7eb]"
+                          onError={(e) => {
+                            const el = e.currentTarget;
+                            const rel = session.photoUrl?.replace(/^https?:\/\/[^/]+/, "");
+                            if (rel && !el.src.startsWith(window.location.origin)) {
+                              el.src = rel;
+                              return;
+                            }
+                            setImgFailed((p) => ({ ...p, [session.name]: true }));
+                          }}
+                        />
+                        <button
+                          onClick={() => handleDeleteAttendance(session)}
+                          disabled={saving}
+                          className="absolute top-1 right-1 bg-white/80 hover:bg-white rounded-full p-1 text-[#b91c1c] text-xs"
+                          title="Hapus foto"
+                          hidden={!session.attendanceId}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                        </button>
+                      </div>
+                    )
+                  ) : (
+                    <div
+                      className="bg-[#f9fafb] border border-dashed border-[#d1d5db] rounded h-[97px] flex flex-col items-center justify-center cursor-pointer hover:border-[#f59e0b] transition-colors"
+                      onClick={() => !saving && handlePickFile(session.name)}
+                    >
+                      {uploadingSession === session.name ? (
+                        <span className="text-[11px] text-[#f59e0b]">Mengunggah...</span>
+                      ) : (
+                        <>
+                          <AddIcon size={26} className="text-[#f59e0b]" />
+                          <span className="text-[11px] text-[#9ca3af] mt-0.5">Unggah Foto</span>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Daftar Kegiatan */}
+          <div className="bg-white border border-[#e5e7eb] rounded-lg p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-[15px] font-bold text-[#1f2937]">
+                Daftar Kegiatan
+              </h3>
+              <button
+                onClick={() => setKegModal(true)}
+                disabled={saving}
+                className="inline-flex items-center gap-1.5 bg-[#1E3A5F] text-white text-xs font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+              >
+                <AddIcon size={14} />
+                Tambah Kegiatan
+              </button>
+            </div>
+
+            {activities.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-[#F9FAFB]">
+                      <th className="text-left px-4 py-2.5 text-xs font-bold text-[#4B5563]">
+                        Nama Kegiatan
+                      </th>
+                      <th className="text-left px-4 py-2.5 text-xs font-bold text-[#4B5563]">
+                        Waktu
+                      </th>
+                      <th className="text-left px-4 py-2.5 text-xs font-bold text-[#4B5563]">
+                        Bukti Kegiatan
+                      </th>
+                      <th className="text-center px-4 py-2.5 text-xs font-bold text-[#4B5563] w-[100px]">
+                        Aksi
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activities.map((act) => (
+                      <tr key={act.id} className="border-t border-[#E5E7EB]">
+                        <td className="px-4 py-3 text-[#374151] text-[13px]">
+                          {act.activity}
+                        </td>
+                        <td className="px-4 py-3 text-[#767676] text-[13px] whitespace-nowrap">
+                          {act.start_time && act.start_time !== "00:00"
+                            ? `${fmtWaktu(act.start_time)} – ${fmtWaktu(act.end_time)}`
+                            : "-"}
+                        </td>
+                        <td className="px-4 py-3 text-[13px]">
+                          {act.links && act.links.length > 0 ? (
+                            <a
+                              href={act.links[0].url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-[#256EEF] hover:underline"
+                            >
+                              {act.links[0].url.length > 40
+                                ? act.links[0].url.slice(0, 40) + "..."
+                                : act.links[0].url}
+                            </a>
+                          ) : (
+                            <span className="text-[#9CA3AF]">-</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <button
+                            onClick={() => handleDeleteActivity(act.id)}
+                            disabled={saving}
+                            className="text-[#F87171] hover:text-red-700"
+                            title="Hapus kegiatan"
+                          >
+                            <TrashIcon size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="text-center text-[13px] text-[#9CA3AF] py-8">
+                Belum ada kegiatan. Klik &quot;+ Tambah Kegiatan&quot;.
+              </p>
+            )}
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              className="!bg-[#1E3A5F] !border-[#1E3A5F] !text-white hover:!bg-[#16304f]"
+              disabled={saving}
+              onClick={handlePdfButton}
+            >
+              {report?.status === "approved" ? "Download" : "Preview"} PDF
+            </Button>
+            <Button variant="primary" disabled={saving} onClick={handleSaveReport}>
+              {saving ? "Menyimpan..." : "Simpan"}
+            </Button>
+            <Button
+              variant="primary"
+              className="!bg-[#22c55e] !border-[#22c55e] hover:!bg-[#16a34a]"
+              disabled={saving}
+              onClick={handleSubmit}
+            >
+              {saving ? "Mengirim..." : "Kirim Laporan"}
+            </Button>
+            <Button
+              variant="outline"
+              className="!bg-[#e5e7eb] !border-[#e5e7eb] !text-[#374151] hover:!bg-gray-200"
+              disabled={saving}
+              onClick={() => setFormOpen(false)}
+            >
+              Tutup Form
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* ── Hidden file input ──────────────────────────────────── */}
       <input
@@ -635,16 +853,9 @@ export default function WfhAbsensi() {
       {/* ── Modal: Tambah Kegiatan Baru ──────────────────────────── */}
       <Modal open={kegModal} onClose={() => setKegModal(false)} maxWidth="max-w-4xl" className="bg-[#EFF6FF]">
         <div className="p-6">
-          {/* Header: title left, + Tambah right */}
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="text-base font-bold text-[#1E293B]">Tambah Kegiatan Baru</h3>
-            <button
-              onClick={addKegRow}
-              className="bg-[#1E3A5F] text-white text-xs font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
-            >
-              + Tambah
-            </button>
-          </div>
+          <h3 className="text-base font-bold text-[#1E293B] mb-5">
+            Tambah Kegiatan Baru
+          </h3>
 
           {/* ── Scrollable form rows ────────────────────────────── */}
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
@@ -675,15 +886,16 @@ export default function WfhAbsensi() {
                       className="w-full h-11 bg-white rounded-lg px-4 text-sm text-[#334155] outline-none focus:ring-2 focus:ring-[#2563EB]/30 transition-all placeholder:text-[#949CA8]"
                     />
                   </div>
-                  <div>
-                    <label className="block text-[13px] font-bold text-[#334155] mb-1.5">
-                      Waktu Kegiatan
-                    </label>
-                    <input
-                      value={row.waktu}
-                      onChange={(e) => updateKegRow(row.id, "waktu", e.target.value)}
-                      placeholder="08.00-11.00"
-                      className="w-full h-11 bg-white rounded-lg px-4 text-sm text-[#334155] outline-none focus:ring-2 focus:ring-[#2563EB]/30 transition-all placeholder:text-[#949CA8]"
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <TimePicker
+                      label="Waktu Dimulai"
+                      value={row.start_time}
+                      onChange={(v) => updateKegRow(row.id, "start_time", v)}
+                    />
+                    <TimePicker
+                      label="Waktu Selesai"
+                      value={row.end_time}
+                      onChange={(v) => updateKegRow(row.id, "end_time", v)}
                     />
                   </div>
                   <div>
@@ -700,26 +912,37 @@ export default function WfhAbsensi() {
                 </div>
               </div>
             ))}
-          </div>
 
-          {/* ── Actions ─────────────────────────────────────────── */}
-          <div className="flex items-center gap-3 justify-end mt-5">
-            <button
-              onClick={() => {
-                setKegModal(false);
-                setKegRows([{ id: Date.now(), nama: "", waktu: "", link: "" }]);
-              }}
-              className="bg-[#E2E8F0] text-[#475569] text-sm font-bold px-9 py-2.5 rounded-lg hover:opacity-80 transition-opacity"
-            >
-              Batal
-            </button>
-            <button
-              disabled={saving || !kegRows.some((r) => r.nama.trim())}
-              onClick={handleSaveAllActivities}
-              className="bg-[#2563EB] text-white text-sm font-bold px-10 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              Simpan
-            </button>
+            {/* ── Tambah (kanan) + Simpan/Batal — hanya saat inputan terakhir terisi ── */}
+            <div className="pt-4 flex flex-col items-end gap-3">
+              <button
+                onClick={addKegRow}
+                className="inline-flex items-center gap-1.5 bg-[#1E3A5F] text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
+              >
+                <AddIcon size={15} />
+                Tambah Kegiatan
+              </button>
+              {lastKegFilled && (
+                <div className="flex items-center gap-3">
+                  <button
+                    onClick={() => {
+                      setKegModal(false);
+                      setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
+                    }}
+                    className="bg-[#E2E8F0] text-[#475569] text-sm font-bold px-9 py-2.5 rounded-lg hover:opacity-80 transition-opacity"
+                  >
+                    Batal
+                  </button>
+                  <button
+                    disabled={saving || !kegRows.some((r) => r.nama.trim())}
+                    onClick={handleSaveAllActivities}
+                    className="bg-[#2563EB] text-white text-sm font-bold px-10 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {saving ? "Menyimpan..." : "Simpan"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </Modal>
@@ -732,5 +955,25 @@ export default function WfhAbsensi() {
         onClose={() => setToastOpen(false)}
       />
     </AppLayout>
+  );
+}
+
+/* ── Helpers & icons ──────────────────────────────────────────── */
+
+function CheckIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="inline-block" aria-label="Hadir">
+      <circle cx="8" cy="8" r="7" fill="#E8F7EE" />
+      <path d="M5 8.2l2 2 4-4.4" stroke="#16A34A" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="inline-block" aria-label="Tidak hadir">
+      <circle cx="8" cy="8" r="7" fill="#FDECEC" />
+      <path d="M5.5 5.5l5 5M10.5 5.5l-5 5" stroke="#DC2626" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
   );
 }

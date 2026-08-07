@@ -38,6 +38,31 @@ export async function openPdfDirect(url: string, onFail?: (msg: string) => void)
   }
 
   const token = localStorage.getItem("token");
+  const headers: Record<string, string> = token ? { Authorization: `Bearer ${token}` } : {};
+
+  // Pre-check: BE bisa tolak export (mis. signature belum diisi) →
+  // tutup tab kosong, tampilkan pesan error asli dari BE.
+  let check: Response;
+  try {
+    check = await fetch(url, { headers });
+    if (!check.ok) {
+      win.close();
+      let msg = `Gagal memuat PDF (${check.status})`;
+      try {
+        const data = await check.json();
+        if (data?.message) msg = data.message;
+      } catch {
+        /* body bukan JSON */
+      }
+      onFail?.(msg);
+      return;
+    }
+  } catch {
+    win.close();
+    onFail?.("Gagal memuat PDF.");
+    return;
+  }
+
   const controller = "serviceWorker" in navigator ? navigator.serviceWorker.controller : null;
   if (controller && token) {
     const acked = await postAuthAndWaitAck(controller, token);
@@ -47,19 +72,9 @@ export async function openPdfDirect(url: string, onFail?: (msg: string) => void)
     }
   }
 
-  // Fallback: SW belum siap / belum ack → ambil dgn header Bearer manual, tampilkan via objectURL
-  fetch(url, { headers: token ? { Authorization: `Bearer ${token}` } : {} })
-    .then((res) => {
-      if (!res.ok) throw new Error(String(res.status));
-      return res.blob();
-    })
-    .then((blob) => {
-      const u = URL.createObjectURL(blob);
-      win.location.href = u;
-      setTimeout(() => URL.revokeObjectURL(u), 60000);
-    })
-    .catch(() => {
-      win.close();
-      onFail?.("Gagal memuat PDF.");
-    });
+  // SW belum siap / belum ack → pakai hasil pre-check, tampilkan via objectURL
+  const blob = await check.blob();
+  const u = URL.createObjectURL(blob);
+  win.location.href = u;
+  setTimeout(() => URL.revokeObjectURL(u), 60000);
 }
