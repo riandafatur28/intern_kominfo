@@ -23,14 +23,14 @@ client.interceptors.response.use(
       !res.config.url?.includes("/auth/login")
     ) {
       localStorage.removeItem("token");
-      window.location.href = "/login";
+      window.location.replace("/login");
     }
     return res;
   },
   (err) => {
     if (err.response?.status === 401 && !err.config?.url?.includes('/auth/login')) {
       localStorage.removeItem("token");
-      window.location.href = "/login";
+      window.location.replace("/login");
     }
     return Promise.reject(err);
   }
