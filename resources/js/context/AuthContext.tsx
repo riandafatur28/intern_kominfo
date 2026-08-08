@@ -130,10 +130,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("must_change_password");
     localStorage.removeItem("permissions");
     localStorage.removeItem("roles");
+    sessionStorage.clear();
     syncSwAuth();
     setUser(null);
     setNeedsPasswordChange(false);
-    window.location.href = "/login";
+    setError(null);
+    // replace (bukan href/navigate) supaya history tidak menyimpan halaman
+    // ter-auth sebagai entry yang bisa di-back dengan state lama.
+    window.location.replace("/login");
   }, []);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string, newPasswordConfirmation: string) => {
