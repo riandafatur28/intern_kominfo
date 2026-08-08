@@ -119,7 +119,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    apiLogout();
+    try {
+      // Tunggu revoke token selesai di server sebelum redirect — kalau tidak,
+      // navigasi membatalkan fetch dan token lama tetap valid (keamanan bocor).
+      await apiLogout();
+    } catch {
+      // Request gagal (network/401) → tetap bersihkan state client.
+    }
     localStorage.removeItem("token");
     localStorage.removeItem("must_change_password");
     localStorage.removeItem("permissions");
