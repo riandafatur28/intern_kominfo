@@ -3,7 +3,6 @@
 namespace Tests\Feature\Wfh;
 
 use App\Domains\Wfh\Models\WfhReport;
-use App\Domains\Wfh\Models\WfhReportActivity;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;

@@ -11,10 +11,10 @@ use App\Domains\Organization\Http\Controllers\RoleController;
 use App\Domains\Organization\Http\Controllers\TeamController;
 use App\Domains\Organization\Http\Controllers\UserController;
 use App\Domains\Wfh\Http\Controllers\AttendanceController;
-use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportActivityController;
-use App\Domains\Wfh\Http\Controllers\ReportController;
+use App\Domains\Wfh\Http\Controllers\ReportApprovalController;
 use App\Domains\Wfh\Http\Controllers\ReportAttendanceController;
+use App\Domains\Wfh\Http\Controllers\ReportController;
 use App\Domains\Wfh\Http\Controllers\ReportPdfController;
 use App\Domains\Wfh\Http\Controllers\TeamReportController;
 use App\Domains\Wfh\Http\Controllers\WfhMonitoringController;
@@ -23,6 +23,12 @@ use App\Http\Controllers\SettingController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:auth');
+
+// Public password reset flow (no auth — OTP via email + cached reset token)
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:auth');
+Route::post('/auth/verify-otp', [AuthController::class, 'verifyOtp'])->middleware('throttle:auth');
+Route::post('/auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:auth');
+
 Route::get('/verify/{token}', [QrVerificationController::class, 'verify']);
 
 Route::middleware('auth:sanctum')->post('/auth/change-password', [AuthController::class, 'changePassword']);

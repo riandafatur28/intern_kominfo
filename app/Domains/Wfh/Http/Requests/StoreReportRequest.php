@@ -25,6 +25,4 @@ class StoreReportRequest extends FormRequest
             'attendances.*.photo' => ['sometimes', 'image', 'mimes:jpg,jpeg,png', 'max:2048'],
         ];
     }
-
-
 }
