@@ -1,5 +1,5 @@
 import type { ChangePackage } from "../../../api/changeManagement";
-import { IMPACT_LABEL, priorityBadge } from "../shared";
+import { IMPACT_LABEL, priorityBadge, PRIORITY_OPTIONS, IMPACT_OPTIONS, statusBadge } from "../shared";
 
 function formatSlash(iso: string | null | undefined): string {
   if (!iso) return "-";
@@ -39,8 +39,20 @@ function SectionCard({ title, children }: { title: string; children: React.React
 export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
   const { initiation, implementation } = pkg;
   const typeNames = (implementation?.change_types ?? []).map((t) => t.name).join(", ");
-  const prio = implementation ? priorityBadge(implementation.priority) : null;
-  const impactLabel = implementation ? IMPACT_LABEL[implementation.impact] : "-";
+  
+  // Ambil badge dan label prioritas yang sesuai dari PRIORITY_OPTIONS
+  const prioBadge = implementation ? priorityBadge(implementation.priority) : null;
+  const prioLabel = implementation
+    ? PRIORITY_OPTIONS.find((p) => p.value === implementation.priority)?.label || prioBadge?.label || implementation.priority
+    : "-";
+
+  // Ambil label dampak dari IMPACT_LABEL atau fallback ke IMPACT_OPTIONS
+  const impactLabel = implementation
+    ? IMPACT_LABEL[implementation.impact] ||
+      IMPACT_OPTIONS.find((i) => i.value === implementation.impact)?.label ||
+      implementation.impact
+    : "-";
+
   const attachments = implementation?.attachments ?? [];
 
   return (
@@ -50,6 +62,14 @@ export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
           <Field label="Bidang">{initiation.field?.name}</Field>
           <Field label="Tanggal Pengajuan">{formatSlash(initiation.initiation_date)}</Field>
         </div>
+        <div className="grid grid-cols-2 gap-5">
+          <Field label="Nomor">{initiation.doc_number}</Field>
+          <Field label="Status">
+            <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${statusBadge(initiation.status).color}`}>
+              {statusBadge(initiation.status).label}
+            </span>
+          </Field>
+        </div>
         <Field label="Deskripsi permohonan">{initiation.description}</Field>
         <Field label="Alasan / Justifikasi">{initiation.reason}</Field>
       </SectionCard>
@@ -58,9 +78,9 @@ export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
         <Field label="Tipe Perubahan">{typeNames}</Field>
         <div className="grid grid-cols-2 gap-5">
           <Field label="Prioritas Perubahan">
-            {prio && (
-              <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${prio.color}`}>
-                {prio.label}
+            {prioBadge && (
+              <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${prioBadge.color}`}>
+                {prioLabel}
               </span>
             )}
           </Field>

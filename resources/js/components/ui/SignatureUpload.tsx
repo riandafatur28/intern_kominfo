@@ -11,6 +11,65 @@ export interface SignatureUploadProps {
 const ALLOWED_TYPES = ["image/png", "image/jpg", "image/jpeg"];
 const MAX_SIZE = 2 * 1024 * 1024;
 
+// ── FUNGSI TAMBAHAN: Mengubah Background Putih/Abu-abu Menjadi Transparan ──
+const processTransparentSignature = (file: File): Promise<File> => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+
+      if (!ctx) {
+        URL.revokeObjectURL(url);
+        resolve(file);
+        return;
+      }
+
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const data = imageData.data;
+
+      // Loop piksel: Jika warna piksel terang / putih / abu-abu (RGB > 190), ubah transparansi (Alpha) jadi 0
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        if (r > 190 && g > 190 && b > 190) {
+          data[i + 3] = 0; // Set Alpha = 0 (Transparan)
+        }
+      }
+
+      ctx.putImageData(imageData, 0, 0);
+
+      // Export ke File PNG Baru
+      canvas.toBlob((blob) => {
+        URL.revokeObjectURL(url);
+        if (blob) {
+          const transparentFile = new File(
+            [blob],
+            file.name.replace(/\.[^/.]+$/, "") + "_transparent.png",
+            { type: "image/png" }
+          );
+          resolve(transparentFile);
+        } else {
+          resolve(file);
+        }
+      }, "image/png");
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve(file);
+    };
+
+    img.src = url;
+  });
+};
+
 export default function SignatureUpload({
   label,
   value,
@@ -33,7 +92,7 @@ export default function SignatureUpload({
     }
   }, [value]);
 
-  const handleFile = (file: File | null) => {
+  const handleFile = async (file: File | null) => {
     setValidationError(null);
     if (!file) {
       onChange?.(null);
@@ -47,7 +106,10 @@ export default function SignatureUpload({
       setValidationError("Ukuran file maksimal 2MB.");
       return;
     }
-    onChange?.(file);
+
+    // OTOMATIS PROSES GAMBAR AGAR BACKGROUND DARI FILE MENJADI TRANSPARAN
+    const transparentFile = await processTransparentSignature(file);
+    onChange?.(transparentFile);
   };
 
   const displayError = error || validationError;

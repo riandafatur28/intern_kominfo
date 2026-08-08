@@ -14,6 +14,7 @@ interface MenuDef {
   href: string;
   permissions?: string[];   // user needs ANY of these
   roles?: string[];         // user needs ANY of these
+  excludeRoles?: string[];  // user with ANY of these roles will NOT see this menu
   icon?: React.ComponentType<{ size?: number; className?: string }>;
   pngIcon?: boolean;        // icon uses embedded PNG → needs CSS filter for active state
 }
@@ -41,6 +42,7 @@ const allMenuDefs: MenuDef[] = [
     label: "Monitoring WFH",
     href: "/wfh/monitoring",
     permissions: ["wfh.monitoring.view"],
+    excludeRoles: ["staf"],
     icon: WfhMonitorIcon,
     pngIcon: true,
   },
@@ -48,18 +50,32 @@ const allMenuDefs: MenuDef[] = [
     label: "Monitoring Perubahan",
     href: "/change-management/monitoring",
     permissions: ["change.initiation.view"],
+    // Sembunyikan dari Staf, Kepala Tim, dan Kepala Bidang
+    excludeRoles: [
+      "staf",
+      "kepala_tim",
+      "kepala-tim",
+      "team_lead",
+      "kepala_bidang",
+      "kepala-bidang",
+      "kabid",
+    ],
     icon: ChangeMonitorIcon,
   },
   {
     label: "Persetujuan Perubahan",
     href: "/change-management/persetujuan",
     permissions: ["change.initiation.approve"],
+    // Sembunyikan dari Admin / Administrator
+    excludeRoles: ["admin", "administrator", "superadmin", "super_admin"],
     icon: ChangeApprovalIcon,
   },
   {
     label: "Inisiasi Perubahan",
     href: "/change-management/inisiasi",
-    permissions: ["change.initiation.create"],
+    permissions: ["change.initiation.create", "change.initiation.view"],
+    // Sembunyikan HANYA dari Kepala Tim
+    excludeRoles: ["kepala_tim", "kepala-tim", "team_lead"],
     icon: ChangeInisiasiIcon,
   },
   {
@@ -79,6 +95,10 @@ export function getFilteredMenus(
 ): SidebarMenuItem[] {
   return allMenuDefs
     .filter((def) => {
+      // Prioritas 1: Jika role user ada di excludeRoles, sembunyikan menu
+      if (def.excludeRoles?.length && def.excludeRoles.some((r) => roles.includes(r))) {
+        return false;
+      }
       // No permission/role gate → always show
       if (!def.permissions?.length && !def.roles?.length) return true;
       // Check permissions (ANY match)

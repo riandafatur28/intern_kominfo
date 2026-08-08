@@ -3,8 +3,8 @@ import client from "./client";
 /* ── Type definitions matching OpenAPI spec (Change Package) ────────── */
 
 export type ChangeStatus = "draft" | "pending" | "approved" | "rejected";
-export type ChangePriority = "low" | "medium" | "high" | "critical";
-export type ChangeImpact = "low" | "medium" | "high";
+export type ChangePriority = "normal" | "emergency"; 
+export type ChangeImpact = "Minor" | "Mayor";       
 export type ImplementationStatus = "draft" | "submitted" | "completed" | "rejected";
 
 export interface ChangeType {

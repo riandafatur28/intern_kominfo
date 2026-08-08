@@ -4,6 +4,8 @@ import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
 import Pagination from "../../components/ui/Pagination";
 import PackageDetailView from "./components/PackageDetailView";
+import DropdownMenu from "../../components/ui/DropdownMenu";
+import { DownloadIcon, EyeIcon, MoreVerticalIcon } from "../../components/ui/AdminActionIcons";
 import {
   listChangePackages,
   getChangePackage,
@@ -95,15 +97,12 @@ export default function AdminMonitoring() {
   if (selected) {
     return (
       <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Admin" }, { label: "Detail Permohonan" }]}>
-        <div className="flex items-center justify-between">
-          <PageTitle title={selected.initiation.doc_number} subtitle={selected.initiation.initiator?.name} />
-          <button
-            className="text-[#256EEF] text-sm hover:underline"
-            onClick={() => setSelected(null)}
-          >
-            &larr; Kembali ke Monitoring
-          </button>
-        </div>
+        <button
+          className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
+          onClick={() => setSelected(null)}
+        >
+          <ArrowLeftIcon size={16} /> Kembali
+        </button>
         {errMsg && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{errMsg}</div>
         )}
@@ -112,15 +111,17 @@ export default function AdminMonitoring() {
           <div className="flex gap-3">
             <Button
               variant="outline"
+              className="gap-2"
               onClick={() => openPdfDirect(getChangeInitiationPdfUrl(selected.initiation.id), setErrMsg)}
             >
-              Unduh PDF Inisiasi
+              <DownloadIcon size={17} /> Unduh PDF Inisiasi
             </Button>
             <Button
               variant="outline"
+              className="gap-2"
               onClick={() => openPdfDirect(getChangeImplementationPdfUrl(selected.initiation.id), setErrMsg)}
             >
-              Unduh PDF Implementasi
+              <DownloadIcon size={17} /> Unduh PDF Implementasi
             </Button>
           </div>
         )}
@@ -201,14 +202,7 @@ export default function AdminMonitoring() {
                 const typeNames = (p.implementation?.change_types ?? []).map((t) => t.name).join(", ");
                 return (
                   <tr key={p.initiation.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
-                    <td className="px-4 py-3">
-                      <button
-                        className="text-[#256EEF] font-medium hover:underline"
-                        onClick={() => handleViewDetail(p.initiation.id)}
-                      >
-                        {p.initiation.doc_number}
-                      </button>
-                    </td>
+                    <td className="px-4 py-3 text-[#333] font-medium">{p.initiation.doc_number}</td>
                     <td className="px-4 py-3">
                       <div className="text-[#333] font-medium">{p.initiation.initiator?.name ?? "-"}</div>
                       <div className="text-xs text-[#767676]">{p.initiation.field?.name}</div>
@@ -228,13 +222,27 @@ export default function AdminMonitoring() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
-                        onClick={() => handleViewDetail(p.initiation.id)}
-                        aria-label="Lihat detail"
-                      >
-                        <EyeIcon />
-                      </button>
+                      <DropdownMenu
+                        align="end"
+                        trigger={
+                          <button
+                            type="button"
+                            aria-label={`Aksi untuk ${p.initiation.doc_number}`}
+                            className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+                          >
+                            <MoreVerticalIcon size={18} />
+                          </button>
+                        }
+                        items={[
+                          { label: "Lihat Detail", icon: <EyeIcon size={16} />, onClick: () => handleViewDetail(p.initiation.id) },
+                          ...(p.initiation.status === "approved"
+                            ? [
+                                { label: "Unduh PDF Inisiasi", icon: <DownloadIcon size={16} />, separator: true, onClick: () => openPdfDirect(getChangeInitiationPdfUrl(p.initiation.id), setErrMsg) },
+                                { label: "Unduh PDF Implementasi", icon: <DownloadIcon size={16} />, onClick: () => openPdfDirect(getChangeImplementationPdfUrl(p.initiation.id), setErrMsg) },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </td>
                   </tr>
                 );
@@ -262,11 +270,10 @@ function StatCard({ value, label, color }: { value: number; label: string; color
   );
 }
 
-function EyeIcon() {
+function ArrowLeftIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M12.5 4.5L7 10l5.5 5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
