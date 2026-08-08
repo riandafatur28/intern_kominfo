@@ -80,8 +80,12 @@ export default function WfhMonitoring() {
   /* ── Tim list ────────────────────────────────────────────────── */
   const [teamReports, setTeamReports] = useState<WfhTeamReport[]>([]);
   const [tPage, setTPage] = useState(1);
-  const [tLastPage, setTLastPage] = useState(1);
-  const [tTotal, setTTotal] = useState(0);
+
+  /* ── Tim filters (sama seperti individu) ─────────────────────── */
+  const [tSearch, setTSearch] = useState("");
+  const [tTeamId, setTTeamId] = useState("");
+  const [tStatus, setTStatus] = useState("");
+  const [tDate, setTDate] = useState("");
 
   /* ── Individu reject ─────────────────────────────────────────── */
   const [showReject, setShowReject] = useState(false);
@@ -175,13 +179,11 @@ export default function WfhMonitoring() {
   async function loadTeamReports() {
     setErrMsg("");
     try {
-      const res = await listTeamReports({ per_page: 15 });
+      const res = await listTeamReports({ per_page: 100 });
       // BE returns raw paginator {data,current_page,last_page,total} without meta envelope
       const raw = ((res as unknown as { meta?: { data?: WfhTeamReport[]; current_page?: number; last_page?: number; total?: number } }).meta ?? res) as { data?: WfhTeamReport[]; current_page?: number; last_page?: number; total?: number };
       setTeamReports(raw.data ?? []);
-      setTPage(raw.current_page ?? 1);
-      setTLastPage(raw.last_page ?? 1);
-      setTTotal(raw.total ?? 0);
+      setTPage(1);
     } catch (e: unknown) {
       setErrMsg(extractWfhError(e, "Gagal memuat laporan tim."));
     }
@@ -199,8 +201,12 @@ export default function WfhMonitoring() {
 
   useEffect(() => {
     if (tab === "tim") loadTeamReports();
-     
-  }, [tab, tPage]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, tSearch, tTeamId, tStatus, tDate]);
+
+  useEffect(() => {
+    setTPage(1);
+  }, [tSearch, tTeamId, tStatus, tDate]);
 
   /* ── Actions: individu ───────────────────────────────────────── */
   async function openPdf(r: WfhReport) {
@@ -333,6 +339,28 @@ export default function WfhMonitoring() {
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const rowLastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 
+  // ── Tim rows (filter client-side, per_page 100) ───────────────
+  const tRows = useMemo(() => {
+    const q = tSearch.trim().toLowerCase();
+    return teamReports.filter((r) => {
+      if (tTeamId && r.team_id !== Number(tTeamId)) return false;
+      if (tStatus && r.status !== tStatus) return false;
+      if (tDate) {
+        const iso = r.report_date;
+        const tgl = iso.includes("T") || iso.includes("Z")
+          ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
+          : iso.slice(0, 10);
+        if (tgl !== tDate) return false;
+      }
+      if (q && !`${r.team?.name ?? ""} ${r.creator?.name ?? ""}`.toLowerCase().includes(q)) {
+        return false;
+      }
+      return true;
+    });
+  }, [teamReports, tSearch, tTeamId, tStatus, tDate]);
+  const tPageRows = tRows.slice((tPage - 1) * PAGE_SIZE, tPage * PAGE_SIZE);
+  const tRowLastPage = Math.max(1, Math.ceil(tRows.length / PAGE_SIZE));
+
   function attendanceState(
     r: WfhReport,
     session: (typeof SESI)[number]
@@ -355,26 +383,22 @@ export default function WfhMonitoring() {
         subtitle="Pemantauan laporan dan absensi WFH pegawai"
       />
 
-      {/* ── Tabs ────────────────────────────────────────────────── */}
-      <div className="flex border-b border-[#E0E9F2] mb-6">
-        {(
-          [
-            ["individu", "Laporan Individu"],
-            ["tim", "Laporan Tim"],
-          ] as [Tab, string][]
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            onClick={() => setTab(key)}
-            className={`px-6 py-3 text-sm font-medium transition-colors ${
-              tab === key
-                ? "text-[#256EEF] border-b-2 border-[#256EEF]"
-                : "text-[#767676] hover:text-[#333]"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
+      {/* ── Tabs (gaya inisiasi) ────────────────────────────────── */}
+      <div className="flex gap-3 mb-6">
+        <TabButton
+          active={tab === "individu"}
+          onClick={() => setTab("individu")}
+          icon={<UserIcon size={18} />}
+        >
+          Laporan Individu
+        </TabButton>
+        <TabButton
+          active={tab === "tim"}
+          onClick={() => setTab("tim")}
+          icon={<UsersIcon size={18} />}
+        >
+          Laporan Tim
+        </TabButton>
       </div>
 
       {tab === "individu" ? (
@@ -628,8 +652,69 @@ export default function WfhMonitoring() {
       ) : (
         /* ══════════════ TAB TIM ══════════════ */
         <>
+          {/* Filters: cari + dropdown (sama seperti individu) */}
+          <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
+            <div className="relative flex-1 min-w-[220px]">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#767676]">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
+                  <circle cx="9" cy="9" r="6" stroke="currentColor" strokeWidth="1.5" />
+                  <path d="M14 14l3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={tSearch}
+                onChange={(e) => setTSearch(e.target.value)}
+                placeholder="Cari nama tim / pembuat..."
+                className="w-full pl-9 pr-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] placeholder:text-[#767676]"
+              />
+            </div>
+            <FilterDropdown badge={Number(!!tTeamId) + Number(!!tStatus) + Number(!!tDate)}>
+              <div className="flex flex-col gap-3">
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                  Tim
+                  <select
+                    value={tTeamId}
+                    onChange={(e) => setTTeamId(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                  >
+                    <option value="">Semua Tim</option>
+                    {teams.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                  Status Laporan
+                  <select
+                    value={tStatus}
+                    onChange={(e) => setTStatus(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                  >
+                    <option value="">Semua Status</option>
+                    <option value="draft">Draf</option>
+                    <option value="pending">Terkirim</option>
+                    <option value="approved">Disetujui</option>
+                    <option value="rejected">Ditolak</option>
+                  </select>
+                </label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                  Tanggal
+                  <input
+                    type="date"
+                    value={tDate}
+                    onChange={(e) => setTDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                  />
+                </label>
+              </div>
+            </FilterDropdown>
+          </div>
+
           <div className="flex items-center justify-between mb-6">
-            <p className="text-sm text-[#767676]">{tTotal} laporan</p>
+            <p className="text-sm text-[#767676]">{tRows.length} laporan</p>
             {hasPermission("wfh.team_report.create") && (
               <Button onClick={() => setShowCreate(true)}>
                 + Buat Laporan Tim
@@ -649,14 +734,16 @@ export default function WfhMonitoring() {
                 </tr>
               </thead>
               <tbody>
-                {teamReports.length === 0 && (
+                {tRows.length === 0 && (
                   <tr>
                     <td colSpan={5} className="text-center py-8 text-sm text-[#767676]">
-                      Belum ada laporan tim.
+                      {tSearch || tTeamId || tStatus || tDate
+                        ? "Tidak ada laporan yang cocok."
+                        : "Belum ada laporan tim."}
                     </td>
                   </tr>
                 )}
-                {teamReports.map((r) => {
+                {tPageRows.map((r) => {
                   const st = STATUS_LABEL[r.status] ?? {
                     label: r.status,
                     color: "bg-gray-100 text-gray-600",
@@ -723,12 +810,12 @@ export default function WfhMonitoring() {
               </tbody>
             </table>
 
-            {tLastPage > 1 && (
+            {tRowLastPage > 1 && (
               <div className="px-4 py-3 border-t border-[#E0E9F2]">
                 <Pagination
                   currentPage={tPage}
-                  lastPage={tLastPage}
-                  total={tTotal}
+                  lastPage={tRowLastPage}
+                  total={tRows.length}
                   onPageChange={setTPage}
                 />
               </div>
@@ -858,6 +945,53 @@ export default function WfhMonitoring() {
 }
 
 /* ── Helpers & icons ──────────────────────────────────────────── */
+
+function TabButton({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-xl border transition-colors ${
+        active
+          ? "bg-[#141D23] text-white border-[#141D23]"
+          : "bg-white text-[#424655] border-[#C2C6D8] hover:bg-gray-50"
+      }`}
+    >
+      {icon}
+      {children}
+    </button>
+  );
+}
+
+function UserIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <circle cx="10" cy="7" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M3.5 17c1-3 3.5-4.5 6.5-4.5s5.5 1.5 6.5 4.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+function UsersIcon({ size = 18 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <circle cx="7.5" cy="7" r="3" stroke="currentColor" strokeWidth="1.5" />
+      <path d="M2.5 17c.8-2.6 2.8-4 5-4s4.2 1.4 5 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M13.5 4.5a2.5 2.5 0 110 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M15 13.5c1.7.5 2.8 1.8 3.2 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function inisial(name?: string | null): string {
   if (!name) return "?";

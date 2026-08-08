@@ -450,7 +450,17 @@ export default function WfhAbsensi() {
         </p>
       </div>
 
-      {/* ── Toolbar: filter + tombol tambah ────────────────────── */}
+      {/* ── Tombol tambah absensi (di atas filtering, sembunyi saat form) ── */}
+      {!formOpen && (
+        <div className="flex justify-end mb-4">
+          <Button onClick={handleTambahAbsensi} className="gap-2">
+            <AddIcon size={17} />
+            Tambah Absensi
+          </Button>
+        </div>
+      )}
+
+      {/* ── Toolbar: filtering ─────────────────────────────────── */}
       <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
         <FilterDropdown
           align="left"
@@ -505,13 +515,10 @@ export default function WfhAbsensi() {
             </div>
           </FilterDropdown>
         <span className="text-sm text-[#767676]">{rows.length} hari</span>
-        <Button onClick={handleTambahAbsensi} className="gap-2 ml-auto">
-          <AddIcon size={17} />
-          Tambah Absensi
-        </Button>
       </div>
 
-      {/* ── Tabel riwayat absensi ───────────────────────────────── */}
+      {/* ── Tabel riwayat absensi (sembunyi saat form terbuka) ── */}
+      {!formOpen && (
       <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
         {rows.length === 0 ? (
           <p className="text-center text-[13px] text-[#9CA3AF] py-8">
@@ -626,6 +633,7 @@ export default function WfhAbsensi() {
           </table>
         )}
       </div>
+      )}
 
       {/* ── Form: absensi + bukti kerja ─────────────────────────── */}
       {formOpen && (
