@@ -6,6 +6,7 @@ import WfhAbsensi from "./pages/wfh/WfhAbsensi";
 import WfhMonitoring from "./pages/wfh/WfhMonitoring";
 import LoginPage from "./pages/auth/LoginPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import SettingsPage from "./pages/admin/SettingsPage";
@@ -22,6 +23,7 @@ export default function Root() {
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/lupa-sandi" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* Must change password — no other pages accessible */}
         <Route path="/change-password" element={<ChangePasswordPage />} />
 

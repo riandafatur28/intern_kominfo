@@ -58,6 +58,27 @@ export async function forgotPassword(email: string): Promise<string> {
   return res.data.message;
 }
 
+export async function verifyOtp(email: string, code: string): Promise<string> {
+  const res = await client.post<{ success: boolean; data: { reset_token: string } }>(
+    "/auth/verify-otp",
+    { email, code }
+  );
+  return res.data.data.reset_token;
+}
+
+export async function resetPassword(
+  resetToken: string,
+  newPassword: string,
+  newPasswordConfirmation: string
+): Promise<string> {
+  const res = await client.post<{ success: boolean; message: string }>("/auth/reset-password", {
+    reset_token: resetToken,
+    new_password: newPassword,
+    new_password_confirmation: newPasswordConfirmation,
+  });
+  return res.data.message;
+}
+
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
