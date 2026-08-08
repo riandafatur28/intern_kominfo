@@ -6,6 +6,7 @@ use App\Domains\Wfh\Http\Requests\StoreReportRequest;
 use App\Domains\Wfh\Http\Resources\WfhReportResource;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Domains\Wfh\Services\WfhReportStateMachine;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -107,7 +108,7 @@ class ReportController extends Controller
                 activities: $request->input('activities', []),
                 attendances: $attendances,
             );
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Race: unique index violation — fallback to existing
             if ($e->getCode() === '23505') {
                 $existing = $this->wfhRepository->findDraftForUserDate($user->id, $date);
