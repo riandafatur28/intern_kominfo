@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
                         Lupa Sandi
                     </h1>
                     <p className="text-sm text-on-surface-variant">
-                        Masukkan email terdaftar. Kami akan mengirimkan tautan untuk
+                        Masukkan email terdaftar. Kami akan mengirimkan kode OTP untuk
                         mereset kata sandi Anda.
                     </p>
 
@@ -62,7 +62,10 @@ export default function ForgotPasswordPage() {
 
                         {status === "success" && (
                             <p className="text-sm text-[#15803D] bg-[#F0FDF4] border border-[#86EFAC]/50 rounded-lg px-4 py-2">
-                                {message}
+                                {message}{" "}
+                                <Link to="/reset-password" className="font-medium underline">
+                                    Masukkan kode OTP di sini
+                                </Link>
                             </p>
                         )}
                         {status === "error" && (
