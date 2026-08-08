@@ -50,6 +50,14 @@ export async function logout(): Promise<void> {
   await client.post("/auth/logout");
 }
 
+export async function forgotPassword(email: string): Promise<string> {
+  const res = await client.post<{ success: boolean; message: string }>(
+    "/auth/forgot-password",
+    { email }
+  );
+  return res.data.message;
+}
+
 export async function changePassword(
   currentPassword: string,
   newPassword: string,
