@@ -44,8 +44,9 @@
 
         /* ── signer rows (Dievaluasi Oleh / Ditinjau Oleh / Penanggungjawab) ── */
         .signer-info p { margin: 0; padding: 1px 0; }
-        .sig-box { position: relative; height: 55px; margin: 0 auto 3px; width: 130px; }
-        .sig-box img { position: absolute; top: -10px; left: 0; height: 55px; width: auto; }
+        /* KODE BARU */
+        .sig-box { height: 50px; margin: 5px auto 0; text-align: center; }
+        .sig-box img { max-height: 50px; width: auto; }
         .sig-name { font-weight: bold; text-decoration: underline; padding-top: 2px; font-size: 10px; }
         .sig-nip { font-size: 9px; }
 
@@ -58,15 +59,20 @@
 <body>
 
 @php
-    // Fixed 8-category list matching ChangeTypeSeeder, paired to mirror the two-column
-    // checkbox layout of the official form (dokumen implementasi sistem.pdf).
     $typePairs = [['Hardware', 'Network'], ['Software', 'Utilities'], ['Aplikasi', 'Prosedur'], ['Operating System', 'Personil']];
     $selectedTypes = $changeTypeNames ?? [];
 
-    // Same web-facing option set/labels as PRIORITY_OPTIONS / IMPACT_OPTIONS in
-    // resources/js/pages/change-management/shared.tsx.
-    $priorityOptions = ['low' => 'Low', 'medium' => 'Medium', 'high' => 'High', 'critical' => 'Critical'];
-    $impactOptions = ['low' => 'Low', 'medium' => 'Medium', 'high' => 'High'];
+    // Prioritas: hanya Normal & Emergency
+    $priorityOptions = [
+        'normal'    => 'Normal',
+        'emergency' => 'Emergency'
+    ];
+
+    // Dampak: hanya Minor & Mayor
+    $impactOptions = [
+        'minor' => 'Minor',
+        'mayor' => 'Mayor'
+    ];
 @endphp
 
     <table class="doc-header-table">
@@ -131,7 +137,9 @@
                     <table class="chk-grid">
                         <tr>
                             @foreach($priorityOptions as $key => $optLabel)
-                                <td class="chk-mark"><span class="chk-box">{{ $priority === $key ? 'v' : '' }}</span></td>
+                                <td class="chk-mark">
+                                    <span class="chk-box">{{ strtolower($priority ?? '') === strtolower($key) ? 'v' : '' }}</span>
+                                </td>
                                 <td class="chk-label">{{ $optLabel }}</td>
                             @endforeach
                         </tr>
@@ -144,7 +152,9 @@
                     <table class="chk-grid">
                         <tr>
                             @foreach($impactOptions as $key => $optLabel)
-                                <td class="chk-mark"><span class="chk-box">{{ $impact === $key ? 'v' : '' }}</span></td>
+                                <td class="chk-mark">
+                                    <span class="chk-box">{{ strtolower($impact ?? '') === strtolower($key) ? 'v' : '' }}</span>
+                                </td>
                                 <td class="chk-label">{{ $optLabel }}</td>
                             @endforeach
                         </tr>
@@ -199,9 +209,9 @@
                 <td colspan="2">
                     <table class="chk-grid">
                         <tr>
-                            <td class="chk-mark"><span class="chk-box">{{ $reviewStatus === 'diterima' ? 'v' : '' }}</span></td>
+                            <td class="chk-mark"><span class="chk-box">{{ strtolower($reviewStatus ?? '') === 'diterima' ? 'v' : '' }}</span></td>
                             <td class="chk-label">DITERIMA</td>
-                            <td class="chk-mark"><span class="chk-box">{{ $reviewStatus === 'ditolak' ? 'v' : '' }}</span></td>
+                            <td class="chk-mark"><span class="chk-box">{{ strtolower($reviewStatus ?? '') === 'ditolak' ? 'v' : '' }}</span></td>
                             <td>DITOLAK</td>
                         </tr>
                     </table>

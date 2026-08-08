@@ -7,35 +7,34 @@ export const STATUS_LABEL: Record<ChangeStatus, { label: string; color: string }
   rejected: { label: "Ditolak", color: "bg-red-100 text-red-700" },
 };
 
+// 1. Disesuaikan dengan "normal" | "emergency"
 export const PRIORITY_LABEL: Record<ChangePriority, { label: string; color: string }> = {
-  low: { label: "Rendah", color: "bg-gray-100 text-gray-600" },
-  medium: { label: "Sedang", color: "bg-blue-100 text-blue-700" },
-  high: { label: "Tinggi", color: "bg-orange-100 text-orange-700" },
-  critical: { label: "Kritis", color: "bg-red-100 text-red-700" },
+  normal: { label: "Normal", color: "bg-blue-100 text-blue-700" },
+  emergency: { label: "Emergency", color: "bg-amber-100 text-amber-700" },
 };
 
+// 2. Disesuaikan dengan "Minor" | "Mayor"
 export const IMPACT_LABEL: Record<ChangeImpact, string> = {
-  low: "Minor",
-  medium: "Sedang",
-  high: "Mayor",
+  Minor: "Minor",
+  Mayor: "Mayor",
 };
 
+// 3. Opsi Form Prioritas
 export const PRIORITY_OPTIONS: { value: ChangePriority; label: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
-  { value: "critical", label: "Critical" },
+  { value: "normal", label: "Normal" },
+  { value: "emergency", label: "Emergency" },
 ];
 
+// 4. Opsi Form Dampak
 export const IMPACT_OPTIONS: { value: ChangeImpact; label: string }[] = [
-  { value: "low", label: "Low" },
-  { value: "medium", label: "Medium" },
-  { value: "high", label: "High" },
+  { value: "Minor", label: "Minor" },
+  { value: "Mayor", label: "Mayor" },
 ];
 
 /** Cosmetic ITIL-style classification badge shown next to the doc number. */
 export function changeClassLabel(priority: ChangePriority | undefined): string {
-  return priority === "critical" || priority === "high" ? "Emergency Change" : "Normal Change";
+  // 5. Cukup cek jika "emergency"
+  return priority === "emergency" ? "Emergency Change" : "Normal Change";
 }
 
 export function statusBadge(status: string) {

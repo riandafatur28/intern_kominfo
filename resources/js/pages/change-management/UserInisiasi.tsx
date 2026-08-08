@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
@@ -7,8 +7,20 @@ import TextArea from "../../components/ui/TextArea";
 import DatePicker from "../../components/ui/DatePicker";
 import Checkbox from "../../components/ui/Checkbox";
 import Pagination from "../../components/ui/Pagination";
+import DropdownMenu from "../../components/ui/DropdownMenu";
+import ConfirmModal from "../../components/ui/ConfirmModal";
 import PackageDetailView from "./components/PackageDetailView";
 import { useAuth } from "../../hooks/useAuth";
+import {
+  AddIcon,
+  CloseIcon,
+  DownloadIcon,
+  EditIcon,
+  EyeIcon,
+  MoreVerticalIcon,
+  SaveIcon,
+  TrashIcon,
+} from "../../components/ui/AdminActionIcons";
 import {
   listChangeTypes,
   listChangePackages,
@@ -33,14 +45,14 @@ import { statusBadge, PRIORITY_OPTIONS, IMPACT_OPTIONS } from "./shared";
 import { openPdfDirect } from "../../utils/swAuth";
 import { formatTanggalLengkap } from "../../utils/userDisplay";
 
-type Tab = "form" | "riwayat";
+type Tab = "permohonan" | "riwayat";
 
 const emptyForm = {
   description: "",
   reason: "",
   typeIds: [] as number[],
-  priority: "low" as ChangePriority,
-  impact: "low" as ChangeImpact,
+  priority: "normal" as ChangePriority,
+  impact: "Minor" as ChangeImpact,
   productionImpact: "",
   requiredEffort: "",
   costNeeded: false,
@@ -51,15 +63,19 @@ const emptyForm = {
   reviewResponse: "",
 };
 
+const PAGE_SIZE = 15;
+
 export default function UserInisiasi() {
   const { user, hasPermission, hasRole } = useAuth();
   const fieldId = user?.team?.field?.id;
   const roleCrumb = hasRole("admin") ? "Admin" : "Pegawai";
 
-  const [tab, setTab] = useState<Tab>("form");
+  const [tab, setTab] = useState<Tab>("permohonan");
+  const [showForm, setShowForm] = useState(false);
   const [changeTypes, setChangeTypes] = useState<ChangeType[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
-  /* ── Form state ──────────────────────────────────────────────── */
+  /* ── Form state ───────────────────────────────────────────────── */
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [existingAttachments, setExistingAttachments] = useState<ChangeAttachment[]>([]);
@@ -67,21 +83,16 @@ export default function UserInisiasi() {
   const [saving, setSaving] = useState(false);
   const [formMsg, setFormMsg] = useState("");
   const [formErr, setFormErr] = useState("");
-  // Keyed by the backend's dotted field path (e.g. "initiation.needed_by_date"),
-  // so each invalid input can show its own red message instead of leaving the
-  // user to guess which one from the generic "...and 3 more errors" summary.
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  /* ── Riwayat state ───────────────────────────────────────────── */
+  /* ── List state ───────────────────────────────────────────────── */
   const [packages, setPackages] = useState<ChangePackage[]>([]);
   const [listStatus, setListStatus] = useState<"loading" | "ready" | "error">("loading");
   const [errMsg, setErrMsg] = useState("");
   const [page, setPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
-  const [total, setTotal] = useState(0);
 
-  /* ── Detail state ────────────────────────────────────────────── */
+  /* ── Detail state ─────────────────────────────────────────────── */
   const [detailPkg, setDetailPkg] = useState<ChangePackage | null>(null);
 
   useEffect(() => {
@@ -94,11 +105,8 @@ export default function UserInisiasi() {
     setListStatus("loading");
     setErrMsg("");
     try {
-      const res = await listChangePackages({ per_page: 15 });
+      const res = await listChangePackages({ per_page: 100 });
       setPackages(res.data);
-      setPage(res.meta.current_page);
-      setLastPage(res.meta.last_page);
-      setTotal(res.meta.total);
       setListStatus("ready");
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal memuat riwayat permohonan."));
@@ -107,11 +115,11 @@ export default function UserInisiasi() {
   }
 
   useEffect(() => {
-    if (tab === "riwayat" && !detailPkg) loadPackages();
+    if (!detailPkg) loadPackages();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab, page]);
+  }, [tab]);
 
-  /* ── Form helpers ────────────────────────────────────────────── */
+  /* ── Form helpers ─────────────────────────────────────────────── */
   function resetForm() {
     setEditingId(null);
     setForm(emptyForm);
@@ -129,8 +137,8 @@ export default function UserInisiasi() {
       description: initiation.description ?? "",
       reason: initiation.reason ?? "",
       typeIds: (implementation?.change_types ?? []).map((t) => t.id),
-      priority: implementation?.priority ?? "low",
-      impact: implementation?.impact ?? "low",
+      priority: implementation?.priority ?? "normal",
+      impact: implementation?.impact ?? "Minor",
       productionImpact: implementation?.production_impact ?? "",
       requiredEffort: implementation?.required_effort ?? "",
       costNeeded: Boolean(implementation?.cost_needed),
@@ -145,7 +153,12 @@ export default function UserInisiasi() {
     setFormMsg("");
     setFormErr("");
     setFieldErrors({});
-    setTab("form");
+  }
+
+  // Klik "+ Ajukan Permohonan" → tampilkan form isi kosong
+  function openNewForm() {
+    resetForm();
+    setShowForm(true);
   }
 
   async function handleEditRow(id: number) {
@@ -153,6 +166,7 @@ export default function UserInisiasi() {
     try {
       const res = await getChangePackage(id);
       loadIntoForm(res.data);
+      setShowForm(true);
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal memuat permohonan."));
     }
@@ -169,13 +183,19 @@ export default function UserInisiasi() {
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Hapus permohonan ini?")) return;
     try {
       await deleteChangePackage(id);
       loadPackages();
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal menghapus permohonan."));
     }
+  }
+
+  async function confirmDelete() {
+    if (deleteTarget == null) return;
+    await handleDelete(deleteTarget);
+    if (detailPkg && detailPkg.initiation.id === deleteTarget) setDetailPkg(null);
+    setDeleteTarget(null);
   }
 
   function openInitiationPdf(id: number) {
@@ -248,7 +268,10 @@ export default function UserInisiasi() {
     try {
       const id = await ensurePackageId(buildPayload());
       await flushAttachments(id);
-      setFormMsg("Draf berhasil disimpan.");
+      resetForm();
+      setShowForm(false);
+      setTab("permohonan");
+      loadPackages();
     } catch (e: unknown) {
       setFormErr(extractChangeError(e, "Gagal menyimpan draf."));
       setFieldErrors(extractChangeFieldErrors(e));
@@ -268,7 +291,9 @@ export default function UserInisiasi() {
       await flushAttachments(id);
       await submitChangePackage(id, payload);
       resetForm();
-      setTab("riwayat");
+      setShowForm(false);
+      setTab("permohonan");
+      loadPackages();
     } catch (e: unknown) {
       setFormErr(extractChangeError(e, "Gagal mengirim permohonan."));
       setFieldErrors(extractChangeFieldErrors(e));
@@ -278,75 +303,91 @@ export default function UserInisiasi() {
   }
 
   const canCreate = hasPermission("change.initiation.create");
-  const PAGE_SIZE_LABEL = `${total} permohonan`;
+  const isMine = (p: ChangePackage) => p.initiation.initiator_id === user?.id;
 
-  /* ── Detail view ─────────────────────────────────────────────── */
+  // Tab "Permohonan Saya" → draf + menunggu; Tab "Riwayat" → disetujui + ditolak.
+  const filtered = useMemo(() => {
+    if (tab === "permohonan") {
+      return packages.filter(
+        (p) => p.initiation.status === "draft" || p.initiation.status === "pending"
+      );
+    }
+    return packages.filter(
+      (p) => p.initiation.status === "approved" || p.initiation.status === "rejected"
+    );
+  }, [packages, tab]);
+
+  const lastPage = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+
+  /* ── Detail view ──────────────────────────────────────────────── */
   if (detailPkg) {
     const init = detailPkg.initiation;
-    const st = statusBadge(init.status);
     return (
       <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: roleCrumb }, { label: "Detail Permohonan" }]}>
-        <div className="flex items-center justify-between">
-          <PageTitle title={init.doc_number} subtitle={init.description} />
-          <button className="text-[#256EEF] text-sm hover:underline" onClick={() => setDetailPkg(null)}>
-            &larr; Kembali
-          </button>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}>{st.label}</span>
-        </div>
+        <button
+          className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
+          onClick={() => setDetailPkg(null)}
+        >
+          <ArrowLeftIcon size={16} /> Kembali
+        </button>
         <PackageDetailView pkg={detailPkg} />
-        <div className="flex gap-3">
+        <div className="flex gap-3 mt-4">
           {init.status === "approved" && (
             <>
-              <Button variant="outline" onClick={() => openInitiationPdf(init.id)}>
-                Unduh PDF Inisiasi
+              <Button variant="outline" className="gap-2" onClick={() => openInitiationPdf(init.id)}>
+                <DownloadIcon size={17} /> Unduh PDF Inisiasi
               </Button>
-              <Button variant="outline" onClick={() => openImplementationPdf(init.id)}>
-                Unduh PDF Implementasi
+              <Button variant="outline" className="gap-2" onClick={() => openImplementationPdf(init.id)}>
+                <DownloadIcon size={17} /> Unduh PDF Implementasi
               </Button>
             </>
           )}
           {init.status === "draft" && init.initiator_id === user?.id && (
             <>
-              <Button variant="outline" onClick={() => { setDetailPkg(null); handleEditRow(init.id); }}>
-                Edit
+              <Button
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setDetailPkg(null);
+                  handleEditRow(init.id);
+                }}
+              >
+                <EditIcon size={17} /> Edit Permohonan
               </Button>
               <Button
                 variant="outline"
-                className="!text-red-500 !border-red-300 hover:!bg-red-50"
-                onClick={async () => {
-                  await handleDelete(init.id);
-                  setDetailPkg(null);
-                }}
+                className="gap-2 !text-red-500 !border-red-300 hover:!bg-red-50"
+                onClick={() => setDeleteTarget(init.id)}
               >
-                Hapus
+                <TrashIcon size={17} /> Hapus Permohonan
               </Button>
             </>
           )}
         </div>
+
+        <ConfirmModal
+          open={deleteTarget != null}
+          title="Hapus Permohonan"
+          message="Apakah Anda yakin ingin menghapus permohonan ini? Tindakan ini tidak dapat dibatalkan."
+          confirmLabel="Hapus"
+          cancelLabel="Batal"
+          onConfirm={confirmDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
       </AppLayout>
     );
   }
 
-  return (
-    <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: roleCrumb }, { label: "Inisiasi Perubahan" }]}>
-      <PageTitle title="Inisiasi Perubahan" subtitle="Ajukan dan pantau permohonan perubahan Anda" />
+  /* ── Form view (dibuka dari "+ Ajukan Permohonan" / Edit) ─────── */
+  if (showForm) {
+    return (
+      <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: roleCrumb }, { label: "Ajukan Permohonan" }]}>
+        <PageTitle
+          title={editingId != null ? "Edit Permohonan" : "Ajukan Permohonan"}
+          subtitle="Isi detail perubahan yang diajukan"
+        />
 
-      <div className="flex gap-3">
-        <TabButton active={tab === "form"} onClick={() => setTab("form")}>
-          Form Permohonan
-        </TabButton>
-        <TabButton active={tab === "riwayat"} onClick={() => setTab("riwayat")}>
-          Riwayat
-        </TabButton>
-      </div>
-
-      {errMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{errMsg}</div>
-      )}
-
-      {tab === "form" ? (
         <form onSubmit={handleSaveDraft} className="flex flex-col gap-6">
           <section className="bg-white rounded-[10px] shadow-sm overflow-hidden">
             <div className="bg-[#F9FAFB] border-b border-[#E0E9F2] px-6 py-3">
@@ -555,138 +596,184 @@ export default function UserInisiasi() {
             </div>
           </section>
 
-          {formMsg && (
-            <div className="bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg px-4 py-3">
-              {formMsg}
-            </div>
-          )}
           {formErr && (
             <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">
               {formErr}
               {Object.keys(fieldErrors).length > 0 && (
-                <span className="block mt-1 text-xs">
-                  Periksa isian yang ditandai merah di atas.
-                </span>
+                <span className="block mt-1 text-xs">Periksa isian yang ditandai merah di atas.</span>
               )}
             </div>
           )}
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" onClick={resetForm}>
-              Batal
+            <Button type="button" variant="outline" className="gap-2" onClick={() => { setShowForm(false); resetForm(); }}>
+              <CloseIcon size={17} /> Batal
             </Button>
-            <Button type="submit" variant="outline" disabled={saving || !canCreate}>
-              {saving ? "Menyimpan..." : "Simpan Draf"}
+            <Button type="submit" variant="outline" className="gap-2" disabled={saving || !canCreate}>
+              <SaveIcon size={17} /> {saving ? "Menyimpan..." : "Simpan Draf"}
             </Button>
-            <Button type="button" onClick={handleSubmitLaporan} disabled={saving || !canCreate}>
-              {saving ? "Mengirim..." : "Kirim Laporan"}
+            <Button type="button" className="gap-2" onClick={handleSubmitLaporan} disabled={saving || !canCreate}>
+              <SendIcon size={17} /> {saving ? "Mengirim..." : "Kirim Laporan"}
             </Button>
           </div>
         </form>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <div className="flex items-center justify-between">
-            <p className="text-sm text-[#767676]">{PAGE_SIZE_LABEL}</p>
-          </div>
-          <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
-            {listStatus === "loading" ? (
-              <div className="text-center py-10 text-sm text-[#767676]">Memuat...</div>
-            ) : listStatus === "error" ? (
-              <div className="text-center py-10 text-sm text-red-500">{errMsg}</div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
-                    <th className="text-left px-4 py-3 font-medium text-[#333]">Tanggal</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#333]">Nomor</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#333]">Judul</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#333]">Inisiator</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#333]">Status</th>
-                    <th className="text-right px-4 py-3 font-medium text-[#333]">Aksi</th>
+      </AppLayout>
+    );
+  }
+
+  /* ── List view (Permohonan Saya / Riwayat) ────────────────────── */
+  return (
+    <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: roleCrumb }, { label: "Inisiasi Perubahan" }]}>
+      <div className="flex items-center justify-between gap-4">
+        <PageTitle
+          title="Inisiasi Perubahan"
+          subtitle={
+            tab === "permohonan"
+              ? `${filtered.length} permohonan aktif (draf & menunggu)`
+              : `${filtered.length} permohonan selesai (disetujui & ditolak)`
+          }
+        />
+        <Button onClick={openNewForm} className="gap-2">
+          <AddIcon size={17} /> Ajukan Permohonan
+        </Button>
+      </div>
+
+      <div className="flex gap-3">
+        <TabButton active={tab === "permohonan"} onClick={() => setTab("permohonan")} icon={<DocumentIcon size={18} />}>
+          Permohonan Saya
+        </TabButton>
+        <TabButton active={tab === "riwayat"} onClick={() => setTab("riwayat")} icon={<HistoryIcon size={18} />}>
+          Riwayat
+        </TabButton>
+      </div>
+
+      {errMsg && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{errMsg}</div>
+      )}
+
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-[#767676]">{filtered.length} permohonan</p>
+        </div>
+
+        <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
+          {listStatus === "loading" ? (
+            <div className="text-center py-10 text-sm text-[#767676]">Memuat...</div>
+          ) : listStatus === "error" ? (
+            <div className="text-center py-10 text-sm text-red-500">{errMsg}</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
+                  <th className="text-left px-4 py-3 font-medium text-[#333]">Tanggal</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#333]">Nomor</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#333]">Judul</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#333]">Inisiator</th>
+                  <th className="text-left px-4 py-3 font-medium text-[#333]">Status</th>
+                  <th className="text-right px-4 py-3 font-medium text-[#333]">Aksi</th>
+                </tr>
+              </thead>
+              <tbody>
+                {pageRows.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-center py-10 text-sm text-[#767676]">
+                      Tidak ada permohonan.
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {packages.length === 0 && (
-                    <tr>
-                      <td colSpan={6} className="text-center py-10 text-sm text-[#767676]">
-                        Belum ada permohonan.
+                )}
+                {pageRows.map((p) => {
+                  const init = p.initiation;
+                  const st = statusBadge(init.status);
+                  const canEditDelete = init.status === "draft" && isMine(p);
+                  return (
+                    <tr key={init.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
+                      <td className="px-4 py-3 text-[#333] whitespace-nowrap">
+                        {formatTanggalLengkap(init.initiation_date)}
+                      </td>
+                      <td className="px-4 py-3 text-[#333] whitespace-nowrap">{init.doc_number}</td>
+                      <td className="px-4 py-3 text-[#767676] max-w-[240px] truncate">{init.description}</td>
+                      <td className="px-4 py-3 text-[#333]">{init.initiator?.name ?? user?.name}</td>
+                      <td className="px-4 py-3">
+                        <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}>
+                          {st.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <DropdownMenu
+                          align="end"
+                          trigger={
+                            <button
+                              type="button"
+                              aria-label={`Aksi untuk ${init.doc_number}`}
+                              className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+                            >
+                              <MoreVerticalIcon size={18} />
+                            </button>
+                          }
+                          items={[
+                            {
+                              label: "Lihat Detail",
+                              icon: <EyeIcon size={16} />,
+                              onClick: () => handleViewDetail(init.id),
+                            },
+                            ...(canEditDelete
+                              ? [
+                                  {
+                                    label: "Edit Permohonan",
+                                    icon: <EditIcon size={16} />,
+                                    onClick: () => handleEditRow(init.id),
+                                  },
+                                  {
+                                    label: "Hapus Permohonan",
+                                    icon: <TrashIcon size={16} />,
+                                    variant: "destructive" as const,
+                                    separator: true,
+                                    onClick: () => setDeleteTarget(init.id),
+                                  },
+                                ]
+                              : []),
+                            ...(init.status === "approved"
+                              ? [
+                                  {
+                                    label: "Unduh PDF Inisiasi",
+                                    icon: <DownloadIcon size={16} />,
+                                    separator: true,
+                                    onClick: () => openInitiationPdf(init.id),
+                                  },
+                                  {
+                                    label: "Unduh PDF Implementasi",
+                                    icon: <DownloadIcon size={16} />,
+                                    onClick: () => openImplementationPdf(init.id),
+                                  },
+                                ]
+                              : []),
+                          ]}
+                        />
                       </td>
                     </tr>
-                  )}
-                  {packages.map((p) => {
-                    const init = p.initiation;
-                    const st = statusBadge(init.status);
-                    return (
-                      <tr key={init.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
-                        <td className="px-4 py-3 text-[#333]">{formatTanggalLengkap(init.initiation_date)}</td>
-                        <td className="px-4 py-3 text-[#333]">{init.doc_number}</td>
-                        <td className="px-4 py-3 text-[#767676] max-w-[240px] truncate">{init.description}</td>
-                        <td className="px-4 py-3 text-[#333]">{init.initiator?.name ?? user?.name}</td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}>
-                            {st.label}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-end gap-3">
-                            <button
-                              className="text-[#256EEF] hover:underline"
-                              onClick={() => handleViewDetail(init.id)}
-                              aria-label="Lihat"
-                            >
-                              <EyeIcon />
-                            </button>
-                            {init.status === "draft" && init.initiator_id === user?.id && (
-                              <>
-                                <button
-                                  className="text-amber-600 hover:underline"
-                                  onClick={() => handleEditRow(init.id)}
-                                  aria-label="Edit"
-                                >
-                                  <EditIcon />
-                                </button>
-                                <button
-                                  className="text-red-500 hover:underline"
-                                  onClick={() => handleDelete(init.id)}
-                                  aria-label="Hapus"
-                                >
-                                  <TrashIcon />
-                                </button>
-                              </>
-                            )}
-                            {init.status === "approved" && (
-                              <>
-                                <button
-                                  className="text-[#256EEF] hover:underline text-xs bg-[#DBEAFE] px-2 py-1 rounded-full"
-                                  onClick={() => openInitiationPdf(init.id)}
-                                >
-                                  PDF Inisiasi
-                                </button>
-                                <button
-                                  className="text-[#256EEF] hover:underline text-xs bg-[#DBEAFE] px-2 py-1 rounded-full"
-                                  onClick={() => openImplementationPdf(init.id)}
-                                >
-                                  PDF Implementasi
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
 
-            {lastPage > 1 && (
-              <div className="px-4 py-3 border-t border-[#E0E9F2]">
-                <Pagination currentPage={page} lastPage={lastPage} total={total} onPageChange={setPage} />
-              </div>
-            )}
-          </div>
+          {filtered.length > PAGE_SIZE && (
+            <div className="px-4 py-3 border-t border-[#E0E9F2]">
+              <Pagination currentPage={page} lastPage={lastPage} total={filtered.length} onPageChange={setPage} />
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
+      <ConfirmModal
+        open={deleteTarget != null}
+        title="Hapus Permohonan"
+        message="Apakah Anda yakin ingin menghapus permohonan ini? Tindakan ini tidak dapat dibatalkan."
+        confirmLabel="Hapus"
+        cancelLabel="Batal"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </AppLayout>
   );
 }
@@ -696,22 +783,25 @@ export default function UserInisiasi() {
 function TabButton({
   active,
   onClick,
+  icon,
   children,
 }: {
   active: boolean;
   onClick: () => void;
+  icon?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={`px-5 py-2 text-sm font-semibold rounded-xl border transition-colors ${
+      className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-xl border transition-colors ${
         active
           ? "bg-[#141D23] text-white border-[#141D23]"
           : "bg-white text-[#424655] border-[#C2C6D8] hover:bg-gray-50"
       }`}
     >
+      {icon}
       {children}
     </button>
   );
@@ -729,60 +819,64 @@ function RadioOption({
   label: string;
 }) {
   return (
-    <label className="relative inline-flex items-center gap-2 text-sm text-[#424655] cursor-pointer select-none">
-      {/* Real-size invisible input (not zero-size `sr-only`) — avoids a spurious
-          scroll-into-view on focus even when the visible radio is already on-screen. */}
+    <label className="relative inline-flex items-center gap-2 text-sm text-[#333] cursor-pointer">
       <input
         type="radio"
         name={name}
         checked={checked}
         onChange={onChange}
-        className="absolute inset-0 opacity-0 cursor-pointer"
+        className="w-4 h-4 text-[#256EEF] border-[#C2C6D8] focus:ring-[#256EEF]"
       />
-      <span
-        className={`w-[18px] h-[18px] rounded-full border flex items-center justify-center shrink-0 ${
-          checked ? "border-[#256EEF]" : "border-[#C2C6D8]"
-        }`}
-      >
-        {checked && <span className="w-[10px] h-[10px] rounded-full bg-[#256EEF]" />}
-      </span>
       {label}
     </label>
   );
 }
 
+/* ── Missing Icons ────────────────────────────────────────── */
+
+function ArrowLeftIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="m12 19-7-7 7-7" />
+      <path d="M19 12H5" />
+    </svg>
+  );
+}
+
 function UploadIcon() {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-[#767676]">
-      <path d="M12 16V4M12 4l-4 4M12 4l4 4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M4 16v3a2 2 0 002 2h12a2 2 0 002-2v-3" strokeLinecap="round" strokeLinejoin="round" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#767676]">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" x2="12" y1="3" y2="15" />
     </svg>
   );
 }
 
-function EyeIcon() {
+function SendIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-      <circle cx="12" cy="12" r="3" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="22" y1="2" x2="11" y2="13" />
+      <polygon points="22 2 15 22 11 13 2 9 22 2" />
     </svg>
   );
 }
 
-function EditIcon() {
+function DocumentIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+      <polyline points="14 2 14 8 20 8" />
     </svg>
   );
 }
 
-function TrashIcon() {
+function HistoryIcon({ size = 18 }: { size?: number }) {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 6h18" />
-      <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M12 7v5l4 2" />
     </svg>
   );
 }

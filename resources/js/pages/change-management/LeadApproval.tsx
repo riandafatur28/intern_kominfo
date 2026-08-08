@@ -3,6 +3,8 @@ import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
 import PackageDetailView from "./components/PackageDetailView";
+import DropdownMenu from "../../components/ui/DropdownMenu";
+import { CloseIcon, DownloadIcon, MoreVerticalIcon } from "../../components/ui/AdminActionIcons";
 import { useAuth } from "../../hooks/useAuth";
 import {
   listChangePackages,
@@ -28,11 +30,44 @@ function formatSlash(iso: string | null | undefined): string {
   return `${d}/${mo}/${y}`;
 }
 
-function EyeIcon({ size = 20 }: { size?: number }) {
+function EyeIcon({ size = 16 }: { size?: number }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
       <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z" strokeLinecap="round" strokeLinejoin="round" />
       <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function ArrowLeftIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M12.5 4.5L7 10l5.5 5.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function CheckIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <polyline points="20 6 9 17 4 12" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function HistoryIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M12 8v4l3 3" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="12" cy="12" r="9" />
+    </svg>
+  );
+}
+
+function QueueIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+      <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }
@@ -88,7 +123,6 @@ export default function LeadApproval() {
 
   useEffect(() => {
     loadQueue();
-     
   }, []);
 
   useEffect(() => {
@@ -159,33 +193,35 @@ export default function LeadApproval() {
 
   const canDecide = hasPermission("change.initiation.approve") || hasPermission("change.initiation.reject");
 
-  /* ── Detail Riwayat (tidak diubah) ───────────────────────────── */
+  /* ── Detail Riwayat ───────────────────────────── */
   if (historySelected) {
     return (
       <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
-        <div className="flex items-center justify-between">
-          <PageTitle title={historySelected.initiation.doc_number} subtitle={historySelected.initiation.initiator?.name} />
-          <button className="text-[#256EEF] text-sm hover:underline" onClick={() => setHistorySelected(null)}>
-            &larr; Kembali ke Riwayat
-          </button>
-        </div>
+        <button
+          className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
+          onClick={() => setHistorySelected(null)}
+        >
+          <ArrowLeftIcon size={16} /> Kembali
+        </button>
         {errMsg && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{errMsg}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{errMsg}</div>
         )}
         <PackageDetailView pkg={historySelected} />
         {historySelected.initiation.status === "approved" && (
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-4">
             <Button
               variant="outline"
+              className="gap-2"
               onClick={() => openPdfDirect(getChangeInitiationPdfUrl(historySelected.initiation.id), setErrMsg)}
             >
-              Unduh PDF Inisiasi
+              <DownloadIcon size={17} /> Unduh PDF Inisiasi
             </Button>
             <Button
               variant="outline"
+              className="gap-2"
               onClick={() => openPdfDirect(getChangeImplementationPdfUrl(historySelected.initiation.id), setErrMsg)}
             >
-              Unduh PDF Implementasi
+              <DownloadIcon size={17} /> Unduh PDF Implementasi
             </Button>
           </div>
         )}
@@ -193,37 +229,37 @@ export default function LeadApproval() {
     );
   }
 
-  /* ── Detail Antrian (mirip halaman detail riwayat) ───────────── */
+  /* ── Detail Antrian ───────────── */
   if (queueSelected) {
     return (
       <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
-        <div className="flex items-center justify-between">
-          <PageTitle title={queueSelected.initiation.doc_number} subtitle={queueSelected.initiation.initiator?.name} />
-          <button className="text-[#256EEF] text-sm hover:underline" onClick={() => setQueueSelected(null)}>
-            &larr; Kembali ke Antrian
-          </button>
-        </div>
+        <button
+          className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
+          onClick={() => setQueueSelected(null)}
+        >
+          <ArrowLeftIcon size={16} /> Kembali
+        </button>
         {errMsg && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{errMsg}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{errMsg}</div>
         )}
         <PackageDetailView pkg={queueSelected} />
         {canDecide && (
-          <div className="flex gap-3">
+          <div className="flex gap-3 mt-4">
             <Button
-              className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100"
+              className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100 gap-2"
               variant="outline"
               onClick={() => handleApprove(queueSelected)}
               disabled={saving}
             >
-              Setujui
+              <CheckIcon size={16} /> Setujui
             </Button>
             <Button
               variant="outline"
-              className="!text-red-500 !border-red-300 hover:!bg-red-50"
+              className="!text-red-500 !border-red-300 hover:!bg-red-50 gap-2"
               onClick={() => handleReject(queueSelected)}
               disabled={saving}
             >
-              Tolak
+              <CloseIcon size={16} /> Tolak
             </Button>
           </div>
         )}
@@ -233,19 +269,24 @@ export default function LeadApproval() {
 
   return (
     <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Permintaan Persetujuan" }]}>
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         {view === "queue" ? (
           <PageTitle title="Permintaan Persetujuan" subtitle={`${queue.length} permohonan menunggu review`} />
         ) : (
           <PageTitle title="Riwayat Persetujuan" subtitle="Keputusan yang sudah Anda buat" />
         )}
-        <Button variant="outline" onClick={() => setView(view === "queue" ? "history" : "queue")}>
+        <Button
+          variant="outline"
+          className="inline-flex items-center gap-2"
+          onClick={() => setView(view === "queue" ? "history" : "queue")}
+        >
+          {view === "queue" ? <HistoryIcon size={16} /> : <QueueIcon size={16} />}
           {view === "queue" ? "Riwayat Persetujuan" : "Permintaan Persetujuan"}
         </Button>
       </div>
 
       {errMsg && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3">{errMsg}</div>
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{errMsg}</div>
       )}
 
       {view === "queue" ? (
@@ -263,7 +304,7 @@ export default function LeadApproval() {
                   <th className="text-left px-4 py-3 font-medium text-[#767676]">Nomor</th>
                   <th className="text-left px-4 py-3 font-medium text-[#767676]">Judul</th>
                   <th className="text-left px-4 py-3 font-medium text-[#767676]">Inisiator</th>
-                  <th className="text-left px-4 py-3 font-medium text-[#767676]">Aksi</th>
+                  <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -277,43 +318,33 @@ export default function LeadApproval() {
                 {queue.map((p) => (
                   <tr key={p.initiation.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
                     <td className="px-4 py-3 text-[#333] whitespace-nowrap">{formatSlash(p.initiation.initiation_date)}</td>
-                    <td className="px-4 py-3 font-medium text-[#256EEF] whitespace-nowrap">{p.initiation.doc_number}</td>
+                    <td className="px-4 py-3 text-[#333] font-medium whitespace-nowrap">{p.initiation.doc_number}</td>
                     <td className="px-4 py-3 text-[#333] max-w-xs">
                       <span className="line-clamp-2">{p.initiation.description}</span>
                     </td>
-                    <td className="px-4 py-3 text-[#333] whitespace-nowrap">{p.initiation.initiator?.name}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          onClick={() => handleViewDetail(p.initiation.id)}
-                          title="Lihat detail permohonan"
-                          className="p-2 rounded-lg text-[#256EEF] hover:bg-[#EBF3FF] transition-colors"
-                        >
-                          <EyeIcon />
-                        </button>
-                        {canDecide && (
-                          <>
-                            <Button
-                              size="sm"
-                              className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100"
-                              variant="outline"
-                              onClick={() => handleApprove(p)}
-                              disabled={saving}
-                            >
-                              Setujui
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="!text-red-500 !border-red-300 hover:!bg-red-50"
-                              onClick={() => handleReject(p)}
-                              disabled={saving}
-                            >
-                              Tolak
-                            </Button>
-                          </>
-                        )}
-                      </div>
+                    <td className="px-4 py-3 text-[#333] whitespace-nowrap">{p.initiation.initiator?.name ?? "-"}</td>
+                    <td className="px-4 py-3 text-right">
+                      <DropdownMenu
+                        align="end"
+                        trigger={
+                          <button
+                            type="button"
+                            aria-label={`Aksi untuk ${p.initiation.doc_number}`}
+                            className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+                          >
+                            <MoreVerticalIcon size={18} />
+                          </button>
+                        }
+                        items={[
+                          { label: "Lihat Detail", icon: <EyeIcon size={16} />, onClick: () => handleViewDetail(p.initiation.id) },
+                          ...(canDecide
+                            ? [
+                                { label: "Setujui", icon: <CheckIcon size={16} />, onClick: () => handleApprove(p), disabled: saving },
+                                { label: "Tolak", icon: <CloseIcon size={16} />, variant: "destructive" as const, onClick: () => handleReject(p), disabled: saving },
+                              ]
+                            : []),
+                        ]}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -322,9 +353,9 @@ export default function LeadApproval() {
           )}
         </div>
       ) : (
-        /* ── View riwayat: TIDAK DIUBAH ── */
+        /* ── View Riwayat Persetujuan ── */
         <>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-2 gap-5 mb-5">
             <div className="bg-green-50 border border-green-100 rounded-[10px] p-5 flex items-center gap-4">
               <CheckCircleIcon />
               <div>
@@ -356,12 +387,13 @@ export default function LeadApproval() {
                     <th className="text-left px-4 py-3 font-medium text-[#767676]">Pemohon</th>
                     <th className="text-left px-4 py-3 font-medium text-[#767676]">Prioritas Perubahan</th>
                     <th className="text-left px-4 py-3 font-medium text-[#767676]">Status</th>
+                    <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {history.length === 0 && (
                     <tr>
-                      <td colSpan={5} className="text-center py-10 text-sm text-[#767676]">
+                      <td colSpan={6} className="text-center py-10 text-sm text-[#767676]">
                         Belum ada keputusan.
                       </td>
                     </tr>
@@ -371,20 +403,36 @@ export default function LeadApproval() {
                     return (
                       <tr key={p.initiation.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
                         <td className="px-4 py-3 text-[#333]">{formatTanggalLengkap(p.initiation.reviewed_at)}</td>
-                        <td className="px-4 py-3">
-                          <button
-                            className="text-[#256EEF] font-medium hover:underline"
-                            onClick={() => handleViewHistory(p.initiation.id)}
-                          >
-                            {p.initiation.doc_number}
-                          </button>
-                        </td>
-                        <td className="px-4 py-3 text-[#333]">{p.initiation.initiator?.name}</td>
+                        <td className="px-4 py-3 text-[#333] font-medium">{p.initiation.doc_number}</td>
+                        <td className="px-4 py-3 text-[#333]">{p.initiation.initiator?.name ?? "-"}</td>
                         <td className="px-4 py-3 text-[#333]">{changeClassLabel(p.implementation?.priority)}</td>
                         <td className="px-4 py-3">
                           <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${st.color}`}>
                             {st.label}
                           </span>
+                        </td>
+                        <td className="px-4 py-3 text-right">
+                          <DropdownMenu
+                            align="end"
+                            trigger={
+                              <button
+                                type="button"
+                                aria-label={`Aksi untuk ${p.initiation.doc_number}`}
+                                className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+                              >
+                                <MoreVerticalIcon size={18} />
+                              </button>
+                            }
+                            items={[
+                              { label: "Lihat Detail", icon: <EyeIcon size={16} />, onClick: () => handleViewHistory(p.initiation.id) },
+                              ...(p.initiation.status === "approved"
+                                ? [
+                                    { label: "Unduh PDF Inisiasi", icon: <DownloadIcon size={16} />, separator: true, onClick: () => openPdfDirect(getChangeInitiationPdfUrl(p.initiation.id), setErrMsg) },
+                                    { label: "Unduh PDF Implementasi", icon: <DownloadIcon size={16} />, onClick: () => openPdfDirect(getChangeImplementationPdfUrl(p.initiation.id), setErrMsg) },
+                                  ]
+                                : []),
+                            ]}
+                          />
                         </td>
                       </tr>
                     );
