@@ -1,22 +1,32 @@
 import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
+import { forgotPassword } from "../../api/auth";
+import { extractErrorMessage } from "../../lib/errors";
 
 /**
- * ⚠️ UI placeholder — endpoint reset password BELUM ADA.
- * Halaman ini hanya antarmuka (form email + tombol kirim).
- * Saat endpoint backend tersedia, ganti handleSubmit dengan panggilan API.
+ * Halaman Lupa Sandi — kirim email untuk reset password via OTP.
+ * POST /api/auth/forgot-password (selalu sukses bila email valid — anti-enumeration;
+ * pesan sukses sama walau email tidak terdaftar).
  */
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState("");
-    const [submitted, setSubmitted] = useState(false);
+    const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+    const [message, setMessage] = useState("");
 
     const inputClasses =
         "w-full h-[51px] px-4 rounded-lg border border-outline-variant bg-surface-container-lowest text-on-surface text-sm placeholder-outline-variant focus:ring-2 focus:ring-primary focus:border-primary focus:outline-none transition-all";
 
-    const handleSubmit = (e: FormEvent) => {
+    const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
-        // TODO: endpoint reset password — belum tersedia, UI placeholder dulu.
-        setSubmitted(true);
+        setStatus("loading");
+        try {
+            const msg = await forgotPassword(email);
+            setMessage(msg);
+            setStatus("success");
+        } catch (err: unknown) {
+            setMessage(extractErrorMessage(err, "Gagal mengirim. Coba lagi."));
+            setStatus("error");
+        }
     };
 
     return (
@@ -50,18 +60,23 @@ export default function ForgotPasswordPage() {
                             />
                         </div>
 
-                        {submitted && (
-                            <p className="text-sm text-[#92400E] bg-[#FEF3C7] border border-[#F59E0B]/40 rounded-lg px-4 py-2">
-                                Endpoint pengiriman reset sandi belum tersedia — UI ini
-                                placeholder sementara.
+                        {status === "success" && (
+                            <p className="text-sm text-[#15803D] bg-[#F0FDF4] border border-[#86EFAC]/50 rounded-lg px-4 py-2">
+                                {message}
+                            </p>
+                        )}
+                        {status === "error" && (
+                            <p className="text-sm text-[#B91C1C] bg-[#FEF2F2] border border-[#FCA5A5]/50 rounded-lg px-4 py-2">
+                                {message}
                             </p>
                         )}
 
                         <button
                             type="submit"
-                            className="w-full h-11 bg-primary text-on-primary rounded-lg font-label-md text-label-md flex items-center justify-center gap-2 hover:bg-primary-container transition-colors shadow-[0_4px_6px_-4px_rgba(0,59,181,0.25),0_10px_15px_-3px_rgba(0,59,181,0.25)]"
+                            disabled={status === "loading"}
+                            className="w-full h-11 bg-primary text-on-primary rounded-lg font-label-md text-label-md flex items-center justify-center gap-2 hover:bg-primary-container transition-colors shadow-[0_4px_6px_-4px_rgba(0,59,181,0.25),0_10px_15px_-3px_rgba(0,59,181,0.25)] disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                            Kirim Tautan Reset
+                            {status === "loading" ? "Mengirim..." : "Kirim Tautan Reset"}
                         </button>
                     </form>
 
