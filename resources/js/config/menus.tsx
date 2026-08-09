@@ -46,22 +46,21 @@ const allMenuDefs: MenuDef[] = [
     icon: WfhMonitorIcon,
     pngIcon: true,
   },
-  {
-    label: "Monitoring Perubahan",
-    href: "/change-management/monitoring",
-    permissions: ["change.initiation.view"],
-    // Sembunyikan dari Staf, Kepala Tim, dan Kepala Bidang
-    excludeRoles: [
-      "staf",
-      "kepala_tim",
-      "kepala-tim",
-      "team_lead",
-      "kepala_bidang",
-      "kepala-bidang",
-      "kabid",
-    ],
-    icon: ChangeMonitorIcon,
-  },
+ // Monitoring Perubahan (baris 50-64)
+{
+  label: "Monitoring Perubahan",
+  href: "/change-management/monitoring",
+  permissions: ["change.initiation.view"],
+  // Sembunyikan dari Staf dan Kepala Tim (Kepala Bidang kini boleh lihat, seperti admin)
+  excludeRoles: [
+    "staf",
+    "kepala_tim",
+    "kepala-tim",
+    "team_lead",
+  ],
+  icon: ChangeMonitorIcon,
+},
+
   {
     label: "Persetujuan Perubahan",
     href: "/change-management/persetujuan",
@@ -70,14 +69,14 @@ const allMenuDefs: MenuDef[] = [
     excludeRoles: ["admin", "administrator", "superadmin", "super_admin"],
     icon: ChangeApprovalIcon,
   },
-  {
-    label: "Inisiasi Perubahan",
-    href: "/change-management/inisiasi",
-    permissions: ["change.initiation.create", "change.initiation.view"],
-    // Sembunyikan HANYA dari Kepala Tim
-    excludeRoles: ["kepala_tim", "kepala-tim", "team_lead"],
-    icon: ChangeInisiasiIcon,
-  },
+{
+  label: "Inisiasi Perubahan",
+  href: "/change-management/inisiasi",
+  permissions: ["change.initiation.create", "change.initiation.view"],
+  // Sembunyikan dari Kepala Tim dan Kepala Bidang
+  excludeRoles: ["kepala_tim", "kepala-tim", "team_lead", "kepala_bidang", "kepala-bidang", "kabid"],
+  icon: ChangeInisiasiIcon,
+},
   {
     label: "Kelola Hak Akses",
     href: "/admin/roles",
