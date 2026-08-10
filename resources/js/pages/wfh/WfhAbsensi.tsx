@@ -27,6 +27,7 @@ import { addReportAttendance, createReportActivity, createWfhReport,
 } from "../../api/wfh";
 import { openPdfDirect } from "../../utils/swAuth";
 import { catatanLaporan } from "../../utils/wfhReportNote";
+import { formatTanggalLengkap } from "../../utils/userDisplay";
 
 const SESI = ["pagi", "siang", "sore"] as const;
 
@@ -95,7 +96,6 @@ export default function WfhAbsensi() {
   const [reports, setReports] = useState<WfhReport[]>([]);
   const [allowedDays, setAllowedDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [dateFilter, setDateFilter] = useState(todayStr());
-  const [monthFilter, setMonthFilter] = useState("");
 
   /* ── Form absensi + bukti kerja ─────────────────────────────── */
   const [formOpen, setFormOpen] = useState(false);
@@ -164,7 +164,6 @@ export default function WfhAbsensi() {
         listWfhReports({
           per_page: 100,
           date: dateFilter || undefined,
-          month: monthFilter || undefined,
         }),
       ]);
       setAllowedDays(cfgRes.data.allowed_days);
@@ -179,9 +178,9 @@ export default function WfhAbsensi() {
     try {
       // Item list sudah lengkap (attendances, activities) — resource sama
       // dengan show, jadi tak perlu request detail per id.
-      const listRes = await listWfhReports({ per_page: 100 });
-      currentReport =
-        listRes.data.find((r) => normDate(r.report_date) === date) ?? null;
+      // date param wajib: BE default filter ke hari ini bila tanpa param.
+      const listRes = await listWfhReports({ per_page: 100, date });
+      currentReport = listRes.data[0] ?? null;
     } catch {
       // belum ada laporan untuk tanggal itu
     }
@@ -231,7 +230,7 @@ export default function WfhAbsensi() {
     }
     loadTable();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- sengaja hanya 2 dep
-  }, [dateFilter, monthFilter]);
+  }, [dateFilter]);
 
   /* ── Ensure report exists (get-or-create per spec) ───────────── */
   async function ensureReport(date: string): Promise<WfhReport> {
@@ -484,36 +483,17 @@ export default function WfhAbsensi() {
           </div>
         ))}
 
-      {/* ── Toolbar: filtering ─────────────────────────────────── */}
+      {/* ── Toolbar: filtering (sembunyi saat form terbuka) ────── */}
+      {!formOpen && (
       <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
-        <FilterDropdown
-          align="left"
-          badge={Number(!!dateFilter) + Number(!!monthFilter)}
-        >
+        <FilterDropdown align="left" badge={Number(!!dateFilter)}>
           <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
                 Tanggal
                 <input
                   type="date"
                   value={dateFilter}
-                  onChange={(e) => {
-                    setDateFilter(e.target.value);
-                    if (e.target.value) {
-                      setMonthFilter("");
-                    }
-                  }}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
-                Bulan
-                <input
-                  type="month"
-                  value={monthFilter}
-                  onChange={(e) => {
-                    setMonthFilter(e.target.value);
-                    if (e.target.value) setDateFilter("");
-                  }}
+                  onChange={(e) => setDateFilter(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
                 />
               </label>
@@ -521,6 +501,7 @@ export default function WfhAbsensi() {
           </FilterDropdown>
         <span className="text-sm text-[#767676]">{rows.length} hari</span>
       </div>
+      )}
 
       {/* ── Tabel riwayat absensi (sembunyi saat form terbuka) ── */}
       {!formOpen && (
@@ -639,15 +620,9 @@ export default function WfhAbsensi() {
             <label className="text-xs font-bold text-[#374151] block mb-1.5">
               Tanggal WFH
             </label>
-            <input
-              type="date"
-              value={formDate}
-              onChange={(e) => {
-                setFormDate(e.target.value);
-                loadFormForDate(e.target.value);
-              }}
-              className="w-[214px] h-[35px] border border-[#d1d5db] rounded px-3 text-[13px] text-[#374151] outline-none focus:border-[#256EEF] transition-colors"
-            />
+            <div className="text-[13px] text-[#374151]">
+              {formatTanggalLengkap(formDate)}
+            </div>
           </div>
 
           {!isWfhDay(formDate) && (
