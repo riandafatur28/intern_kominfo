@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 6.4.0
+  version: 6.5.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -10,6 +10,13 @@ info:
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
 
+
+    **v6.5.0 — WFH report list default to all:**
+    - `GET /api/wfh/reports` no longer defaults to today when no `date`/`month`
+      is supplied; it now returns all of the user's reports. Supply `date=today`
+      to restore the old behavior.
+    - `GET /api/admin/wfh/reports` unchanged (already defaulted to all).
+    - `GET /api/admin/wfh/monitoring` unchanged (date-specific; still defaults to today).
 
     **v6.4.0 — WFH report date/month query filters:**
     - `GET /api/wfh/reports` now accepts `date` (exact day, `YYYY-MM-DD`) and
@@ -3496,11 +3503,12 @@ paths:
       tags: [WFH Reports]
       summary: List WFH reports for current user
       description: >
-        Returns paginated WFH reports for the authenticated user, filtered by
-        date. When `date` is supplied, only reports for that exact day are
-        returned. When `month` (format `YYYY-MM`) is supplied, reports within
-        that calendar month are returned. `date` takes precedence over `month`
-        when both are supplied. When neither is supplied, defaults to today.
+        Returns paginated WFH reports for the authenticated user. When `date`
+        is supplied, only reports for that exact day are returned. When `month`
+        (format `YYYY-MM`) is supplied, reports within that calendar month are
+        returned. `date` takes precedence over `month` when both are supplied.
+        When neither is supplied, all of the user's reports are returned
+        (no date filter).
       operationId: listWfhReports
       parameters:
         - name: per_page
