@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 6.3.0
+  version: 6.4.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,6 +9,16 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+
+    **v6.4.0 — WFH report date/month query filters:**
+    - `GET /api/wfh/reports` now accepts `date` (exact day, `YYYY-MM-DD`) and
+      `month` (calendar month, `YYYY-MM`) query params. `date` takes precedence
+      over `month`; when neither is supplied, defaults to today. Invalid values
+      return 422.
+    - `GET /api/admin/wfh/reports` accepts the same `date`/`month` params;
+      existing `date_from`/`date_to` take precedence when present, and no date
+      filter still returns all reports (admin behavior unchanged).
 
     **v6.3.0 — Public password reset (OTP via Resend):**
     - Added 3 public endpoints (no auth, throttle:auth 5/min per email|ip):
@@ -3485,6 +3495,12 @@ paths:
     get:
       tags: [WFH Reports]
       summary: List WFH reports for current user
+      description: >
+        Returns paginated WFH reports for the authenticated user, filtered by
+        date. When `date` is supplied, only reports for that exact day are
+        returned. When `month` (format `YYYY-MM`) is supplied, reports within
+        that calendar month are returned. `date` takes precedence over `month`
+        when both are supplied. When neither is supplied, defaults to today.
       operationId: listWfhReports
       parameters:
         - name: per_page
@@ -3494,6 +3510,20 @@ paths:
             default: 15
             maximum: 100
           example: 15
+        - name: date
+          in: query
+          description: Filter reports by exact date (YYYY-MM-DD). Takes precedence over `month`.
+          schema:
+            type: string
+            format: date
+          example: "2026-08-10"
+        - name: month
+          in: query
+          description: Filter reports within a calendar month (YYYY-MM).
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          example: "2026-08"
       responses:
         "200":
           description: Paginated report list
@@ -3510,6 +3540,15 @@ paths:
               example:
                 success: false
                 message: Unauthenticated.
+        "422":
+          description: Validation error (invalid date or month format)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The date field is not a valid date."
     post:
       tags: [WFH Reports]
       summary: Create a WFH report
@@ -4658,8 +4697,10 @@ paths:
       security:
         - bearerAuth: []
       description: |
-        Returns paginated WFH reports from all staff within the admin\'s own
+        Returns paginated WFH reports from all staff within the admin's own
         field (bidang). Auto-filtered by field_id. Supports optional filters.
+        `date_from`/`date_to` take precedence; when absent, `date` (exact day)
+        or `month` (YYYY-MM) apply. No date filter returns all reports.
         Requires `wfh.monitoring.view` permission.
       parameters:
         - name: per_page
@@ -4691,6 +4732,20 @@ paths:
             type: string
             format: date
           example: "2026-07-15"
+        - name: date
+          in: query
+          description: Filter reports by exact date (YYYY-MM-DD). Used only when `date_from`/`date_to` are absent. Takes precedence over `month`.
+          schema:
+            type: string
+            format: date
+          example: "2026-08-10"
+        - name: month
+          in: query
+          description: Filter reports within a calendar month (YYYY-MM). Used only when `date_from`/`date_to` and `date` are absent.
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          example: "2026-08"
       responses:
         "200":
           description: Paginated WFH reports within the admin\'s field
