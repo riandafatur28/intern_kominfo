@@ -1,6 +1,7 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import Sidebar from "../components/ui/Sidebar";
 import TopAppBar from "../components/ui/TopAppBar";
+import { useSidebar } from "../context/SidebarContext";
 
 export default function AppLayout({
   children,
@@ -10,7 +11,7 @@ export default function AppLayout({
   activeItem?: string;
   breadcrumbs?: { label: string; href?: string }[];
 }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const { sidebarOpen, toggleSidebar, closeSidebar } = useSidebar();
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F6FAFF]">
@@ -21,7 +22,7 @@ export default function AppLayout({
         }`}
       >
         <div className="w-[334px]">
-          <Sidebar onClose={() => setSidebarOpen(false)} />
+          <Sidebar onClose={closeSidebar} />
         </div>
       </div>
 
@@ -30,7 +31,7 @@ export default function AppLayout({
         <TopAppBar
           breadcrumbs={breadcrumbs}
           sidebarOpen={sidebarOpen}
-          onToggleSidebar={() => setSidebarOpen((v) => !v)}
+          onToggleSidebar={toggleSidebar}
         />
 
         <div className="flex-1 overflow-y-auto px-8 py-8">
