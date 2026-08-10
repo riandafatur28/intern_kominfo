@@ -84,6 +84,72 @@ class WfhAdminReportTest extends TestCase
             ->assertStatus(422);
     }
 
+    // === Admin date/month filter ===
+
+    public function test_admin_filters_by_date(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $admin = User::factory()->create(['team_id' => $team->id]);
+        $admin->assignRole('admin');
+        $staf = User::factory()->create(['team_id' => $team->id]);
+
+        $matching = WfhReport::factory()->create([
+            'user_id' => $staf->id,
+            'report_date' => '2026-07-15',
+        ]);
+        WfhReport::factory()->create([
+            'user_id' => $staf->id,
+            'report_date' => '2026-07-16',
+        ]);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/wfh/reports?date=2026-07-15')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.id', $matching->id);
+    }
+
+    public function test_admin_filters_by_month(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $admin = User::factory()->create(['team_id' => $team->id]);
+        $admin->assignRole('admin');
+        $staf = User::factory()->create(['team_id' => $team->id]);
+
+        WfhReport::factory()->create(['user_id' => $staf->id, 'report_date' => '2026-01-10']);
+        WfhReport::factory()->create(['user_id' => $staf->id, 'report_date' => '2026-01-31']);
+        WfhReport::factory()->create(['user_id' => $staf->id, 'report_date' => '2026-02-01']);
+
+        Sanctum::actingAs($admin);
+
+        $this->getJson('/api/admin/wfh/reports?month=2026-01')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+    }
+
+    public function test_admin_date_from_takes_precedence_over_date(): void
+    {
+        $field = Field::create(['name' => 'Bidang A']);
+        $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
+        $admin = User::factory()->create(['team_id' => $team->id]);
+        $admin->assignRole('admin');
+        $staf = User::factory()->create(['team_id' => $team->id]);
+
+        WfhReport::factory()->create(['user_id' => $staf->id, 'report_date' => '2026-07-10']);
+        WfhReport::factory()->create(['user_id' => $staf->id, 'report_date' => '2026-07-20']);
+        WfhReport::factory()->create(['user_id' => $staf->id, 'report_date' => '2026-07-25']);
+
+        Sanctum::actingAs($admin);
+
+        // date_from=2026-07-20 overrides date=2026-07-10 — range wins
+        $this->getJson('/api/admin/wfh/reports?date_from=2026-07-20&date=2026-07-10')
+            ->assertStatus(200)
+            ->assertJsonPath('meta.total', 2);
+    }
+
     // === WFH PDF export from pending ===
 
     public function test_pdf_can_be_exported_from_pending_status(): void

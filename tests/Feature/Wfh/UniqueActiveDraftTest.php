@@ -4,6 +4,7 @@ namespace Tests\Feature\Wfh;
 
 use App\Domains\Wfh\Models\WfhReport;
 use App\Models\User;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -28,7 +29,7 @@ class UniqueActiveDraftTest extends TestCase
             'status' => 'draft',
         ]);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
         $this->expectExceptionCode(23505);
 
         WfhReport::create([
@@ -48,7 +49,7 @@ class UniqueActiveDraftTest extends TestCase
             'status' => 'rejected',
         ]);
 
-        $this->expectException(\Illuminate\Database\QueryException::class);
+        $this->expectException(QueryException::class);
         $this->expectExceptionCode(23505);
 
         WfhReport::create([

@@ -4,7 +4,11 @@ namespace App\Domains\Auth\Http\Controllers;
 
 use App\Domains\Auth\Concerns\FormatsUserPayload;
 use App\Domains\Auth\Http\Requests\ChangePasswordRequest;
+use App\Domains\Auth\Http\Requests\ForgotPasswordRequest;
 use App\Domains\Auth\Http\Requests\LoginRequest;
+use App\Domains\Auth\Http\Requests\ResetPasswordRequest;
+use App\Domains\Auth\Http\Requests\VerifyOtpRequest;
+use App\Domains\Auth\Services\PasswordResetService;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -82,6 +86,51 @@ class AuthController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Password berhasil diubah.',
+        ]);
+    }
+
+    public function forgotPassword(ForgotPasswordRequest $request, PasswordResetService $service): JsonResponse
+    {
+        $service->sendOtp($request->email);
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Jika email terdaftar, kode OTP telah dikirim ke email Anda.',
+        ]);
+    }
+
+    public function verifyOtp(VerifyOtpRequest $request, PasswordResetService $service): JsonResponse
+    {
+        $resetToken = $service->verifyOtp($request->email, $request->code);
+
+        if (! $resetToken) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Kode OTP tidak valid atau telah kedaluwarsa.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'OTP terverifikasi. Gunakan reset_token untuk mengatur password baru.',
+            'data' => ['reset_token' => $resetToken],
+        ]);
+    }
+
+    public function resetPassword(ResetPasswordRequest $request, PasswordResetService $service): JsonResponse
+    {
+        $success = $service->resetPassword($request->reset_token, $request->new_password);
+
+        if (! $success) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Token reset tidak valid atau telah kedaluwarsa.',
+            ], 422);
+        }
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Password berhasil diatur. Silakan login.',
         ]);
     }
 }
