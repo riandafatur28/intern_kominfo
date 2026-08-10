@@ -60,8 +60,7 @@ class ReportController extends Controller
         }
         $perPage = min($request->integer('per_page', 15), 100);
 
-        // date_from/date_to take precedence; fall back to date/month when
-        // provided; no date filter defaults to all reports (admin behavior).
+        // date_from/date_to take precedence; then date/month; no filter = all reports.
         $bounds = $this->resolveAdminBounds($request);
 
         $filters = array_filter([
@@ -85,14 +84,15 @@ class ReportController extends Controller
      */
     private function resolveAdminBounds(Request $request): array
     {
-        if ($request->filled('date_from') || $request->filled('date_to')) {
-            return [
-                'date_from' => $request->input('date_from'),
-                'date_to' => $request->input('date_to'),
-            ];
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        // date_from/date_to take precedence; then date/month; no filter = all reports.
+        if ($dateFrom !== null || $dateTo !== null) {
+            return ['date_from' => $dateFrom, 'date_to' => $dateTo];
         }
 
-        if ($request->filled('date') || $request->filled('month')) {
+        if ($request->hasAny(['date', 'month'])) {
             return DateRangeHelper::resolve($request->input('date'), $request->input('month'));
         }
 
