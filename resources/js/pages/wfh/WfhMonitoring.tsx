@@ -130,18 +130,19 @@ export default function WfhMonitoring() {
     try {
       // Tanggal tunggal → ambil semua laporan sekaligus (cap BE 100);
       // pagination dihitung client-side atas gabungan laporan + belum laporan.
-      const params: {
-        per_page?: number;
-        team_id?: number;
-        status?: string;
-        date_from?: string;
-        date_to?: string;
-      } = { per_page: 100, date_from: date, date_to: date };
+      // Tanpa tanggal → jangan kirim date_from/date_to (BE tampilkan semua).
+      const params: NonNullable<Parameters<typeof adminListWfhReports>[0]> = {
+        per_page: 100,
+        ...(date ? { date_from: date, date_to: date } : {}),
+      };
       if (teamId) params.team_id = Number(teamId);
       if (statusFilter) params.status = statusFilter;
       const [res, mon] = await Promise.all([
         adminListWfhReports(params),
-        getWfhMonitoring({ date }),
+        getWfhMonitoring({
+          // date kosong → BE default ke hari ini (bukan string kosong)
+          date: date || undefined,
+        }),
       ]);
       // Draft = belum dikirim → bukan laporan resmi; tampil sebagai "Belum Dikirim"
       const visible = res.data.filter((r) => r.status !== "draft");
