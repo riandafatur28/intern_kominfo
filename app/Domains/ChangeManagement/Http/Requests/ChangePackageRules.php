@@ -81,7 +81,11 @@ class ChangePackageRules
                     $fail('Tanggal rilis harus setelah atau sama dengan tanggal eksekusi.');
                 }
             }],
+<<<<<<< HEAD
             'implementation.implementation_result' => [$presence, 'string'],
+=======
+            'implementation.implementation_result' => ['nullable', 'string'],
+>>>>>>> origin/feature/implementasi-wfh-rianda
             'implementation.review_response' => ['nullable', 'string'],
             'implementation.evaluator_id' => self::evaluatorRule(),
         ];
