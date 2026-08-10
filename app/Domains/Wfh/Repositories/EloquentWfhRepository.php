@@ -36,12 +36,14 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
 
     // === Reports ===
 
-    public function paginateReportsForUser(int $userId, int $perPage = 15): LengthAwarePaginator
+    public function paginateReportsForUser(int $userId, int $perPage = 15, array $filters = []): LengthAwarePaginator
     {
-        return WfhReport::with(['activities.links', 'attendances'])
-            ->where('user_id', $userId)
-            ->orderBy('report_date', 'desc')
-            ->paginate($perPage);
+        $query = WfhReport::with(['activities.links', 'attendances'])
+            ->where('user_id', $userId);
+
+        $this->applyDateRangeFilter($query, $filters);
+
+        return $query->orderBy('report_date', 'desc')->paginate($perPage);
     }
 
     public function paginateAllReports(int $perPage = 15, array $filters = []): LengthAwarePaginator
@@ -52,13 +54,7 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
             $query->where('status', $filters['status']);
         }
 
-        if (! empty($filters['date_from'])) {
-            $query->where('report_date', '>=', $filters['date_from']);
-        }
-
-        if (! empty($filters['date_to'])) {
-            $query->where('report_date', '<=', $filters['date_to']);
-        }
+        $this->applyDateRangeFilter($query, $filters);
 
         if (! empty($filters['team_id'])) {
             $query->whereHas('user.team', function ($q) use ($filters) {
@@ -73,6 +69,17 @@ class EloquentWfhRepository extends EloquentRepository implements WfhRepositoryI
         }
 
         return $query->orderBy('report_date', 'desc')->paginate($perPage);
+    }
+
+    private function applyDateRangeFilter($query, array $filters): void
+    {
+        if (! empty($filters['date_from'])) {
+            $query->where('report_date', '>=', $filters['date_from']);
+        }
+
+        if (! empty($filters['date_to'])) {
+            $query->where('report_date', '<=', $filters['date_to']);
+        }
     }
 
     public function findReportWithRelations(int $id): ?WfhReport
