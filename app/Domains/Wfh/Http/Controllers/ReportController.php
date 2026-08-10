@@ -67,13 +67,9 @@ class ReportController extends Controller
         }
         $perPage = min($request->integer('per_page', 15), 100);
 
-        // date_from/date_to take precedence; fall back to date/month when provided;
-        // no date filter defaults to all reports (admin behavior unchanged).
-        $bounds = ($request->filled('date_from') || $request->filled('date_to'))
-            ? ['date_from' => $request->input('date_from'), 'date_to' => $request->input('date_to')]
-            : ($request->filled('date') || $request->filled('month')
-                ? DateRangeHelper::resolve($request->input('date'), $request->input('month'))
-                : ['date_from' => null, 'date_to' => null]);
+        // date_from/date_to take precedence; fall back to date/month when
+        // provided; no date filter defaults to all reports (admin behavior).
+        $bounds = $this->resolveAdminBounds($request);
 
         $filters = array_filter([
             'field_id' => $fieldId,
@@ -94,6 +90,28 @@ class ReportController extends Controller
                 'total' => $reports->total(),
             ],
         ]);
+    }
+
+    /**
+     * Resolve admin date bounds: date_from/date_to take precedence,
+     * then date/month, then no filter (all reports).
+     *
+     * @return array{date_from: ?string, date_to: ?string}
+     */
+    private function resolveAdminBounds(Request $request): array
+    {
+        if ($request->filled('date_from') || $request->filled('date_to')) {
+            return [
+                'date_from' => $request->input('date_from'),
+                'date_to' => $request->input('date_to'),
+            ];
+        }
+
+        if ($request->filled('date') || $request->filled('month')) {
+            return DateRangeHelper::resolve($request->input('date'), $request->input('month'));
+        }
+
+        return ['date_from' => null, 'date_to' => null];
     }
 
     public function store(StoreReportRequest $request): JsonResponse
