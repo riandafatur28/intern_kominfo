@@ -42,6 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return nextUser;
   }, []);
 
+  // Bersihkan key legacy versi lama (auth_token, auth_user, sidebar_collapsed)
+  // yang tidak pernah dipakai kode saat ini — biar localStorage konsisten
+  // antar pengguna/versi. One-time di boot, tanpa syarat.
+  useEffect(() => {
+    ["auth_token", "auth_user", "sidebar_collapsed"].forEach((k) =>
+      localStorage.removeItem(k)
+    );
+  }, []);
+
   // Restore session on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
