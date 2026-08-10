@@ -501,15 +501,15 @@ export default function WfhMonitoring() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">Pegawai</th>
-                    <th className="text-center px-4 py-3 font-medium text-[#767676]">Pagi</th>
-                    <th className="text-center px-4 py-3 font-medium text-[#767676]">Siang</th>
-                    <th className="text-center px-4 py-3 font-medium text-[#767676]">Sore</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">Pegawai</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#141D23]">Pagi</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#141D23]">Siang</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#141D23]">Sore</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">
                       Status Laporan
                     </th>
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">Catatan</th>
-                    <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">Catatan</th>
+                    <th className="text-right px-4 py-3 font-medium text-[#141D23]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>

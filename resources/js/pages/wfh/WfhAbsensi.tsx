@@ -18,7 +18,6 @@ import { addReportAttendance, createReportActivity, createWfhReport,
   deleteReportActivity,
   deleteReportAttendance,
   extractWfhError,
-  getWfhReport,
   getWfhSessionConfig,
   listWfhReports,
   submitWfhReport,
@@ -97,7 +96,6 @@ export default function WfhAbsensi() {
   const [allowedDays, setAllowedDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [dateFilter, setDateFilter] = useState(todayStr());
   const [monthFilter, setMonthFilter] = useState("");
-  const [dayFilter, setDayFilter] = useState("");
 
   /* ── Form absensi + bukti kerja ─────────────────────────────── */
   const [formOpen, setFormOpen] = useState(false);
@@ -163,7 +161,11 @@ export default function WfhAbsensi() {
     try {
       const [cfgRes, listRes] = await Promise.all([
         getWfhSessionConfig(),
-        listWfhReports({ per_page: 100 }),
+        listWfhReports({
+          per_page: 100,
+          date: dateFilter || undefined,
+          month: monthFilter || undefined,
+        }),
       ]);
       setAllowedDays(cfgRes.data.allowed_days);
       setReports(listRes.data);
@@ -175,12 +177,11 @@ export default function WfhAbsensi() {
   async function loadFormForDate(date: string) {
     let currentReport: WfhReport | null = null;
     try {
+      // Item list sudah lengkap (attendances, activities) — resource sama
+      // dengan show, jadi tak perlu request detail per id.
       const listRes = await listWfhReports({ per_page: 100 });
-      const found = listRes.data.find((r) => normDate(r.report_date) === date);
-      if (found) {
-        const detailRes = await getWfhReport(found.id);
-        currentReport = detailRes.data;
-      }
+      currentReport =
+        listRes.data.find((r) => normDate(r.report_date) === date) ?? null;
     } catch {
       // belum ada laporan untuk tanggal itu
     }
@@ -215,12 +216,22 @@ export default function WfhAbsensi() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await loadTable();
-      await loadFormForDate(todayStr());
+      await Promise.all([loadTable(), loadFormForDate(todayStr())]);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init-only, run once
   }, []);
+
+  /* ── Reload server-side saat filter tanggal/bulan berubah ───── */
+  const firstFilter = useRef(true);
+  useEffect(() => {
+    if (firstFilter.current) {
+      firstFilter.current = false;
+      return;
+    }
+    loadTable();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sengaja hanya 2 dep
+  }, [dateFilter, monthFilter]);
 
   /* ── Ensure report exists (get-or-create per spec) ───────────── */
   async function ensureReport(date: string): Promise<WfhReport> {
@@ -387,43 +398,18 @@ export default function WfhAbsensi() {
     }
   }
 
-  /* ── Riwayat rows ────────────────────────────────────────────── */
-  function datesInMonth(month: string, day: string): string[] {
-    const [y, m] = month.split("-").map(Number);
-    const out: string[] = [];
-    const count = new Date(y, m, 0).getDate();
-    for (let d = 1; d <= count; d++) {
-      const iso = new Date(y, m - 1, d).getDay(); // 0=Min..6=Sab
-      const isoDay = iso === 0 ? 7 : iso;
-      if (isoDay === Number(day)) {
-        out.push(`${month}-${String(d).padStart(2, "0")}`);
-      }
-    }
-    return out;
-  }
-
+  /* ── Riwayat rows: olah data dari response server (sudah difilter) ── */
   const rows = useMemo(() => {
-    let dates: string[];
-    if (dateFilter) {
-      dates = [dateFilter];
-    } else if (monthFilter && dayFilter) {
-      dates = datesInMonth(monthFilter, dayFilter);
-    } else if (monthFilter) {
-      dates = reports
-        .map((r) => normDate(r.report_date))
-        .filter((d) => d.startsWith(monthFilter))
-        .sort()
-        .reverse();
-    } else {
-      dates = [...new Set(reports.map((r) => normDate(r.report_date)))]
-        .sort()
-        .reverse();
+    // Satu baris per tanggal; ambil laporan pertama per tanggal (urutan desc).
+    const byDate = new Map<string, WfhReport>();
+    for (const r of reports) {
+      const d = normDate(r.report_date);
+      if (!byDate.has(d)) byDate.set(d, r);
     }
-    return dates.map((date) => ({
-      date,
-      report: reports.find((r) => normDate(r.report_date) === date) ?? null,
-    }));
-  }, [reports, dateFilter, monthFilter, dayFilter]);
+    return [...byDate.entries()]
+      .map(([date, report]) => ({ date, report }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [reports]);
 
   /* ── Hari WFH (dari konfigurasi admin) ───────────────────────── */
   const isWfhDay = (date: string) => allowedDays.includes(wfhDayNumber(date));
@@ -502,7 +488,7 @@ export default function WfhAbsensi() {
       <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
         <FilterDropdown
           align="left"
-          badge={Number(!!dateFilter) + Number(!!monthFilter) + Number(!!dayFilter)}
+          badge={Number(!!dateFilter) + Number(!!monthFilter)}
         >
           <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
@@ -514,7 +500,6 @@ export default function WfhAbsensi() {
                     setDateFilter(e.target.value);
                     if (e.target.value) {
                       setMonthFilter("");
-                      setDayFilter("");
                     }
                   }}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
@@ -532,24 +517,6 @@ export default function WfhAbsensi() {
                   className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
                 />
               </label>
-              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
-                Hari WFH
-                <select
-                  value={dayFilter}
-                  onChange={(e) => {
-                    setDayFilter(e.target.value);
-                    if (e.target.value) setDateFilter("");
-                  }}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
-                >
-                  <option value="">Semua Hari</option>
-                  {allowedDays.map((d) => (
-                    <option key={d} value={d}>
-                      {DAY_NAMES[d]}
-                    </option>
-                  ))}
-                </select>
-              </label>
             </div>
           </FilterDropdown>
         <span className="text-sm text-[#767676]">{rows.length} hari</span>
@@ -566,19 +533,19 @@ export default function WfhAbsensi() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
-                <th className="text-left px-4 py-3 font-medium text-[#767676]">Tanggal</th>
+                <th className="text-left px-4 py-3 font-medium text-[#141D23]">Tanggal</th>
                 {SESI.map((s) => (
-                  <th key={s} className="text-center px-4 py-3 font-medium text-[#767676]">
+                  <th key={s} className="text-center px-4 py-3 font-medium text-[#141D23]">
                     {capFirst(s)}
                   </th>
                 ))}
-                <th className="text-left px-4 py-3 font-medium text-[#767676]">
+                <th className="text-left px-4 py-3 font-medium text-[#141D23]">
                   Status Laporan
                 </th>
-                <th className="text-left px-4 py-3 font-medium text-[#767676]">
+                <th className="text-left px-4 py-3 font-medium text-[#141D23]">
                   Catatan
                 </th>
-                <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
+                <th className="text-right px-4 py-3 font-medium text-[#141D23]">Aksi</th>
               </tr>
             </thead>
             <tbody>
