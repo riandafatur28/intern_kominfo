@@ -6,6 +6,9 @@ use App\Domains\Wfh\Http\Requests\StoreReportRequest;
 use App\Domains\Wfh\Http\Resources\WfhReportResource;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Domains\Wfh\Services\WfhReportStateMachine;
+use App\Support\Dates\DateRangeHelper;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,23 +25,30 @@ class ReportController extends Controller
 
     public function index(Request $request): JsonResponse
     {
-        $perPage = min($request->integer('per_page', 15), 100);
-        $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage);
-
-        return response()->json([
-            'success' => true,
-            'data' => WfhReportResource::collection($reports->items()),
-            'meta' => [
-                'current_page' => $reports->currentPage(),
-                'last_page' => $reports->lastPage(),
-                'total' => $reports->total(),
-            ],
+        $validated = $request->validate([
+            'date' => ['nullable', 'date'],
+            'month' => ['nullable', 'date_format:Y-m'],
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:100'],
         ]);
+
+        $perPage = (int) ($validated['per_page'] ?? 15);
+        $bounds = DateRangeHelper::resolve($validated['date'] ?? null, $validated['month'] ?? null);
+
+        $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage, $bounds);
+
+        return $this->paginatedReportResponse($reports);
     }
 
     public function adminIndex(Request $request): JsonResponse
     {
         $this->authorize('wfh.monitoring.view');
+
+        $request->validate([
+            'date' => ['nullable', 'date'],
+            'month' => ['nullable', 'date_format:Y-m'],
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date'],
+        ]);
 
         $fieldId = $request->user()->team?->field?->id;
 
@@ -48,18 +58,49 @@ class ReportController extends Controller
                 'message' => 'User tidak terhubung dengan bidang manapun.',
             ], 422);
         }
-
         $perPage = min($request->integer('per_page', 15), 100);
+
+        // date_from/date_to take precedence; then date/month; no filter = all reports.
+        $bounds = $this->resolveAdminBounds($request);
+
         $filters = array_filter([
             'field_id' => $fieldId,
             'status' => $request->input('status'),
             'team_id' => $request->input('team_id'),
-            'date_from' => $request->input('date_from'),
-            'date_to' => $request->input('date_to'),
+            'date_from' => $bounds['date_from'],
+            'date_to' => $bounds['date_to'],
         ], fn ($value) => $value !== null && $value !== '');
 
         $reports = $this->wfhRepository->paginateAllReports($perPage, $filters);
 
+        return $this->paginatedReportResponse($reports);
+    }
+
+    /**
+     * Resolve admin date bounds: date_from/date_to take precedence,
+     * then date/month, then no filter (all reports).
+     *
+     * @return array{date_from: ?string, date_to: ?string}
+     */
+    private function resolveAdminBounds(Request $request): array
+    {
+        $dateFrom = $request->input('date_from');
+        $dateTo = $request->input('date_to');
+
+        // date_from/date_to take precedence; then date/month; no filter = all reports.
+        if ($dateFrom !== null || $dateTo !== null) {
+            return ['date_from' => $dateFrom, 'date_to' => $dateTo];
+        }
+
+        if ($request->hasAny(['date', 'month'])) {
+            return DateRangeHelper::resolve($request->input('date'), $request->input('month'));
+        }
+
+        return ['date_from' => null, 'date_to' => null];
+    }
+
+    private function paginatedReportResponse(LengthAwarePaginator $reports): JsonResponse
+    {
         return response()->json([
             'success' => true,
             'data' => WfhReportResource::collection($reports->items()),
@@ -107,7 +148,7 @@ class ReportController extends Controller
                 activities: $request->input('activities', []),
                 attendances: $attendances,
             );
-        } catch (\Illuminate\Database\QueryException $e) {
+        } catch (QueryException $e) {
             // Race: unique index violation — fallback to existing
             if ($e->getCode() === '23505') {
                 $existing = $this->wfhRepository->findDraftForUserDate($user->id, $date);
