@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: Intern Kominfo API
-  version: 6.3.0
+  version: 6.4.0
   description: |
     API for the Intern Kominfo application — a government intern management
     platform with Work-From-Home (WFH) reporting, change management workflows,
@@ -9,6 +9,16 @@ info:
 
     Authentication uses Laravel Sanctum bearer tokens.
     Authorization uses Spatie permission-based roles (admin, kepala_bidang, kepala_tim, staf).
+
+
+    **v6.4.0 — WFH report date/month query filters:**
+    - `GET /api/wfh/reports` now accepts `date` (exact day, `YYYY-MM-DD`) and
+      `month` (calendar month, `YYYY-MM`) query params. `date` takes precedence
+      over `month`; when neither is supplied, defaults to today. Invalid values
+      return 422.
+    - `GET /api/admin/wfh/reports` accepts the same `date`/`month` params;
+      existing `date_from`/`date_to` take precedence when present, and no date
+      filter still returns all reports (admin behavior unchanged).
 
     **v6.3.0 — Public password reset (OTP via Resend):**
     - Added 3 public endpoints (no auth, throttle:auth 5/min per email|ip):
