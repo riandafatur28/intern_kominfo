@@ -7,7 +7,6 @@ use App\Models\Field;
 use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Carbon;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -89,8 +88,6 @@ class WfhAdminReportTest extends TestCase
 
     public function test_admin_filters_by_date(): void
     {
-        Carbon::setTestNow('2026-08-10');
-
         $field = Field::create(['name' => 'Bidang A']);
         $team = Team::create(['field_id' => $field->id, 'name' => 'Tim A']);
         $admin = User::factory()->create(['team_id' => $team->id]);
@@ -112,8 +109,6 @@ class WfhAdminReportTest extends TestCase
             ->assertStatus(200)
             ->assertJsonPath('meta.total', 1)
             ->assertJsonPath('data.0.id', $matching->id);
-
-        Carbon::setTestNow();
     }
 
     public function test_admin_filters_by_month(): void

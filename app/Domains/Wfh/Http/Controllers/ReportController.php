@@ -7,6 +7,7 @@ use App\Domains\Wfh\Http\Resources\WfhReportResource;
 use App\Domains\Wfh\Repositories\WfhRepositoryInterface;
 use App\Domains\Wfh\Services\WfhReportStateMachine;
 use App\Support\Dates\DateRangeHelper;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Http\JsonResponse;
@@ -35,15 +36,7 @@ class ReportController extends Controller
 
         $reports = $this->wfhRepository->paginateReportsForUser($request->user()->id, $perPage, $bounds);
 
-        return response()->json([
-            'success' => true,
-            'data' => WfhReportResource::collection($reports->items()),
-            'meta' => [
-                'current_page' => $reports->currentPage(),
-                'last_page' => $reports->lastPage(),
-                'total' => $reports->total(),
-            ],
-        ]);
+        return $this->paginatedReportResponse($reports);
     }
 
     public function adminIndex(Request $request): JsonResponse
@@ -81,15 +74,7 @@ class ReportController extends Controller
 
         $reports = $this->wfhRepository->paginateAllReports($perPage, $filters);
 
-        return response()->json([
-            'success' => true,
-            'data' => WfhReportResource::collection($reports->items()),
-            'meta' => [
-                'current_page' => $reports->currentPage(),
-                'last_page' => $reports->lastPage(),
-                'total' => $reports->total(),
-            ],
-        ]);
+        return $this->paginatedReportResponse($reports);
     }
 
     /**
@@ -112,6 +97,19 @@ class ReportController extends Controller
         }
 
         return ['date_from' => null, 'date_to' => null];
+    }
+
+    private function paginatedReportResponse(LengthAwarePaginator $reports): JsonResponse
+    {
+        return response()->json([
+            'success' => true,
+            'data' => WfhReportResource::collection($reports->items()),
+            'meta' => [
+                'current_page' => $reports->currentPage(),
+                'last_page' => $reports->lastPage(),
+                'total' => $reports->total(),
+            ],
+        ]);
     }
 
     public function store(StoreReportRequest $request): JsonResponse
