@@ -3485,6 +3485,12 @@ paths:
     get:
       tags: [WFH Reports]
       summary: List WFH reports for current user
+      description: >
+        Returns paginated WFH reports for the authenticated user, filtered by
+        date. When `date` is supplied, only reports for that exact day are
+        returned. When `month` (format `YYYY-MM`) is supplied, reports within
+        that calendar month are returned. `date` takes precedence over `month`
+        when both are supplied. When neither is supplied, defaults to today.
       operationId: listWfhReports
       parameters:
         - name: per_page
@@ -3494,6 +3500,20 @@ paths:
             default: 15
             maximum: 100
           example: 15
+        - name: date
+          in: query
+          description: Filter reports by exact date (YYYY-MM-DD). Takes precedence over `month`.
+          schema:
+            type: string
+            format: date
+          example: "2026-08-10"
+        - name: month
+          in: query
+          description: Filter reports within a calendar month (YYYY-MM).
+          schema:
+            type: string
+            pattern: '^\d{4}-\d{2}$'
+          example: "2026-08"
       responses:
         "200":
           description: Paginated report list
@@ -3510,6 +3530,15 @@ paths:
               example:
                 success: false
                 message: Unauthenticated.
+        "422":
+          description: Validation error (invalid date or month format)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+              example:
+                success: false
+                message: "The date field is not a valid date."
     post:
       tags: [WFH Reports]
       summary: Create a WFH report
