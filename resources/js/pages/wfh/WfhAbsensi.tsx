@@ -178,7 +178,7 @@ export default function WfhAbsensi() {
     try {
       // Item list sudah lengkap (attendances, activities) — resource sama
       // dengan show, jadi tak perlu request detail per id.
-      // date param wajib: BE default filter ke hari ini bila tanpa param.
+      // date param: ambil laporan persis tanggal form (tanpa param = semua).
       const listRes = await listWfhReports({ per_page: 100, date });
       currentReport = listRes.data[0] ?? null;
     } catch {

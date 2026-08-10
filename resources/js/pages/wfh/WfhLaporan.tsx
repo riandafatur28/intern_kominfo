@@ -55,7 +55,7 @@ export default function WfhLaporan() {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
-  // Filter server-side (BE default hari ini bila tanpa param)
+  // Filter server-side (BE tanpa param = semua laporan)
   const [dateFilter, setDateFilter] = useState(new Date().toISOString().slice(0, 10));
 
   /* ── Form / detail state ─────────────────────────────────────── */
