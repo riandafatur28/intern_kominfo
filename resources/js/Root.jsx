@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { SidebarProvider } from "./context/SidebarContext";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import ProfilSaya from "./pages/ProfilSaya";
 import WfhAbsensi from "./pages/wfh/WfhAbsensi";
@@ -19,6 +20,7 @@ import UserInisiasi from "./pages/change-management/UserInisiasi";
 export default function Root() {
   return (
     <AuthProvider>
+      <SidebarProvider>
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
@@ -113,6 +115,7 @@ export default function Root() {
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </SidebarProvider>
     </AuthProvider>
   );
 }
