@@ -122,7 +122,8 @@
     text-align: left;
   }
   table.data td.nama {
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
   }
   table.data td.link {
     word-break: break-all;
@@ -152,7 +153,8 @@
     width: 10pt;
   }
   table.data td.nama {
-    white-space: nowrap;
+    white-space: normal;
+    word-break: break-word;
   }
   table.data td.nama-wrap {
     text-align: left;
