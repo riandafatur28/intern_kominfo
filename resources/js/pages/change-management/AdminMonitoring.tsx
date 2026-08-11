@@ -34,6 +34,15 @@ export default function AdminMonitoring() {
   const [page, setPage] = useState(1);
   const [selected, setSelected] = useState<ChangePackage | null>(null);
 
+  useEffect(() => {
+    if (!errMsg) return;
+    const timer = setTimeout(() => {
+      setErrMsg("");
+    }, 4000); 
+
+    return () => clearTimeout(timer);
+  }, [errMsg]);
+
   const PAGE_SIZE = 15;
 
   async function load() {
@@ -131,6 +140,7 @@ export default function AdminMonitoring() {
 
   return (
     <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Admin" }, { label: "Monitoring" }]}>
+      
       <PageTitle
         title="Monitoring Inisiasi Perubahan"
         subtitle={`Total ${counts.total} permohonan • Bulan ${BULAN[now.getMonth()]} ${now.getFullYear()}`}
@@ -142,6 +152,12 @@ export default function AdminMonitoring() {
         <StatCard value={counts.approved} label="Disetujui" color="text-green-600" />
         <StatCard value={counts.rejected} label="Ditolak" color="text-red-600" />
       </div>
+
+      {errMsg && status !== "error" && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mt-5 transition-all">
+          {errMsg}
+        </div>
+      )}
 
       <div className="bg-white rounded-[10px] shadow-sm p-5 flex flex-wrap items-center gap-4">
         <input
