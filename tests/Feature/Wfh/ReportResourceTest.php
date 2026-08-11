@@ -72,6 +72,7 @@ class ReportResourceTest extends TestCase
 
         $report = WfhReport::factory()->create([
             'user_id' => $user->id,
+            'report_date' => now()->format('Y-m-d'),
         ]);
 
         WfhAttendance::create([

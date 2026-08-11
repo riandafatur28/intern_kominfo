@@ -1,0 +1,56 @@
+<?php
+
+namespace Tests\Unit;
+
+use App\Support\Dates\DateRangeHelper;
+use Illuminate\Support\Carbon;
+use Tests\TestCase;
+
+class DateRangeHelperTest extends TestCase
+{
+    public function test_resolves_specific_date_to_exact_day_bounds(): void
+    {
+        $bounds = DateRangeHelper::resolve('2026-01-15', null);
+
+        $this->assertSame(['date_from' => '2026-01-15', 'date_to' => '2026-01-15'], $bounds);
+    }
+
+    public function test_resolves_month_to_first_and_last_day(): void
+    {
+        $bounds = DateRangeHelper::resolve(null, '2026-01');
+
+        $this->assertSame(['date_from' => '2026-01-01', 'date_to' => '2026-01-31'], $bounds);
+    }
+
+    public function test_date_takes_precedence_over_month(): void
+    {
+        $bounds = DateRangeHelper::resolve('2026-01-15', '2026-02');
+
+        $this->assertSame(['date_from' => '2026-01-15', 'date_to' => '2026-01-15'], $bounds);
+    }
+
+    public function test_defaults_to_today_when_neither_given(): void
+    {
+        Carbon::setTestNow('2026-08-10');
+
+        $bounds = DateRangeHelper::resolve(null, null);
+
+        $this->assertSame(['date_from' => '2026-08-10', 'date_to' => '2026-08-10'], $bounds);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_resolves_february_leap_year(): void
+    {
+        $bounds = DateRangeHelper::resolve(null, '2024-02');
+
+        $this->assertSame(['date_from' => '2024-02-01', 'date_to' => '2024-02-29'], $bounds);
+    }
+
+    public function test_resolves_february_non_leap_year(): void
+    {
+        $bounds = DateRangeHelper::resolve(null, '2023-02');
+
+        $this->assertSame(['date_from' => '2023-02-01', 'date_to' => '2023-02-28'], $bounds);
+    }
+}
