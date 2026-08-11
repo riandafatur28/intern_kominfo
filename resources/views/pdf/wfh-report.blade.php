@@ -91,6 +91,7 @@
   /* ===== TABLE (KEGIATAN) ===== */
   table.data {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 10pt;
   }
@@ -110,16 +111,32 @@
   table.data td.link {
     text-align: left;
     word-break: break-all;
+    overflow-wrap: break-word;
   }
   table.data td.link a {
     color: #0b57d0;
     text-decoration: underline;
+    word-break: break-all;
+    overflow-wrap: break-word;
   }
 
-  col.no { width: 6%; }
-  col.waktu { width: 22%; }
-  col.kegiatan { width: 24%; }
-  col.link { width: 48%; }
+  col.no { width: 10pt; }
+  col.waktu { width: 90pt; }
+  col.kegiatan { width: 30%; }
+  col.link { width: 46%; }
+
+  table.data td.no, table.data th.no {
+    text-align: center;
+    padding: 7pt 2pt;
+    white-space: nowrap;
+    width: 10pt;
+  }
+  table.data th.no {
+    width: 10pt;
+  }
+  table.data td.waktu {
+    white-space: nowrap;
+  }
 
   /* ===== FOOTER / TTD ===== */
   .footer-wrap {
@@ -172,6 +189,15 @@
     $tanggalDisplay = collect($bulanId)->contains(fn ($b) => str_contains($tanggalPelaksanaan, $b))
         ? $tanggalPelaksanaan
         : \Illuminate\Support\Carbon::parse($tanggalPelaksanaan)->locale('id')->isoFormat('D MMMM Y');
+    // Atasan langsung = kepala bidang (field head). Controller mengirim supervisor
+    // dari report; fallback ke kepala bidang saat report belum punya supervisor.
+    // TTD atasan tetap hanya muncul setelah laporan disetujui (dikirim controller).
+    if ($supervisorName === '-' || $supervisorNip === '-') {
+        $headId = \App\Models\Field::whereNotNull('head_id')->value('head_id');
+        $kabid = $headId ? \App\Models\User::find($headId) : null;
+        $supervisorName = $kabid?->name ?? '-';
+        $supervisorNip = $kabid?->nip ?? '-';
+    }
     $ttdMaker = ucwords(strtolower($makerName));
     $ttdAtasan = ucwords(strtolower($supervisorName));
     // Controller kirim waktu "2026-07-31 08:00:00 – 11:00:00" (cast datetime)
@@ -258,7 +284,7 @@
     </colgroup>
     <thead>
       <tr>
-        <th>No</th>
+        <th class="no">No</th>
         <th>Waktu Pelaksanaan</th>
         <th>Kegiatan</th>
         <th>Link Bukti Kerja</th>
@@ -267,7 +293,7 @@
     <tbody>
       @forelse($kegiatan as $i => $k)
         <tr>
-          <td>{{ $i + 1 }}.</td>
+          <td class="no">{{ $i + 1 }}.</td>
           <td>{{ $k['waktu'] }}</td>
           <td>{{ $k['kegiatan'] }}</td>
           <td class="link">
