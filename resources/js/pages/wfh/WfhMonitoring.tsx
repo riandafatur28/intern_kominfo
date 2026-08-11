@@ -33,6 +33,8 @@ import {
 import { openPdfDirect } from "../../utils/swAuth";
 import { formatTanggalLengkap } from "../../utils/userDisplay";
 import { catatanLaporan } from "../../utils/wfhReportNote";
+import { normDate, todayStr } from "../../utils/wfhDate";
+import { buildMonitoringRows, inisial } from "../../utils/wfhMonitoring";
 
 type PageStatus = "loading" | "ready" | "error";
 type Tab = "individu" | "tim";
@@ -46,7 +48,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 const SESI = ["pagi", "siang", "sore"] as const;
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = todayStr();
 
 export default function WfhMonitoring() {
   const { user, hasPermission } = useAuth();
@@ -314,9 +316,7 @@ export default function WfhMonitoring() {
     // report_date ISO UTC ("2026-07-30T17:00:00.000000Z") = 31 Juli WIB.
     // Kirim tanggal murni WIB supaya query data di PDF cocok.
     const iso = r.report_date;
-    const tanggal = iso.includes("T") || iso.includes("Z")
-      ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
-      : iso.slice(0, 10);
+    const tanggal = normDate(iso);
     // Buka langsung di tab (tanpa blob) — auth header dipasang Service Worker.
     const params = new URLSearchParams({ date: tanggal });
     params.set("team_report_id", String(r.id));
@@ -324,21 +324,13 @@ export default function WfhMonitoring() {
   }
 
   /* ── Derived ─────────────────────────────────────────────────── */
-  type Row = WfhReport | (MonitoringUser & { _draft?: boolean });
   const PAGE_SIZE = 15;
 
   // Gabungan laporan (terkirim) + pegawai yang belum mengirim — satu list
-  const rows = useMemo<Row[]>(() => {
-    const q = search.trim().toLowerCase();
-    const base: Row[] = [...reports, ...(statusFilter ? [] : missingUsers)];
-    const scoped = teamId
-      ? base.filter((x) => "status" in x || x.team_id === Number(teamId))
-      : base;
-    if (!q) return scoped;
-    return scoped.filter((x) =>
-      ("status" in x ? x.user?.name : x.name)?.toLowerCase().includes(q)
-    );
-  }, [reports, missingUsers, search, teamId, statusFilter]);
+  const rows = useMemo<import("../../utils/wfhMonitoring").MonitoringRow[]>(
+    () => buildMonitoringRows(reports, missingUsers, statusFilter, teamId, search),
+    [reports, missingUsers, statusFilter, teamId, search]
+  );
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const rowLastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 

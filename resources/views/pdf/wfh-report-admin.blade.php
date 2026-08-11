@@ -100,6 +100,7 @@
   /* ===== TABLES ===== */
   table.data {
     width: 100%;
+    table-layout: fixed;
     border-collapse: collapse;
     font-size: 10pt;
   }
@@ -119,20 +120,43 @@
   table.data td.nama, table.data td.link {
     text-align: left;
   }
+  table.data td.nama {
+    white-space: nowrap;
+  }
   table.data td.link {
     word-break: break-all;
+    overflow-wrap: break-word;
   }
   table.data td.link a {
     color: #0b57d0;
     text-decoration: underline;
+    word-break: break-all;
+    overflow-wrap: break-word;
   }
 
-  col.no { width: 6%; }
-  col.nama-p1 { width: 44%; }
-  col.link { width: 50%; }
+  col.nama-p1 { width: 42%; }
+  col.link { width: 54%; }
+  col.no { width: 10pt; }
 
-  col.nama-p2 { width: 24%; }
-  col.sesi { width: 23.33%; }
+  col.nama-p2 { width: 120pt; }
+  col.sesi { width: 15%; }
+
+  table.data td.no, table.data th.no {
+    text-align: center;
+    padding: 4pt 2pt;
+    white-space: nowrap;
+    width: 10pt;
+  }
+  table.data th.no {
+    width: 10pt;
+  }
+  table.data td.nama {
+    white-space: nowrap;
+  }
+  table.data td.nama-wrap {
+    text-align: left;
+    word-break: break-word;
+  }
 
   .foto-pagi {
     width: 72pt;
@@ -266,7 +290,7 @@
     </colgroup>
     <thead>
       <tr>
-        <th>No</th>
+        <th class="no">No</th>
         <th>Nama Pegawai</th>
         <th>Link Bukti Kerja</th>
       </tr>
@@ -275,7 +299,7 @@
       @foreach($staff as $i => $member)
         @php $links = array_values(array_filter($member['links'] ?? [])); @endphp
         <tr>
-          <td>{{ $i + 1 }}.</td>
+          <td class="no">{{ $i + 1 }}.</td>
           <td class="nama">{{ $member['name'] }}</td>
           <td class="link">
             @forelse($links as $link)
@@ -348,11 +372,8 @@
     </colgroup>
     <thead>
       <tr>
-        <th rowspan="2">No</th>
-        <th rowspan="2">Nama</th>
-        <th colspan="{{ count($sessionNames) }}">Sesi</th>
-      </tr>
-      <tr>
+        <th class="no">No</th>
+        <th>Nama</th>
         @foreach($sessionNames as $s)
           <th>{{ ucfirst($s) }}</th>
         @endforeach
@@ -361,8 +382,8 @@
     <tbody>
       @foreach($staff as $i => $member)
         <tr>
-          <td>{{ $i + 1 }}.</td>
-          <td class="nama">{{ $member['name'] }}</td>
+          <td class="no">{{ $i + 1 }}.</td>
+          <td class="nama-wrap">{{ $member['name'] }}</td>
           @foreach($sessionNames as $s)
             @php $photo = $sessions[$s][$i]['photo'] ?? null; @endphp
             <td>
