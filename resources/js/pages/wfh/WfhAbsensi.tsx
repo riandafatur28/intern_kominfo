@@ -13,11 +13,11 @@ import {
   TrashIcon,
 } from "../../components/ui/AdminActionIcons";
 import FilterDropdown from "../../components/ui/FilterDropdown";
+import Skeleton from "../../components/ui/Skeleton";
 import { addReportAttendance, createReportActivity, createWfhReport,
   deleteReportActivity,
   deleteReportAttendance,
   extractWfhError,
-  getWfhReport,
   getWfhSessionConfig,
   listWfhReports,
   submitWfhReport,
@@ -27,6 +27,7 @@ import { addReportAttendance, createReportActivity, createWfhReport,
 } from "../../api/wfh";
 import { openPdfDirect } from "../../utils/swAuth";
 import { catatanLaporan } from "../../utils/wfhReportNote";
+import { formatTanggalLengkap } from "../../utils/userDisplay";
 
 const SESI = ["pagi", "siang", "sore"] as const;
 
@@ -38,6 +39,12 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 const DAY_NAMES = ["", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
+
+/** tanggal "YYYY-MM-DD" → 1..7 (Senin..Minggu), cocokkan allowed_days */
+function wfhDayNumber(date: string): number {
+  const iso = new Date(date + "T00:00:00").getDay(); // 0=Min..6=Sab
+  return iso === 0 ? 7 : iso;
+}
 
 function capFirst(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -88,9 +95,7 @@ export default function WfhAbsensi() {
   /* ── Riwayat (tabel) ────────────────────────────────────────── */
   const [reports, setReports] = useState<WfhReport[]>([]);
   const [allowedDays, setAllowedDays] = useState<number[]>([1, 2, 3, 4, 5]);
-  const [dateFilter, setDateFilter] = useState("");
-  const [monthFilter, setMonthFilter] = useState("");
-  const [dayFilter, setDayFilter] = useState("");
+  const [dateFilter, setDateFilter] = useState(todayStr());
 
   /* ── Form absensi + bukti kerja ─────────────────────────────── */
   const [formOpen, setFormOpen] = useState(false);
@@ -156,7 +161,10 @@ export default function WfhAbsensi() {
     try {
       const [cfgRes, listRes] = await Promise.all([
         getWfhSessionConfig(),
-        listWfhReports({ per_page: 100 }),
+        listWfhReports({
+          per_page: 100,
+          date: dateFilter || undefined,
+        }),
       ]);
       setAllowedDays(cfgRes.data.allowed_days);
       setReports(listRes.data);
@@ -168,17 +176,17 @@ export default function WfhAbsensi() {
   async function loadFormForDate(date: string) {
     let currentReport: WfhReport | null = null;
     try {
-      const listRes = await listWfhReports({ per_page: 100 });
-      const found = listRes.data.find((r) => normDate(r.report_date) === date);
-      if (found) {
-        const detailRes = await getWfhReport(found.id);
-        currentReport = detailRes.data;
-      }
+      // Item list sudah lengkap (attendances, activities) — resource sama
+      // dengan show, jadi tak perlu request detail per id.
+      // date param: ambil laporan persis tanggal form (tanpa param = semua).
+      const listRes = await listWfhReports({ per_page: 100, date });
+      currentReport = listRes.data[0] ?? null;
     } catch {
       // belum ada laporan untuk tanggal itu
     }
 
     const cfgRes = await getWfhSessionConfig();
+    setAllowedDays(cfgRes.data.allowed_days);
     const init: SessionState[] = cfgRes.data.sessions.map((name) => ({
       name,
       label: capFirst(name),
@@ -207,12 +215,22 @@ export default function WfhAbsensi() {
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await loadTable();
-      await loadFormForDate(todayStr());
+      await Promise.all([loadTable(), loadFormForDate(todayStr())]);
       setLoading(false);
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- init-only, run once
   }, []);
+
+  /* ── Reload server-side saat filter tanggal/bulan berubah ───── */
+  const firstFilter = useRef(true);
+  useEffect(() => {
+    if (firstFilter.current) {
+      firstFilter.current = false;
+      return;
+    }
+    loadTable();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sengaja hanya 2 dep
+  }, [dateFilter]);
 
   /* ── Ensure report exists (get-or-create per spec) ───────────── */
   async function ensureReport(date: string): Promise<WfhReport> {
@@ -379,43 +397,21 @@ export default function WfhAbsensi() {
     }
   }
 
-  /* ── Riwayat rows ────────────────────────────────────────────── */
-  function datesInMonth(month: string, day: string): string[] {
-    const [y, m] = month.split("-").map(Number);
-    const out: string[] = [];
-    const count = new Date(y, m, 0).getDate();
-    for (let d = 1; d <= count; d++) {
-      const iso = new Date(y, m - 1, d).getDay(); // 0=Min..6=Sab
-      const isoDay = iso === 0 ? 7 : iso;
-      if (isoDay === Number(day)) {
-        out.push(`${month}-${String(d).padStart(2, "0")}`);
-      }
-    }
-    return out;
-  }
-
+  /* ── Riwayat rows: olah data dari response server (sudah difilter) ── */
   const rows = useMemo(() => {
-    let dates: string[];
-    if (dateFilter) {
-      dates = [dateFilter];
-    } else if (monthFilter && dayFilter) {
-      dates = datesInMonth(monthFilter, dayFilter);
-    } else if (monthFilter) {
-      dates = reports
-        .map((r) => normDate(r.report_date))
-        .filter((d) => d.startsWith(monthFilter))
-        .sort()
-        .reverse();
-    } else {
-      dates = [...new Set(reports.map((r) => normDate(r.report_date)))]
-        .sort()
-        .reverse();
+    // Satu baris per tanggal; ambil laporan pertama per tanggal (urutan desc).
+    const byDate = new Map<string, WfhReport>();
+    for (const r of reports) {
+      const d = normDate(r.report_date);
+      if (!byDate.has(d)) byDate.set(d, r);
     }
-    return dates.map((date) => ({
-      date,
-      report: reports.find((r) => normDate(r.report_date) === date) ?? null,
-    }));
-  }, [reports, dateFilter, monthFilter, dayFilter]);
+    return [...byDate.entries()]
+      .map(([date, report]) => ({ date, report }))
+      .sort((a, b) => b.date.localeCompare(a.date));
+  }, [reports]);
+
+  /* ── Hari WFH (dari konfigurasi admin) ───────────────────────── */
+  const isWfhDay = (date: string) => allowedDays.includes(wfhDayNumber(date));
 
   /* ── Render ──────────────────────────────────────────────────── */
   if (loading) {
@@ -427,7 +423,25 @@ export default function WfhAbsensi() {
           { label: "Absensi WFH" },
         ]}
       >
-        <div className="text-center py-12 text-sm text-[#767676]">Memuat...</div>
+        <div className="flex flex-col gap-4">
+          <Skeleton className="h-12 w-full" />
+          <div className="bg-white rounded-[10px] shadow-sm overflow-hidden p-5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div
+                key={i}
+                className="flex items-center gap-4 py-4 border-b border-[#F0F0F0] last:border-b-0"
+              >
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-6 w-6 rounded-full ml-auto" />
+                <Skeleton className="h-6 w-6 rounded-full" />
+                <Skeleton className="h-6 w-6 rounded-full" />
+                <Skeleton className="h-5 w-20" />
+                <Skeleton className="h-3 w-40" />
+                <Skeleton className="h-8 w-8 rounded-lg" />
+              </div>
+            ))}
+          </div>
+        </div>
       </AppLayout>
     );
   }
@@ -451,71 +465,43 @@ export default function WfhAbsensi() {
       </div>
 
       {/* ── Tombol tambah absensi (di atas filtering, sembunyi saat form) ── */}
-      {!formOpen && (
-        <div className="flex justify-end mb-4">
-          <Button onClick={handleTambahAbsensi} className="gap-2">
-            <AddIcon size={17} />
-            Tambah Absensi
-          </Button>
-        </div>
-      )}
+      {!formOpen &&
+        (isWfhDay(todayStr()) ? (
+          <div className="flex justify-end mb-4">
+            <Button onClick={handleTambahAbsensi} className="gap-2">
+              <AddIcon size={17} />
+              Tambah Absensi
+            </Button>
+          </div>
+        ) : (
+          <div className="flex justify-end mb-4">
+            <div className="w-full rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Hari ini bukan hari WFH Anda. Absensi dan pengumpulan tugas hanya
+              dapat dilakukan pada hari WFH yang ditentukan admin (
+              {allowedDays.map((d) => DAY_NAMES[d]).join(", ")}).
+            </div>
+          </div>
+        ))}
 
-      {/* ── Toolbar: filtering ─────────────────────────────────── */}
+      {/* ── Toolbar: filtering (sembunyi saat form terbuka) ────── */}
+      {!formOpen && (
       <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
-        <FilterDropdown
-          align="left"
-          badge={Number(!!dateFilter) + Number(!!monthFilter) + Number(!!dayFilter)}
-        >
+        <FilterDropdown align="left" badge={Number(!!dateFilter)}>
           <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
                 Tanggal
                 <input
                   type="date"
                   value={dateFilter}
-                  onChange={(e) => {
-                    setDateFilter(e.target.value);
-                    if (e.target.value) {
-                      setMonthFilter("");
-                      setDayFilter("");
-                    }
-                  }}
+                  onChange={(e) => setDateFilter(e.target.value)}
                   className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
                 />
-              </label>
-              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
-                Bulan
-                <input
-                  type="month"
-                  value={monthFilter}
-                  onChange={(e) => {
-                    setMonthFilter(e.target.value);
-                    if (e.target.value) setDateFilter("");
-                  }}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
-                />
-              </label>
-              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
-                Hari WFH
-                <select
-                  value={dayFilter}
-                  onChange={(e) => {
-                    setDayFilter(e.target.value);
-                    if (e.target.value) setDateFilter("");
-                  }}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
-                >
-                  <option value="">Semua Hari</option>
-                  {allowedDays.map((d) => (
-                    <option key={d} value={d}>
-                      {DAY_NAMES[d]}
-                    </option>
-                  ))}
-                </select>
               </label>
             </div>
           </FilterDropdown>
         <span className="text-sm text-[#767676]">{rows.length} hari</span>
       </div>
+      )}
 
       {/* ── Tabel riwayat absensi (sembunyi saat form terbuka) ── */}
       {!formOpen && (
@@ -528,16 +514,19 @@ export default function WfhAbsensi() {
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
-                <th className="text-left px-4 py-3 font-medium text-[#767676]">Tanggal</th>
+                <th className="text-left px-4 py-3 font-medium text-[#141D23]">Tanggal</th>
                 {SESI.map((s) => (
-                  <th key={s} className="text-center px-4 py-3 font-medium text-[#767676]">
+                  <th key={s} className="text-center px-4 py-3 font-medium text-[#141D23]">
                     {capFirst(s)}
                   </th>
                 ))}
-                <th className="text-left px-4 py-3 font-medium text-[#767676]">
+                <th className="text-left px-4 py-3 font-medium text-[#141D23]">
+                  Status Laporan
+                </th>
+                <th className="text-left px-4 py-3 font-medium text-[#141D23]">
                   Catatan
                 </th>
-                <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
+                <th className="text-right px-4 py-3 font-medium text-[#141D23]">Aksi</th>
               </tr>
             </thead>
             <tbody>
@@ -575,56 +564,44 @@ export default function WfhAbsensi() {
                       );
                     })}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        {rep ? (
-                          <span
-                            className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
-                              STATUS_LABEL[rep.status]?.color ?? "bg-gray-100 text-gray-600"
-                            }`}
-                          >
-                            {STATUS_LABEL[rep.status]?.label ?? rep.status}
-                          </span>
-                        ) : (
-                          <span className="inline-block text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
-                            Belum Laporan
-                          </span>
-                        )}
-                        <span className="text-xs text-[#767676]">
-                          {rep
-                            ? catatanLaporan(rep)
-                            : "Belum ada absensi · Belum upload tugas"}
+                      {rep ? (
+                        <span
+                          className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${
+                            STATUS_LABEL[rep.status]?.color ?? "bg-gray-100 text-gray-600"
+                          }`}
+                        >
+                          {STATUS_LABEL[rep.status]?.label ?? rep.status}
                         </span>
-                      </div>
+                      ) : (
+                        <span className="inline-block text-xs font-medium px-2 py-1 rounded-full bg-gray-100 text-gray-600">
+                          Belum Laporan
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[#767676]">
+                      {rep
+                        ? catatanLaporan(rep)
+                        : "Belum ada absensi · Belum upload tugas"}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      {acts.length === 1 ? (
-                        <button
-                          type="button"
-                          onClick={acts[0].onClick}
-                          className="text-[#256EEF] hover:underline text-xs inline-flex items-center gap-1"
-                        >
-                          {acts[0].icon} {acts[0].label}
-                        </button>
-                      ) : (
-                        <DropdownMenu
-                          align="end"
-                          trigger={
-                            <button
-                              type="button"
-                              aria-label={`Aksi untuk ${todayDisplay(date)}`}
-                              className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
-                            >
-                              <MoreVerticalIcon size={18} />
-                            </button>
-                          }
-                          items={acts.map((a) => ({
-                            label: a.label,
-                            icon: a.icon,
-                            disabled: a.disabled,
-                            onClick: a.onClick,
-                          }))}
-                        />
-                      )}
+                      <DropdownMenu
+                        align="end"
+                        trigger={
+                          <button
+                            type="button"
+                            aria-label={`Aksi untuk ${todayDisplay(date)}`}
+                            className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+                          >
+                            <MoreVerticalIcon size={18} />
+                          </button>
+                        }
+                        items={acts.map((a) => ({
+                          label: a.label,
+                          icon: a.icon,
+                          disabled: a.disabled,
+                          onClick: a.onClick,
+                        }))}
+                      />
                     </td>
                   </tr>
                 );
@@ -643,18 +620,21 @@ export default function WfhAbsensi() {
             <label className="text-xs font-bold text-[#374151] block mb-1.5">
               Tanggal WFH
             </label>
-            <input
-              type="date"
-              value={formDate}
-              onChange={(e) => {
-                setFormDate(e.target.value);
-                loadFormForDate(e.target.value);
-              }}
-              className="w-[214px] h-[35px] border border-[#d1d5db] rounded px-3 text-[13px] text-[#374151] outline-none focus:border-[#256EEF] transition-colors"
-            />
+            <div className="text-[13px] text-[#374151]">
+              {formatTanggalLengkap(formDate)}
+            </div>
           </div>
 
+          {!isWfhDay(formDate) && (
+            <div className="rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Tanggal ini bukan hari WFH Anda. Absensi dan penambahan tugas
+              tidak dapat dilakukan ({allowedDays.map((d) => DAY_NAMES[d]).join(", ")}).
+            </div>
+          )}
+
           {/* Absen */}
+          {isWfhDay(formDate) && (
+          <>
           <div className="bg-white border border-[#e5e7eb] rounded-lg p-5">
             <h3 className="text-[15px] font-bold text-[#1f2937] mb-4">Absen</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -815,6 +795,8 @@ export default function WfhAbsensi() {
               </p>
             )}
           </div>
+          </>
+          )}
 
           {/* Action buttons */}
           <div className="flex items-center gap-3">

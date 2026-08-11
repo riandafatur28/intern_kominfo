@@ -105,6 +105,10 @@ export interface TeamNested {
 /** GET /api/wfh/reports */
 export async function listWfhReports(params?: {
   per_page?: number;
+  /** Filter server-side: tanggal pasti "YYYY-MM-DD" */
+  date?: string;
+  /** Filter server-side: bulan "YYYY-MM" */
+  month?: string;
 }): Promise<{ success: boolean; data: WfhReport[]; meta: PaginationMeta }> {
   const res = await client.get("/wfh/reports", { params });
   return res.data;
@@ -340,6 +344,12 @@ export async function adminListWfhReports(params?: {
   per_page?: number;
   team_id?: number;
   status?: string;
+  /** Filter server-side: tanggal pasti "YYYY-MM-DD" */
+  date?: string;
+  /** Filter server-side: bulan "YYYY-MM" */
+  month?: string;
+  date_from?: string;
+  date_to?: string;
 }): Promise<{ success: boolean; data: WfhReport[]; meta: PaginationMeta }> {
   const res = await client.get("/admin/wfh/reports", { params });
   return res.data;

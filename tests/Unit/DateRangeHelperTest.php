@@ -3,7 +3,6 @@
 namespace Tests\Unit;
 
 use App\Support\Dates\DateRangeHelper;
-use Illuminate\Support\Carbon;
 use Tests\TestCase;
 
 class DateRangeHelperTest extends TestCase
@@ -29,15 +28,11 @@ class DateRangeHelperTest extends TestCase
         $this->assertSame(['date_from' => '2026-01-15', 'date_to' => '2026-01-15'], $bounds);
     }
 
-    public function test_defaults_to_today_when_neither_given(): void
+    public function test_returns_null_bounds_when_neither_given(): void
     {
-        Carbon::setTestNow('2026-08-10');
-
         $bounds = DateRangeHelper::resolve(null, null);
 
-        $this->assertSame(['date_from' => '2026-08-10', 'date_to' => '2026-08-10'], $bounds);
-
-        Carbon::setTestNow();
+        $this->assertSame(['date_from' => null, 'date_to' => null], $bounds);
     }
 
     public function test_resolves_february_leap_year(): void
