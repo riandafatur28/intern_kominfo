@@ -11,7 +11,7 @@ export default function AppLayout({
   activeItem?: string;
   breadcrumbs?: { label: string; href?: string }[];
 }) {
-  const { sidebarOpen, toggleSidebar, closeSidebar } = useSidebar();
+  const { sidebarOpen, toggleSidebar } = useSidebar();
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F6FAFF]">
@@ -22,7 +22,7 @@ export default function AppLayout({
         }`}
       >
         <div className="w-[334px]">
-          <Sidebar onClose={closeSidebar} />
+          <Sidebar />
         </div>
       </div>
 
