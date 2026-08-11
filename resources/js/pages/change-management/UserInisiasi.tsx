@@ -96,6 +96,24 @@ export default function UserInisiasi() {
   const [detailPkg, setDetailPkg] = useState<ChangePackage | null>(null);
 
   useEffect(() => {
+    if (!errMsg) return;
+    const timer = setTimeout(() => {
+      setErrMsg("");
+    }, 4000); 
+
+    return () => clearTimeout(timer);
+  }, [errMsg]);
+
+  useEffect(() => {
+    if (!formErr) return;
+    const timer = setTimeout(() => {
+      setFormErr("");
+    }, 4000);
+
+    return () => clearTimeout(timer);
+  }, [formErr]);
+
+  useEffect(() => {
     listChangeTypes()
       .then((res) => setChangeTypes(res.data))
       .catch(() => {});

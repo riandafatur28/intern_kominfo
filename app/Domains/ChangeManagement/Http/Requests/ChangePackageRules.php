@@ -68,9 +68,6 @@ class ChangePackageRules
                 ? ['required', 'array', 'min:1']
                 : ['nullable', 'array'],
             'implementation.change_type_ids.*' => ['exists:change_types,id'],
-            // execution_date and implementation_result describe the implementation
-            // outcome — filled later by whoever carries it out, not by the staf
-            // initiator at submit time — so they stay optional regardless of $presence.
             'implementation.execution_date' => ['nullable', 'date'],
             'implementation.release_date' => [$presence, 'date', function (string $attribute, mixed $value, Closure $fail) {
                 if ($value === null) {

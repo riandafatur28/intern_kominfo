@@ -61,9 +61,11 @@ export default function DropdownMenu({
 
     const openMenu = useCallback(() => {
         const triggerEl = triggerRef.current;
-        if (!triggerEl) return;
-        const rect = triggerEl.getBoundingClientRect();
-        setPhaseSafe("opening");
+      if (!triggerEl) return;
+      const rect = triggerEl.getBoundingClientRect();
+      
+      setPhaseSafe("opening");
+
         // Ukur menu setelah mount (saat masih opacity-0), lalu clamp posisi.
         requestAnimationFrame(() => {
             if (phaseRef.current !== "opening") return;
@@ -164,7 +166,7 @@ export default function DropdownMenu({
                         ref={menuRef}
                         role="menu"
                         style={{ position: "fixed", left: pos?.left ?? 0, top: pos?.top ?? 0, zIndex: 40 }}
-                        className={`min-w-[160px] py-1.5 rounded-xl border border-[#E0E9F2] bg-white shadow-xl transition-all duration-150 ease-out ${
+                        className={`min-w-[160px] py-1.5 rounded-xl border border-[#E0E9F2] bg-white shadow-xl transition-[opacity,transform] duration-150 ease-out ${
                             phase === "visible"
                                 ? "opacity-100 translate-y-0"
                                 : side === "top"
