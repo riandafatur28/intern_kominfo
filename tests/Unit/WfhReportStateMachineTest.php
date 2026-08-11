@@ -108,6 +108,7 @@ class WfhReportStateMachineTest extends TestCase
             'status' => 'pending',
             'user_id' => $this->user->id,
             'supervisor_id' => $this->supervisor->id,
+            'report_date' => '2026-08-09',
         ]);
 
         $result = $this->machine->approve($report, $this->supervisor);
@@ -176,9 +177,9 @@ class WfhReportStateMachineTest extends TestCase
     public function test_can_edit_only_draft_or_rejected(): void
     {
         $draft = WfhReport::factory()->create(['status' => 'draft', 'user_id' => $this->user->id]);
-        $rejected = WfhReport::factory()->create(['status' => 'rejected', 'user_id' => $this->user->id]);
-        $pending = WfhReport::factory()->create(['status' => 'pending', 'user_id' => $this->user->id]);
-        $approved = WfhReport::factory()->create(['status' => 'approved', 'user_id' => $this->user->id]);
+        $rejected = WfhReport::factory()->create(['status' => 'rejected', 'user_id' => $this->user->id, 'report_date' => '2026-08-09']);
+        $pending = WfhReport::factory()->create(['status' => 'pending', 'user_id' => $this->user->id, 'report_date' => '2026-08-08']);
+        $approved = WfhReport::factory()->create(['status' => 'approved', 'user_id' => $this->user->id, 'report_date' => '2026-08-07']);
 
         $this->assertTrue($this->machine->canEdit($draft));
         $this->assertTrue($this->machine->canEdit($rejected));
@@ -189,7 +190,7 @@ class WfhReportStateMachineTest extends TestCase
     public function test_approved_is_immutable(): void
     {
         $approved = WfhReport::factory()->create(['status' => 'approved', 'user_id' => $this->user->id]);
-        $draft = WfhReport::factory()->create(['status' => 'draft', 'user_id' => $this->user->id]);
+        $draft = WfhReport::factory()->create(['status' => 'draft', 'user_id' => $this->user->id, 'report_date' => '2026-08-09']);
 
         $this->assertTrue($this->machine->isImmutable($approved));
         $this->assertFalse($this->machine->isImmutable($draft));

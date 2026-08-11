@@ -14,7 +14,7 @@ class WfhReportFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            'report_date' => $this->faker->date(),
+            'report_date' => now()->toDateString(),
             'status' => 'draft',
         ];
     }
