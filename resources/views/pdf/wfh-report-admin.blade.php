@@ -1,3 +1,4 @@
+@php include resource_path('views/pdf/_helpers.php'); @endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -249,7 +250,7 @@
 
   <div class="kop">
     <div class="kop-logo">
-      <img src="{{ public_path('images/logo-jatim.png') }}" alt="Logo Jawa Timur">
+      <img src="{{ wfh_pdf_photo_src(public_path('images/logo-jatim.png'), 120) }}" alt="Logo Jawa Timur">
     </div>
     <div class="kop-text">
       <p class="instansi1">PEMERINTAH PROVINSI JAWA TIMUR</p>
@@ -348,7 +349,7 @@
 
   <div class="kop">
     <div class="kop-logo">
-      <img src="{{ public_path('images/logo-jatim.png') }}" alt="Logo Jawa Timur">
+      <img src="{{ wfh_pdf_photo_src(public_path('images/logo-jatim.png'), 120) }}" alt="Logo Jawa Timur">
     </div>
     <div class="kop-text">
       <p class="instansi1">PEMERINTAH PROVINSI JAWA TIMUR</p>
@@ -372,8 +373,11 @@
     </colgroup>
     <thead>
       <tr>
-        <th class="no">No</th>
-        <th>Nama</th>
+        <th class="no" rowspan="2">No</th>
+        <th rowspan="2">Nama</th>
+        <th colspan="{{ count($sessionNames) }}">Sesi</th>
+      </tr>
+      <tr>
         @foreach($sessionNames as $s)
           <th>{{ ucfirst($s) }}</th>
         @endforeach
@@ -385,10 +389,13 @@
           <td class="no">{{ $i + 1 }}.</td>
           <td class="nama-wrap">{{ $member['name'] }}</td>
           @foreach($sessionNames as $s)
-            @php $photo = $sessions[$s][$i]['photo'] ?? null; @endphp
+            @php
+              $photo = $sessions[$s][$i]['photo'] ?? null;
+              $photoSrc = wfh_pdf_photo_src($photo);
+            @endphp
             <td>
-              @if ($photo)
-                <img class="foto-pagi" src="{{ $photo }}" alt="Foto absensi {{ $s }}">
+              @if ($photoSrc)
+                <img class="foto-pagi" src="{{ $photoSrc }}" alt="Foto absensi {{ $s }}">
               @else
                 Belum diisi
               @endif

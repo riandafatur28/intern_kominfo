@@ -1,3 +1,4 @@
+@php include resource_path('views/pdf/_helpers.php'); @endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -226,7 +227,7 @@
   <!-- KOP SURAT -->
   <div class="kop">
     <div class="kop-logo">
-      <img src="{{ public_path('images/logo-jatim.png') }}" alt="Logo Jawa Timur">
+      <img src="{{ wfh_pdf_photo_src(public_path('images/logo-jatim.png'), 120) }}" alt="Logo Jawa Timur">
     </div>
     <div class="kop-text">
       <p class="instansi1">PEMERINTAH PROVINSI JAWA TIMUR</p>
