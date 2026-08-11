@@ -1,11 +1,13 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "./context/AuthContext";
+import { SidebarProvider } from "./context/SidebarContext";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 import ProfilSaya from "./pages/ProfilSaya";
 import WfhAbsensi from "./pages/wfh/WfhAbsensi";
 import WfhMonitoring from "./pages/wfh/WfhMonitoring";
 import LoginPage from "./pages/auth/LoginPage";
 import ForgotPasswordPage from "./pages/auth/ForgotPasswordPage";
+import ResetPasswordPage from "./pages/auth/ResetPasswordPage";
 import ChangePasswordPage from "./pages/auth/ChangePasswordPage";
 import UserManagementPage from "./pages/admin/UserManagementPage";
 import SettingsPage from "./pages/admin/SettingsPage";
@@ -13,17 +15,17 @@ import RolePermissionPage from "./pages/admin/RolePermissionPage";
 import AdminMonitoring from "./pages/change-management/AdminMonitoring";
 import LeadApproval from "./pages/change-management/LeadApproval";
 import UserInisiasi from "./pages/change-management/UserInisiasi";
-// DEV-ONLY preview page (QA pribadi) — hapus route ini sebelum deploy production
-import UiPreviewPage from "./pages/dev/UiPreviewPage";
 
 
 export default function Root() {
   return (
     <AuthProvider>
+      <SidebarProvider>
       <Routes>
         {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/lupa-sandi" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
         {/* Must change password — no other pages accessible */}
         <Route path="/change-password" element={<ChangePasswordPage />} />
 
@@ -110,19 +112,10 @@ export default function Root() {
           }
         />
 
-        {/* DEV-ONLY UI Kit preview — hapus sebelum production */}
-        <Route
-          path="/dev/components"
-          element={
-            <ProtectedRoute>
-              <UiPreviewPage />
-            </ProtectedRoute>
-          }
-        />
-
         {/* Catch-all */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      </SidebarProvider>
     </AuthProvider>
   );
 }

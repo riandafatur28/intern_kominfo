@@ -56,6 +56,23 @@ export default function ProfilSaya() {
   const [passError, setPassError] = useState("");
   const [passLoading, setPassLoading] = useState(false);
 
+  // Halaman profil tidak boleh di-cache browser (Back/Forward/bfcache) —
+  // bantuan client-side; header Cache-Control server tetap tanggung jawab backend.
+  useEffect(() => {
+    const metaCache = document.createElement("meta");
+    metaCache.httpEquiv = "Cache-Control";
+    metaCache.content = "no-store, no-cache, must-revalidate";
+    const metaPragma = document.createElement("meta");
+    metaPragma.httpEquiv = "Pragma";
+    metaPragma.content = "no-cache";
+    document.head.appendChild(metaCache);
+    document.head.appendChild(metaPragma);
+    return () => {
+      document.head.removeChild(metaCache);
+      document.head.removeChild(metaPragma);
+    };
+  }, []);
+
   useEffect(() => {
     fetchProfile()
       .then((u) => {

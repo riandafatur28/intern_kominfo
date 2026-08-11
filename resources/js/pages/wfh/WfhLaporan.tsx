@@ -55,6 +55,8 @@ export default function WfhLaporan() {
   const [page, setPage] = useState(1);
   const [lastPage, setLastPage] = useState(1);
   const [total, setTotal] = useState(0);
+  // Filter server-side (BE tanpa param = semua laporan)
+  const [dateFilter, setDateFilter] = useState(new Date().toISOString().slice(0, 10));
 
   /* ── Form / detail state ─────────────────────────────────────── */
   const [formMode, setFormMode] = useState<FormMode>(null);
@@ -75,13 +77,16 @@ export default function WfhLaporan() {
   /* ── Load list ───────────────────────────────────────────────── */
   useEffect(() => {
     loadReports();
-  }, [page]);
+  }, [page, dateFilter]);
 
   async function loadReports() {
     setPageStatus("loading");
     setErrMsg("");
     try {
-      const res = await listWfhReports({ per_page: 15 });
+      const res = await listWfhReports({
+        per_page: 15,
+        date: dateFilter || undefined,
+      });
       setReports(res.data);
       setPage(res.meta.current_page);
       setLastPage(res.meta.last_page);
@@ -328,9 +333,20 @@ export default function WfhLaporan() {
         { label: formMode === "detail" ? "Detail Laporan" : "Laporan" },
       ]}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle title="Laporan WFH" subtitle={`${total} laporan`} />
-        <Button onClick={handleCreate}>+ Buat Laporan Baru</Button>
+        <div className="flex items-center gap-2">
+          <input
+            type="date"
+            value={dateFilter}
+            onChange={(e) => {
+              setDateFilter(e.target.value);
+              setPage(1);
+            }}
+            className="px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+          />
+          <Button onClick={handleCreate}>+ Buat Laporan Baru</Button>
+        </div>
       </div>
 
       {/* ── Create/Edit form ────────────────────────────────────── */}

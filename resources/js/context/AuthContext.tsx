@@ -42,6 +42,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return nextUser;
   }, []);
 
+  // Bersihkan key legacy versi lama (auth_token, auth_user, sidebar_collapsed)
+  // yang tidak pernah dipakai kode saat ini — biar localStorage konsisten
+  // antar pengguna/versi. One-time di boot, tanpa syarat.
+  useEffect(() => {
+    ["auth_token", "auth_user", "sidebar_collapsed"].forEach((k) =>
+      localStorage.removeItem(k)
+    );
+  }, []);
+
   // Restore session on mount
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -119,15 +128,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    apiLogout();
+    try {
+      // Tunggu revoke token selesai di server sebelum redirect — kalau tidak,
+      // navigasi membatalkan fetch dan token lama tetap valid (keamanan bocor).
+      await apiLogout();
+    } catch {
+      // Request gagal (network/401) → tetap bersihkan state client.
+    }
     localStorage.removeItem("token");
     localStorage.removeItem("must_change_password");
     localStorage.removeItem("permissions");
     localStorage.removeItem("roles");
+    sessionStorage.clear();
     syncSwAuth();
     setUser(null);
     setNeedsPasswordChange(false);
-    window.location.href = "/login";
+    setError(null);
+    // replace (bukan href/navigate) supaya history tidak menyimpan halaman
+    // ter-auth sebagai entry yang bisa di-back dengan state lama.
+    window.location.replace("/login");
   }, []);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string, newPasswordConfirmation: string) => {

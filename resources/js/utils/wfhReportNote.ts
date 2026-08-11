@@ -7,7 +7,6 @@ const NAMES: Record<WfhSession, string> = { pagi: "Pagi", siang: "Siang", sore: 
 /** Catatan detail absensi + pengumpulan tugas untuk satu laporan. */
 export function catatanLaporan(r: WfhReport): string {
   if (r.status === "rejected" && r.reject_reason) return r.reject_reason;
-  if (r.status === "draft") return "Belum dikirim";
 
   const atts = r.attendances ?? [];
   const attOf = (s: WfhSession) => atts.find((a) => a.session === s);
