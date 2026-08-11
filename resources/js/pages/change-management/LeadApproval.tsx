@@ -82,6 +82,15 @@ export default function LeadApproval() {
   const [queueSelected, setQueueSelected] = useState<ChangePackage | null>(null);
   const [errMsg, setErrMsg] = useState("");
   const [saving, setSaving] = useState(false);
+  useEffect(() => {
+  if (errMsg) {
+    const timer = setTimeout(() => {
+      setErrMsg(""); 
+    }, 4000); 
+
+    return () => clearTimeout(timer);
+  }
+}, [errMsg]);
 
   /* ── History ─────────────────────────────────────────────────── */
   const [history, setHistory] = useState<ChangePackage[]>([]);
