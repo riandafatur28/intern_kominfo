@@ -495,6 +495,7 @@ export default function WfhMonitoring() {
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
                     <th className="text-left px-4 py-3 font-medium text-[#141D23]">Pegawai</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">Tanggal</th>
                     <th className="text-center px-4 py-3 font-medium text-[#141D23]">Pagi</th>
                     <th className="text-center px-4 py-3 font-medium text-[#141D23]">Siang</th>
                     <th className="text-center px-4 py-3 font-medium text-[#141D23]">Sore</th>
@@ -508,7 +509,7 @@ export default function WfhMonitoring() {
                 <tbody>
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-10 text-sm text-[#767676]">
+                      <td colSpan={8} className="text-center py-10 text-sm text-[#767676]">
                         Tidak ada data pada tanggal ini.
                       </td>
                     </tr>
@@ -536,6 +537,9 @@ export default function WfhMonitoring() {
                                 </div>
                               </div>
                             </div>
+                          </td>
+                          <td className="px-4 py-3 text-[#333] whitespace-nowrap">
+                            {formatTanggalLengkap((u._report?.report_date || date) || null)}
                           </td>
                           {SESI.map((s) => (
                             <td key={s} className="px-4 py-3 text-center">
@@ -584,6 +588,9 @@ export default function WfhMonitoring() {
                               </div>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-[#333] whitespace-nowrap">
+                          {formatTanggalLengkap(r.report_date)}
                         </td>
                         {SESI.map((s) => (
                           <td key={s} className="px-4 py-3 text-center">
