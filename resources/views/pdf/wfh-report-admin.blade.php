@@ -101,7 +101,7 @@
   /* ===== TABLES ===== */
   table.data {
     width: 100%;
-    table-layout: fixed;
+    /* table-layout: fixed; */
     border-collapse: collapse;
     font-size: 10pt;
   }
@@ -122,12 +122,17 @@
     text-align: left;
   }
   table.data td.nama {
+    width: 170pt;
     white-space: normal;
     word-break: break-word;
   }
   table.data td.link {
+    width: 276pt;
     word-break: break-all;
     overflow-wrap: break-word;
+  }
+  table.data td.sesi {
+    width: 84pt;
   }
   table.data td.link a {
     color: #0b57d0;
@@ -136,21 +141,21 @@
     overflow-wrap: break-word;
   }
 
-  col.nama-p1 { width: 42%; }
-  col.link { width: 54%; }
-  col.no { width: 10pt; }
+  col.nama-p1 { width: 170pt; }
+  col.link { width: 276pt; }
+  col.no { width: 24pt; }
 
-  col.nama-p2 { width: 120pt; }
-  col.sesi { width: 15%; }
+  col.nama-p2 { width: 170pt; }
+  col.sesi { width: 84pt; }
 
   table.data td.no, table.data th.no {
     text-align: center;
     padding: 4pt 2pt;
     white-space: nowrap;
-    width: 10pt;
+    width: 24pt;
   }
   table.data th.no {
-    width: 10pt;
+    width: 24pt;
   }
   table.data td.nama {
     white-space: normal;
@@ -293,9 +298,9 @@
     </colgroup>
     <thead>
       <tr>
-        <th class="no">No</th>
-        <th>Nama Pegawai</th>
-        <th>Link Bukti Kerja</th>
+        <th class="no" style="width:24pt">No</th>
+        <th style="width:170pt">Nama Pegawai</th>
+        <th style="width:276pt">Link Bukti Kerja</th>
       </tr>
     </thead>
     <tbody>
@@ -306,7 +311,8 @@
           <td class="nama">{{ $member['name'] }}</td>
           <td class="link">
             @forelse($links as $link)
-              <a class="link-biru" href="{{ $link }}">{{ $link }}</a>@if (!$loop->last)<br><br>@endif
+              @php $broken = preg_replace('/(.{20})/', '$1<wbr>', e($link)); @endphp
+              <a class="link-biru" href="{{ $link }}">{!! $broken !!}</a>@if (!$loop->last)<br><br>@endif
             @empty
               -
             @endforelse
@@ -375,13 +381,13 @@
     </colgroup>
     <thead>
       <tr>
-        <th class="no" rowspan="2">No</th>
-        <th rowspan="2">Nama</th>
+        <th class="no" rowspan="2" style="width:24pt">No</th>
+        <th rowspan="2" style="width:170pt">Nama</th>
         <th colspan="{{ count($sessionNames) }}">Sesi</th>
       </tr>
       <tr>
         @foreach($sessionNames as $s)
-          <th>{{ ucfirst($s) }}</th>
+          <th style="width:84pt">{{ ucfirst($s) }}</th>
         @endforeach
       </tr>
     </thead>

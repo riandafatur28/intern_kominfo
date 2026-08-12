@@ -92,7 +92,7 @@
   /* ===== TABLE (KEGIATAN) ===== */
   table.data {
     width: 100%;
-    table-layout: fixed;
+    /* table-layout: fixed; */
     border-collapse: collapse;
     font-size: 10pt;
   }
@@ -111,6 +111,7 @@
   }
   table.data td.link {
     text-align: left;
+    width: 180pt;
     word-break: break-all;
     overflow-wrap: break-word;
   }
@@ -120,22 +121,32 @@
     word-break: break-all;
     overflow-wrap: break-word;
   }
+  table.data td.kegiatan {
+    width: 153pt;
+    text-align: left;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  table.data td.waktu {
+    width: 90pt;
+  }
 
-  col.no { width: 10pt; }
+  col.no { width: 24pt; }
   col.waktu { width: 90pt; }
-  col.kegiatan { width: 30%; }
-  col.link { width: 46%; }
+  col.kegiatan { width: 153pt; }
+  col.link { width: 180pt; }
 
   table.data td.no, table.data th.no {
     text-align: center;
     padding: 7pt 2pt;
     white-space: nowrap;
-    width: 10pt;
+    width: 24pt;
   }
   table.data th.no {
-    width: 10pt;
+    width: 24pt;
   }
   table.data td.waktu {
+    width: 90pt;
     white-space: nowrap;
   }
 
@@ -285,10 +296,10 @@
     </colgroup>
     <thead>
       <tr>
-        <th class="no">No</th>
-        <th>Waktu Pelaksanaan</th>
-        <th>Kegiatan</th>
-        <th>Link Bukti Kerja</th>
+        <th class="no" style="width:24pt">No</th>
+        <th style="width:90pt">Waktu Pelaksanaan</th>
+        <th style="width:153pt">Kegiatan</th>
+        <th style="width:180pt">Link Bukti Kerja</th>
       </tr>
     </thead>
     <tbody>
@@ -299,7 +310,8 @@
           <td>{{ $k['kegiatan'] }}</td>
           <td class="link">
             @forelse($k['links'] as $link)
-              <a class="link-biru" href="{{ $link }}">{{ $link }}</a>@if (!$loop->last)<br><br>@endif
+              @php $broken = preg_replace('/(.{20})/', '$1<wbr>', e($link)); @endphp
+              <a class="link-biru" href="{{ $link }}">{!! $broken !!}</a>@if (!$loop->last)<br><br>@endif
             @empty
               -
             @endforelse
