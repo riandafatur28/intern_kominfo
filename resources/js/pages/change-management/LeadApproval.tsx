@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
@@ -74,12 +75,15 @@ function QueueIcon({ size = 16 }: { size?: number }) {
 
 export default function LeadApproval() {
   const { user, hasPermission } = useAuth();
-  const [view, setView] = useState<View>("queue");
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { id: detailId } = useParams<{ id?: string }>();
+  const view: View = searchParams.get("view") === "history" ? "history" : "queue";
 
   /* ── Queue ───────────────────────────────────────────────────── */
   const [queue, setQueue] = useState<ChangePackage[]>([]);
   const [queueLoading, setQueueLoading] = useState(true);
-  const [queueSelected, setQueueSelected] = useState<ChangePackage | null>(null);
+  const [detail, setDetail] = useState<ChangePackage | null>(null);
   const [errMsg, setErrMsg] = useState("");
   const [saving, setSaving] = useState(false);
   useEffect(() => {
@@ -95,7 +99,16 @@ export default function LeadApproval() {
   /* ── History ─────────────────────────────────────────────────── */
   const [history, setHistory] = useState<ChangePackage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [historySelected, setHistorySelected] = useState<ChangePackage | null>(null);
+
+  function switchView(v: View) {
+    if (v === "history") setSearchParams({ view: "history" });
+    else setSearchParams({});
+  }
+
+  function goBackToList() {
+    if (view === "history") navigate("/change-management/persetujuan?view=history");
+    else navigate("/change-management/persetujuan");
+  }
 
   async function loadQueue() {
     setQueueLoading(true);
@@ -150,25 +163,36 @@ export default function LeadApproval() {
   }, [history]);
 
   async function handleViewDetail(id: number) {
-    setErrMsg("");
-    setSaving(true);
-    try {
-      const res = await getChangePackage(id);
-      setQueueSelected(res.data);
-    } catch (e: unknown) {
-      setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
-    } finally {
-      setSaving(false);
-    }
+    navigate(`/change-management/persetujuan/${id}${view === "history" ? "?view=history" : ""}`);
   }
+
+  useEffect(() => {
+    if (!detailId) {
+      setDetail(null);
+      return;
+    }
+    let cancelled = false;
+    setErrMsg("");
+    getChangePackage(Number(detailId))
+      .then((res) => {
+        if (!cancelled) setDetail(res.data);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [detailId]);
 
   async function handleApprove(pkg: ChangePackage) {
     setSaving(true);
     setErrMsg("");
     try {
       await approveChangePackage(pkg.initiation.id);
-      setQueueSelected(null);
+      setDetail(null);
       await loadQueue();
+      goBackToList();
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal menyetujui permohonan."));
     } finally {
@@ -181,8 +205,9 @@ export default function LeadApproval() {
     setErrMsg("");
     try {
       await rejectChangePackage(pkg.initiation.id);
-      setQueueSelected(null);
+      setDetail(null);
       await loadQueue();
+      goBackToList();
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal menolak permohonan."));
     } finally {
@@ -190,45 +215,56 @@ export default function LeadApproval() {
     }
   }
 
-  async function handleViewHistory(id: number) {
-    setErrMsg("");
-    try {
-      const res = await getChangePackage(id);
-      setHistorySelected(res.data);
-    } catch (e: unknown) {
-      setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
-    }
-  }
-
   const canDecide = hasPermission("change.initiation.approve") || hasPermission("change.initiation.reject");
 
-  /* ── Detail Riwayat ───────────────────────────── */
-  if (historySelected) {
+  /* ── Detail permohonan (dari antrian atau riwayat) ───────────── */
+  if (detailId && detail) {
+    const isQueue = detail.initiation.status === "pending";
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Permintaan Persetujuan", href: view === "history" ? "/change-management/persetujuan?view=history" : "/change-management/persetujuan" }, { label: "Detail Permohonan" }]}>
         <button
           className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
-          onClick={() => setHistorySelected(null)}
+          onClick={goBackToList}
         >
           <ArrowLeftIcon size={16} /> Kembali
         </button>
         {errMsg && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{errMsg}</div>
         )}
-        <PackageDetailView pkg={historySelected} />
-        {historySelected.initiation.status === "approved" && (
+        <PackageDetailView pkg={detail} />
+        {isQueue && canDecide && (
+          <div className="flex gap-3 mt-4">
+            <Button
+              className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100 gap-2"
+              variant="outline"
+              onClick={() => handleApprove(detail)}
+              disabled={saving}
+            >
+              <CheckIcon size={16} /> Setujui
+            </Button>
+            <Button
+              variant="outline"
+              className="!text-red-500 !border-red-300 hover:!bg-red-50 gap-2"
+              onClick={() => handleReject(detail)}
+              disabled={saving}
+            >
+              <CloseIcon size={16} /> Tolak
+            </Button>
+          </div>
+        )}
+        {!isQueue && detail.initiation.status === "approved" && (
           <div className="flex gap-3 mt-4">
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => openPdfDirect(getChangeInitiationPdfUrl(historySelected.initiation.id), setErrMsg)}
+              onClick={() => openPdfDirect(getChangeInitiationPdfUrl(detail.initiation.id), setErrMsg)}
             >
               <DownloadIcon size={17} /> Unduh PDF Inisiasi
             </Button>
             <Button
               variant="outline"
               className="gap-2"
-              onClick={() => openPdfDirect(getChangeImplementationPdfUrl(historySelected.initiation.id), setErrMsg)}
+              onClick={() => openPdfDirect(getChangeImplementationPdfUrl(detail.initiation.id), setErrMsg)}
             >
               <DownloadIcon size={17} /> Unduh PDF Implementasi
             </Button>
@@ -238,46 +274,18 @@ export default function LeadApproval() {
     );
   }
 
-  /* ── Detail Antrian ───────────── */
-  if (queueSelected) {
+  if (detailId && !detail) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
-        <button
-          className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
-          onClick={() => setQueueSelected(null)}
-        >
-          <ArrowLeftIcon size={16} /> Kembali
-        </button>
-        {errMsg && (
-          <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg px-4 py-3 mb-4">{errMsg}</div>
-        )}
-        <PackageDetailView pkg={queueSelected} />
-        {canDecide && (
-          <div className="flex gap-3 mt-4">
-            <Button
-              className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100 gap-2"
-              variant="outline"
-              onClick={() => handleApprove(queueSelected)}
-              disabled={saving}
-            >
-              <CheckIcon size={16} /> Setujui
-            </Button>
-            <Button
-              variant="outline"
-              className="!text-red-500 !border-red-300 hover:!bg-red-50 gap-2"
-              onClick={() => handleReject(queueSelected)}
-              disabled={saving}
-            >
-              <CloseIcon size={16} /> Tolak
-            </Button>
-          </div>
-        )}
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Permintaan Persetujuan", href: view === "history" ? "/change-management/persetujuan?view=history" : "/change-management/persetujuan" }, { label: "Detail Permohonan" }]}>
+        <div className="text-center py-12 text-sm text-[#767676]">
+          {errMsg || "Memuat..."}
+        </div>
       </AppLayout>
     );
   }
 
   return (
-    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Team Lead" }, { label: "Permintaan Persetujuan" }]}>
+    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Permintaan Persetujuan" }]}>
       <div className="flex items-center justify-between mb-4">
         {view === "queue" ? (
           <PageTitle title="Permintaan Persetujuan" subtitle={`${queue.length} permohonan menunggu review`} />
@@ -287,7 +295,7 @@ export default function LeadApproval() {
         <Button
           variant="outline"
           className="inline-flex items-center gap-2"
-          onClick={() => setView(view === "queue" ? "history" : "queue")}
+          onClick={() => switchView(view === "queue" ? "history" : "queue")}
         >
           {view === "queue" ? <HistoryIcon size={16} /> : <QueueIcon size={16} />}
           {view === "queue" ? "Riwayat Persetujuan" : "Permintaan Persetujuan"}
@@ -433,7 +441,7 @@ export default function LeadApproval() {
                               </button>
                             }
                             items={[
-                              { label: "Lihat Detail", icon: <EyeIcon size={16} />, onClick: () => handleViewHistory(p.initiation.id) },
+                              { label: "Lihat Detail", icon: <EyeIcon size={16} />, onClick: () => handleViewDetail(p.initiation.id) },
                               ...(p.initiation.status === "approved"
                                 ? [
                                     { label: "Unduh PDF Inisiasi", icon: <DownloadIcon size={16} />, separator: true, onClick: () => openPdfDirect(getChangeInitiationPdfUrl(p.initiation.id), setErrMsg) },

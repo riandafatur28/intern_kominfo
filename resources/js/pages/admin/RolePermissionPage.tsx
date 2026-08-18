@@ -133,7 +133,6 @@ export default function RolePermissionPage() {
         <AppLayout
             breadcrumbs={[
                 { label: "Beranda", href: "/" },
-                { label: "Admin WFH" },
                 { label: "Kelola Hak Akses" },
             ]}
         >

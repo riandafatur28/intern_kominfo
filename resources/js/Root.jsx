@@ -76,6 +76,14 @@ export default function Root() {
             </ProtectedRoute>
           }
         />
+        <Route
+          path="/wfh/absensi/:date"
+          element={
+            <ProtectedRoute>
+              <WfhAbsensi />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path="/wfh/monitoring"
@@ -96,6 +104,14 @@ export default function Root() {
           }
         />
         <Route
+          path="/change-management/monitoring/:id"
+          element={
+            <ProtectedRoute>
+              <AdminMonitoring />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/change-management/persetujuan"
           element={
             <ProtectedRoute>
@@ -104,7 +120,39 @@ export default function Root() {
           }
         />
         <Route
+          path="/change-management/persetujuan/:id"
+          element={
+            <ProtectedRoute>
+              <LeadApproval />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/change-management/inisiasi"
+          element={
+            <ProtectedRoute>
+              <UserInisiasi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-management/inisiasi/baru"
+          element={
+            <ProtectedRoute>
+              <UserInisiasi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-management/inisiasi/:id"
+          element={
+            <ProtectedRoute>
+              <UserInisiasi />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/change-management/inisiasi/:id/edit"
           element={
             <ProtectedRoute>
               <UserInisiasi />

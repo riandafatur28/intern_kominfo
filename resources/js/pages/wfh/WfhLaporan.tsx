@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
@@ -75,11 +75,7 @@ export default function WfhLaporan() {
   const [rejectTargetId, setRejectTargetId] = useState<number | null>(null);
 
   /* ── Load list ───────────────────────────────────────────────── */
-  useEffect(() => {
-    loadReports();
-  }, [page, dateFilter]);
-
-  async function loadReports() {
+  const loadReports = useCallback(async () => {
     setPageStatus("loading");
     setErrMsg("");
     try {
@@ -96,7 +92,11 @@ export default function WfhLaporan() {
       setErrMsg(extractWfhError(e, "Gagal memuat laporan."));
       setPageStatus("error");
     }
-  }
+  }, [dateFilter]);
+
+  useEffect(() => {
+    loadReports();
+  }, [loadReports, page, dateFilter]);
 
   /* ── Create new ──────────────────────────────────────────────── */
   function handleCreate() {

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
@@ -66,12 +67,20 @@ const emptyForm = {
 const PAGE_SIZE = 15;
 
 export default function UserInisiasi() {
-  const { user, hasPermission, hasRole } = useAuth();
+  const { user, hasPermission } = useAuth();
   const fieldId = user?.team?.field?.id;
-  const roleCrumb = hasRole("admin") ? "Admin" : "Pegawai";
 
-  const [tab, setTab] = useState<Tab>("permohonan");
-  const [showForm, setShowForm] = useState(false);
+  const navigate = useNavigate();
+  const { id: routeId } = useParams();
+  const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: Tab = searchParams.get("tab") === "riwayat" ? "riwayat" : "permohonan";
+  const isCreate = location.pathname.endsWith("/baru");
+  const isEdit = location.pathname.endsWith("/edit");
+  const isDetail = routeId != null && !isEdit;
+  const isForm = isCreate || isEdit;
+  const editId = isEdit && routeId ? Number(routeId) : null;
+
   const [changeTypes, setChangeTypes] = useState<ChangeType[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null);
 
@@ -81,7 +90,6 @@ export default function UserInisiasi() {
   const [existingAttachments, setExistingAttachments] = useState<ChangeAttachment[]>([]);
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [saving, setSaving] = useState(false);
-  const [formMsg, setFormMsg] = useState("");
   const [formErr, setFormErr] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -133,9 +141,32 @@ export default function UserInisiasi() {
   }
 
   useEffect(() => {
-    if (!detailPkg) loadPackages();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+    if (!isDetail && !isForm) loadPackages();
+  }, [tab, isDetail, isForm]);
+
+  useEffect(() => {
+    if (isDetail && routeId) {
+      getChangePackage(Number(routeId))
+        .then((res) => setDetailPkg(res.data))
+        .catch((e: unknown) => {
+          setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
+        });
+    }
+  }, [isDetail, routeId]);
+
+  useEffect(() => {
+    if (isEdit && editId) {
+      getChangePackage(editId)
+        .then((res) => loadIntoForm(res.data))
+        .catch((e: unknown) => {
+          setFormErr(extractChangeError(e, "Gagal memuat data permohonan."));
+        });
+    }
+  }, [isEdit, editId]);
+
+  useEffect(() => {
+    if (isCreate) resetForm();
+  }, [isCreate]);
 
   /* ── Form helpers ─────────────────────────────────────────────── */
   function resetForm() {
@@ -143,7 +174,6 @@ export default function UserInisiasi() {
     setForm(emptyForm);
     setExistingAttachments([]);
     setPendingFiles([]);
-    setFormMsg("");
     setFormErr("");
     setFieldErrors({});
   }
@@ -168,36 +198,29 @@ export default function UserInisiasi() {
     });
     setExistingAttachments(implementation?.attachments ?? []);
     setPendingFiles([]);
-    setFormMsg("");
     setFormErr("");
     setFieldErrors({});
   }
 
-  // Klik "+ Ajukan Permohonan" → tampilkan form isi kosong
+  // Klik "+ Ajukan Permohonan" → rute form isi kosong
   function openNewForm() {
-    resetForm();
-    setShowForm(true);
+    navigate("/change-management/inisiasi/baru");
   }
 
-  async function handleEditRow(id: number) {
-    setErrMsg("");
-    try {
-      const res = await getChangePackage(id);
-      loadIntoForm(res.data);
-      setShowForm(true);
-    } catch (e: unknown) {
-      setErrMsg(extractChangeError(e, "Gagal memuat permohonan."));
-    }
+  function handleEditRow(id: number) {
+    navigate(`/change-management/inisiasi/${id}/edit`);
   }
 
-  async function handleViewDetail(id: number) {
-    setErrMsg("");
-    try {
-      const res = await getChangePackage(id);
-      setDetailPkg(res.data);
-    } catch (e: unknown) {
-      setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
-    }
+  function handleViewDetail(id: number) {
+    navigate(`/change-management/inisiasi/${id}`);
+  }
+
+  function goBackToList() {
+    navigate(`/change-management/inisiasi?tab=${tab}`);
+  }
+
+  function switchTab(next: Tab) {
+    setSearchParams(next === "riwayat" ? { tab: "riwayat" } : {});
   }
 
   async function handleDelete(id: number) {
@@ -212,7 +235,7 @@ export default function UserInisiasi() {
   async function confirmDelete() {
     if (deleteTarget == null) return;
     await handleDelete(deleteTarget);
-    if (detailPkg && detailPkg.initiation.id === deleteTarget) setDetailPkg(null);
+    if (isDetail && detailPkg && detailPkg.initiation.id === deleteTarget) goBackToList();
     setDeleteTarget(null);
   }
 
@@ -280,15 +303,13 @@ export default function UserInisiasi() {
   async function handleSaveDraft(e: FormEvent) {
     e.preventDefault();
     setSaving(true);
-    setFormMsg("");
     setFormErr("");
     setFieldErrors({});
     try {
       const id = await ensurePackageId(buildPayload());
       await flushAttachments(id);
       resetForm();
-      setShowForm(false);
-      setTab("permohonan");
+      navigate(`/change-management/inisiasi?tab=permohonan`);
       loadPackages();
     } catch (e: unknown) {
       setFormErr(extractChangeError(e, "Gagal menyimpan draf."));
@@ -300,7 +321,6 @@ export default function UserInisiasi() {
 
   async function handleSubmitLaporan() {
     setSaving(true);
-    setFormMsg("");
     setFormErr("");
     setFieldErrors({});
     try {
@@ -309,8 +329,7 @@ export default function UserInisiasi() {
       await flushAttachments(id);
       await submitChangePackage(id, payload);
       resetForm();
-      setShowForm(false);
-      setTab("permohonan");
+      navigate(`/change-management/inisiasi?tab=permohonan`);
       loadPackages();
     } catch (e: unknown) {
       setFormErr(extractChangeError(e, "Gagal mengirim permohonan."));
@@ -339,50 +358,53 @@ export default function UserInisiasi() {
   const pageRows = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   /* ── Detail view ──────────────────────────────────────────────── */
-  if (detailPkg) {
-    const init = detailPkg.initiation;
+  if (isDetail) {
+    const init = detailPkg?.initiation;
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: roleCrumb }, { label: "Detail Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Inisiasi Perubahan", href: `/change-management/inisiasi?tab=${tab}` }, { label: "Detail Permohonan" }]}>
         <button
           className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
-          onClick={() => setDetailPkg(null)}
+          onClick={goBackToList}
         >
           <ArrowLeftIcon size={16} /> Kembali
         </button>
-        <PackageDetailView pkg={detailPkg} />
-        <div className="flex gap-3 mt-4">
-          {init.status === "approved" && (
-            <>
-              <Button variant="outline" className="gap-2" onClick={() => openInitiationPdf(init.id)}>
-                <DownloadIcon size={17} /> Unduh PDF Inisiasi
-              </Button>
-              <Button variant="outline" className="gap-2" onClick={() => openImplementationPdf(init.id)}>
-                <DownloadIcon size={17} /> Unduh PDF Implementasi
-              </Button>
-            </>
-          )}
-          {init.status === "draft" && init.initiator_id === user?.id && (
-            <>
-              <Button
-                variant="outline"
-                className="gap-2"
-                onClick={() => {
-                  setDetailPkg(null);
-                  handleEditRow(init.id);
-                }}
-              >
-                <EditIcon size={17} /> Edit Permohonan
-              </Button>
-              <Button
-                variant="outline"
-                className="gap-2 !text-red-500 !border-red-300 hover:!bg-red-50"
-                onClick={() => setDeleteTarget(init.id)}
-              >
-                <TrashIcon size={17} /> Hapus Permohonan
-              </Button>
-            </>
-          )}
-        </div>
+        {!detailPkg ? (
+          <div className="text-center py-10 text-sm text-[#767676]">Memuat...</div>
+        ) : (
+          <>
+            <PackageDetailView pkg={detailPkg} />
+            <div className="flex gap-3 mt-4">
+              {init!.status === "approved" && (
+                <>
+                  <Button variant="outline" className="gap-2" onClick={() => openInitiationPdf(init!.id)}>
+                    <DownloadIcon size={17} /> Unduh PDF Inisiasi
+                  </Button>
+                  <Button variant="outline" className="gap-2" onClick={() => openImplementationPdf(init!.id)}>
+                    <DownloadIcon size={17} /> Unduh PDF Implementasi
+                  </Button>
+                </>
+              )}
+              {init!.status === "draft" && init!.initiator_id === user?.id && (
+                <>
+                  <Button
+                    variant="outline"
+                    className="gap-2"
+                    onClick={() => handleEditRow(init!.id)}
+                  >
+                    <EditIcon size={17} /> Edit Permohonan
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="gap-2 !text-red-500 !border-red-300 hover:!bg-red-50"
+                    onClick={() => setDeleteTarget(init!.id)}
+                  >
+                    <TrashIcon size={17} /> Hapus Permohonan
+                  </Button>
+                </>
+              )}
+            </div>
+          </>
+        )}
 
         <ConfirmModal
           open={deleteTarget != null}
@@ -398,9 +420,15 @@ export default function UserInisiasi() {
   }
 
   /* ── Form view (dibuka dari "+ Ajukan Permohonan" / Edit) ─────── */
-  if (showForm) {
+  if (isForm) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: roleCrumb }, { label: "Ajukan Permohonan" }]}>
+      <AppLayout
+        breadcrumbs={[
+          { label: "Beranda", href: "/" },
+          { label: "Inisiasi Perubahan", href: `/change-management/inisiasi?tab=${tab}` },
+          { label: editingId != null ? "Edit Permohonan" : "Ajukan Permohonan" },
+        ]}
+      >
         <PageTitle
           title={editingId != null ? "Edit Permohonan" : "Ajukan Permohonan"}
           subtitle="Isi detail perubahan yang diajukan"
@@ -624,7 +652,7 @@ export default function UserInisiasi() {
           )}
 
           <div className="flex justify-end gap-3">
-            <Button type="button" variant="outline" className="gap-2" onClick={() => { setShowForm(false); resetForm(); }}>
+            <Button type="button" variant="outline" className="gap-2" onClick={() => { resetForm(); goBackToList(); }}>
               <CloseIcon size={17} /> Batal
             </Button>
             <Button type="submit" variant="outline" className="gap-2" disabled={saving || !canCreate}>
@@ -641,7 +669,7 @@ export default function UserInisiasi() {
 
   /* ── List view (Permohonan Saya / Riwayat) ────────────────────── */
   return (
-    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: roleCrumb }, { label: "Inisiasi Perubahan" }]}>
+    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Inisiasi Perubahan" }]}>
       <div className="flex items-center justify-between gap-4">
         <PageTitle
           title="Inisiasi Perubahan"
@@ -657,10 +685,10 @@ export default function UserInisiasi() {
       </div>
 
       <div className="flex gap-3">
-        <TabButton active={tab === "permohonan"} onClick={() => setTab("permohonan")} icon={<DocumentIcon size={18} />}>
+        <TabButton active={tab === "permohonan"} onClick={() => switchTab("permohonan")} icon={<DocumentIcon size={18} />}>
           Permohonan Saya
         </TabButton>
-        <TabButton active={tab === "riwayat"} onClick={() => setTab("riwayat")} icon={<HistoryIcon size={18} />}>
+        <TabButton active={tab === "riwayat"} onClick={() => switchTab("riwayat")} icon={<HistoryIcon size={18} />}>
           Riwayat
         </TabButton>
       </div>
