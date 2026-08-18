@@ -19,6 +19,9 @@ RUN docker-php-ext-install \
     dom \
     zip
 
+# Cegah OOM saat render PDF (dompdf butuh >128M utk laporan tim dgn foto)
+RUN printf 'memory_limit=512M\n' > /usr/local/etc/php/conf.d/memory.ini
+
 COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
 WORKDIR /app

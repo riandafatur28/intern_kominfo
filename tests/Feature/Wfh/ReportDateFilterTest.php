@@ -71,13 +71,13 @@ class ReportDateFilterTest extends TestCase
             ->assertJsonPath('meta.total', 2);
     }
 
-    public function test_index_defaults_to_today_when_no_filter(): void
+    public function test_index_defaults_to_all_when_no_filter(): void
     {
         $user = User::factory()->create();
         $user->assignRole('staf');
         Sanctum::actingAs($user);
 
-        $today = WfhReport::factory()->create([
+        WfhReport::factory()->create([
             'user_id' => $user->id,
             'report_date' => '2026-08-10',
         ]);
@@ -88,8 +88,7 @@ class ReportDateFilterTest extends TestCase
 
         $this->getJson('/api/wfh/reports')
             ->assertStatus(200)
-            ->assertJsonPath('meta.total', 1)
-            ->assertJsonPath('data.0.id', $today->id);
+            ->assertJsonPath('meta.total', 2);
     }
 
     public function test_date_takes_precedence_over_month(): void

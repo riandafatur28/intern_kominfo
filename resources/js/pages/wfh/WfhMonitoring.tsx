@@ -13,6 +13,7 @@ import {
   MoreVerticalIcon,
 } from "../../components/ui/AdminActionIcons";
 import FilterDropdown from "../../components/ui/FilterDropdown";
+import Skeleton from "../../components/ui/Skeleton";
 import { useAuth } from "../../hooks/useAuth";
 import { listTeams, type Team } from "../../api/teams";
 import {
@@ -32,6 +33,8 @@ import {
 import { openPdfDirect } from "../../utils/swAuth";
 import { formatTanggalLengkap } from "../../utils/userDisplay";
 import { catatanLaporan } from "../../utils/wfhReportNote";
+import { normDate, todayStr } from "../../utils/wfhDate";
+import { buildMonitoringRows, inisial } from "../../utils/wfhMonitoring";
 
 type PageStatus = "loading" | "ready" | "error";
 type Tab = "individu" | "tim";
@@ -45,7 +48,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 
 const SESI = ["pagi", "siang", "sore"] as const;
 
-const TODAY = new Date().toISOString().slice(0, 10);
+const TODAY = todayStr();
 
 export default function WfhMonitoring() {
   const { user, hasPermission } = useAuth();
@@ -85,7 +88,7 @@ export default function WfhMonitoring() {
   const [tSearch, setTSearch] = useState("");
   const [tTeamId, setTTeamId] = useState("");
   const [tStatus, setTStatus] = useState("");
-  const [tDate, setTDate] = useState("");
+  const [tDate, setTDate] = useState(TODAY);
 
   /* ── Individu reject ─────────────────────────────────────────── */
   const [showReject, setShowReject] = useState(false);
@@ -129,18 +132,19 @@ export default function WfhMonitoring() {
     try {
       // Tanggal tunggal → ambil semua laporan sekaligus (cap BE 100);
       // pagination dihitung client-side atas gabungan laporan + belum laporan.
-      const params: {
-        per_page?: number;
-        team_id?: number;
-        status?: string;
-        date_from?: string;
-        date_to?: string;
-      } = { per_page: 100, date_from: date, date_to: date };
+      // Tanpa tanggal → jangan kirim date_from/date_to (BE tampilkan semua).
+      const params: NonNullable<Parameters<typeof adminListWfhReports>[0]> = {
+        per_page: 100,
+        ...(date ? { date_from: date, date_to: date } : {}),
+      };
       if (teamId) params.team_id = Number(teamId);
       if (statusFilter) params.status = statusFilter;
       const [res, mon] = await Promise.all([
         adminListWfhReports(params),
-        getWfhMonitoring({ date }),
+        getWfhMonitoring({
+          // date kosong → BE default ke hari ini (bukan string kosong)
+          date: date || undefined,
+        }),
       ]);
       // Draft = belum dikirim → bukan laporan resmi; tampil sebagai "Belum Dikirim"
       const visible = res.data.filter((r) => r.status !== "draft");
@@ -162,7 +166,8 @@ export default function WfhMonitoring() {
               team_id: null,
               team: null,
               _draft: true,
-            }) as MonitoringUser & { _draft?: boolean }
+              _report: r,
+            }) as MonitoringUser & { _draft?: boolean; _report?: WfhReport }
         );
       // Staff tanpa laporan terkirim tanggal ini → "Belum Laporan" / "Belum Dikirim"
       setMissingUsers([
@@ -311,9 +316,7 @@ export default function WfhMonitoring() {
     // report_date ISO UTC ("2026-07-30T17:00:00.000000Z") = 31 Juli WIB.
     // Kirim tanggal murni WIB supaya query data di PDF cocok.
     const iso = r.report_date;
-    const tanggal = iso.includes("T") || iso.includes("Z")
-      ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "Asia/Jakarta" })
-      : iso.slice(0, 10);
+    const tanggal = normDate(iso);
     // Buka langsung di tab (tanpa blob) — auth header dipasang Service Worker.
     const params = new URLSearchParams({ date: tanggal });
     params.set("team_report_id", String(r.id));
@@ -321,21 +324,13 @@ export default function WfhMonitoring() {
   }
 
   /* ── Derived ─────────────────────────────────────────────────── */
-  type Row = WfhReport | (MonitoringUser & { _draft?: boolean });
   const PAGE_SIZE = 15;
 
   // Gabungan laporan (terkirim) + pegawai yang belum mengirim — satu list
-  const rows = useMemo<Row[]>(() => {
-    const q = search.trim().toLowerCase();
-    const base: Row[] = [...reports, ...(statusFilter ? [] : missingUsers)];
-    const scoped = teamId
-      ? base.filter((x) => "status" in x || x.team_id === Number(teamId))
-      : base;
-    if (!q) return scoped;
-    return scoped.filter((x) =>
-      ("status" in x ? x.user?.name : x.name)?.toLowerCase().includes(q)
-    );
-  }, [reports, missingUsers, search, teamId, statusFilter]);
+  const rows = useMemo<import("../../utils/wfhMonitoring").MonitoringRow[]>(
+    () => buildMonitoringRows(reports, missingUsers, statusFilter, teamId, search),
+    [reports, missingUsers, statusFilter, teamId, search]
+  );
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const rowLastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 
@@ -474,8 +469,22 @@ export default function WfhMonitoring() {
           {/* Table */}
           <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
             {status === "loading" ? (
-              <div className="text-center py-12 text-sm text-[#767676]">
-                Memuat...
+              <div className="p-5 flex flex-col gap-4">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-4 py-3 border-b border-[#F0F0F0] last:border-b-0"
+                  >
+                    <Skeleton className="h-9 w-9 rounded-full" />
+                    <Skeleton className="h-3 w-36" />
+                    <Skeleton className="h-6 w-6 rounded-full ml-auto" />
+                    <Skeleton className="h-6 w-6 rounded-full" />
+                    <Skeleton className="h-6 w-6 rounded-full" />
+                    <Skeleton className="h-5 w-24" />
+                    <Skeleton className="h-3 w-44" />
+                    <Skeleton className="h-8 w-8 rounded-lg" />
+                  </div>
+                ))}
               </div>
             ) : status === "error" ? (
               <div className="text-center py-12 text-sm text-red-500">
@@ -485,28 +494,29 @@ export default function WfhMonitoring() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">Pegawai</th>
-                    <th className="text-center px-4 py-3 font-medium text-[#767676]">Pagi</th>
-                    <th className="text-center px-4 py-3 font-medium text-[#767676]">Siang</th>
-                    <th className="text-center px-4 py-3 font-medium text-[#767676]">Sore</th>
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">Pegawai</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">Tanggal</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#141D23]">Pagi</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#141D23]">Siang</th>
+                    <th className="text-center px-4 py-3 font-medium text-[#141D23]">Sore</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">
                       Status Laporan
                     </th>
-                    <th className="text-left px-4 py-3 font-medium text-[#767676]">Catatan</th>
-                    <th className="text-right px-4 py-3 font-medium text-[#767676]">Aksi</th>
+                    <th className="text-left px-4 py-3 font-medium text-[#141D23]">Catatan</th>
+                    <th className="text-right px-4 py-3 font-medium text-[#141D23]">Aksi</th>
                   </tr>
                 </thead>
                 <tbody>
                   {rows.length === 0 && (
                     <tr>
-                      <td colSpan={7} className="text-center py-10 text-sm text-[#767676]">
+                      <td colSpan={8} className="text-center py-10 text-sm text-[#767676]">
                         Tidak ada data pada tanggal ini.
                       </td>
                     </tr>
                   )}
                   {pageRows.map((x) => {
                     if (!("status" in x)) {
-                      const u = x as MonitoringUser & { _draft?: boolean };
+                      const u = x as MonitoringUser & { _draft?: boolean; _report?: WfhReport };
                       const draft = Boolean(u._draft);
                       return (
                         <tr
@@ -528,6 +538,9 @@ export default function WfhMonitoring() {
                               </div>
                             </div>
                           </td>
+                          <td className="px-4 py-3 text-[#333] whitespace-nowrap">
+                            {formatTanggalLengkap((u._report?.report_date || date) || null)}
+                          </td>
                           {SESI.map((s) => (
                             <td key={s} className="px-4 py-3 text-center">
                               <CloseIcon />
@@ -539,7 +552,11 @@ export default function WfhMonitoring() {
                             </span>
                           </td>
                           <td className="px-4 py-3 text-[#767676] text-xs">
-                            {draft ? "Belum dikirim" : "Belum mengisi laporan"}
+                            {draft
+                              ? u._report
+                                ? catatanLaporan(u._report)
+                                : "Belum dikirim"
+                              : "Belum mengisi laporan"}
                           </td>
                           <td className="px-4 py-3">
                             <span className="text-[#D9D9D9] text-xs">—</span>
@@ -571,6 +588,9 @@ export default function WfhMonitoring() {
                               </div>
                             </div>
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-[#333] whitespace-nowrap">
+                          {formatTanggalLengkap(r.report_date)}
                         </td>
                         {SESI.map((s) => (
                           <td key={s} className="px-4 py-3 text-center">
@@ -1003,7 +1023,8 @@ function inisial(name?: string | null): string {
     .join("");
 }
 
-/* ── Render aksi: 1 aksi → icon+label langsung; >1 → dropdown ── */
+
+/* ── Render aksi: selalu dropdown (seragam, walau cuma 1 aksi) ── */
 interface RowAction {
   label: string;
   icon: React.ReactNode;
@@ -1015,21 +1036,6 @@ interface RowAction {
 function renderActions(acts: RowAction[]) {
   if (acts.length === 0) {
     return <span className="text-[#D9D9D9] text-xs">—</span>;
-  }
-  if (acts.length === 1) {
-    const a = acts[0];
-    return (
-      <button
-        type="button"
-        disabled={a.disabled}
-        onClick={a.onClick}
-        className={`text-xs inline-flex items-center gap-1.5 hover:underline disabled:opacity-40 disabled:cursor-not-allowed ${
-          a.variant === "destructive" ? "text-red-500" : "text-[#256EEF]"
-        }`}
-      >
-        {a.icon} {a.label}
-      </button>
-    );
   }
   return (
     <DropdownMenu
