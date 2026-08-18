@@ -196,7 +196,7 @@ export default function LeadApproval() {
   /* ── Detail Riwayat ───────────────────────────── */
   if (historySelected) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
         <button
           className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
           onClick={() => setHistorySelected(null)}
@@ -232,7 +232,7 @@ export default function LeadApproval() {
   /* ── Detail Antrian ───────────── */
   if (queueSelected) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Team Lead" }, { label: "Detail Permohonan" }]}>
         <button
           className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
           onClick={() => setQueueSelected(null)}
@@ -268,7 +268,7 @@ export default function LeadApproval() {
   }
 
   return (
-    <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Team Lead" }, { label: "Permintaan Persetujuan" }]}>
+    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Team Lead" }, { label: "Permintaan Persetujuan" }]}>
       <div className="flex items-center justify-between mb-4">
         {view === "queue" ? (
           <PageTitle title="Permintaan Persetujuan" subtitle={`${queue.length} permohonan menunggu review`} />

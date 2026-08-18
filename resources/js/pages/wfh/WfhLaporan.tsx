@@ -315,7 +315,7 @@ export default function WfhLaporan() {
   /* ── Render ──────────────────────────────────────────────────── */
   if (pageStatus === "loading" && reports.length === 0) {
     return (
-      <AppLayout breadcrumbs={[{ label: "WFH Laporan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Laporan WFH" }]}>
         <div className="text-center py-12 text-sm text-[#767676]">Memuat...</div>
       </AppLayout>
     );
@@ -324,8 +324,8 @@ export default function WfhLaporan() {
   return (
     <AppLayout
       breadcrumbs={[
-        { label: "WFH" },
-        { label: formMode === "detail" ? "Detail Laporan" : "Laporan" },
+        { label: "Beranda", href: "/" },
+        { label: formMode === "detail" ? "Detail Laporan" : "Laporan WFH" },
       ]}
     >
       <div className="flex items-center justify-between">

@@ -422,7 +422,7 @@ export default function WfhAbsensi() {
     return (
       <AppLayout
         breadcrumbs={[
-          { label: "Beranda", href: "/profil" },
+          { label: "Beranda", href: "/" },
           { label: "Pegawai" },
           { label: "Absensi WFH" },
         ]}
@@ -435,7 +435,7 @@ export default function WfhAbsensi() {
   return (
     <AppLayout
       breadcrumbs={[
-        { label: "Beranda", href: "/profil" },
+        { label: "Beranda", href: "/" },
         { label: "Pegawai" },
         { label: "Absensi WFH" },
       ]}

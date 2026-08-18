@@ -373,7 +373,7 @@ export default function WfhMonitoring() {
   return (
     <AppLayout
       breadcrumbs={[
-        { label: "Beranda" },
+        { label: "Beranda", href: "/" },
         { label: "Admin WFH" },
         { label: "Monitor WFH" },
       ]}

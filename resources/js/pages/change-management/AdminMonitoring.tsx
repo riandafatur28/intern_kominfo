@@ -96,7 +96,7 @@ export default function AdminMonitoring() {
 
   if (selected) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Admin" }, { label: "Detail Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Admin" }, { label: "Detail Permohonan" }]}>
         <button
           className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
           onClick={() => setSelected(null)}
@@ -130,7 +130,7 @@ export default function AdminMonitoring() {
   }
 
   return (
-    <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: "Admin" }, { label: "Monitoring" }]}>
+    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Admin" }, { label: "Monitoring" }]}>
       <PageTitle
         title="Monitoring Inisiasi Perubahan"
         subtitle={`Total ${counts.total} permohonan • Bulan ${BULAN[now.getMonth()]} ${now.getFullYear()}`}

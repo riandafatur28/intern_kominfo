@@ -168,7 +168,7 @@ export default function ProfilSaya() {
   if (status === "loading") {
     return (
       <AppLayout breadcrumbs={[
-        { label: "Dashboard", href: "/" },
+        { label: "Beranda", href: "/" },
         { label: "Profil Saya" },
       ]}>
         <PageTitle title="Profil Saya" subtitle="Memuat data..." />
@@ -178,7 +178,7 @@ export default function ProfilSaya() {
 
   return (
     <AppLayout breadcrumbs={[
-      { label: "Dashboard", href: "/" },
+      { label: "Beranda", href: "/" },
       { label: "Profil Saya" },
     ]}>
       <PageTitle
