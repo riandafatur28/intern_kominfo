@@ -12,7 +12,7 @@ export interface TopAppBarProps {
 }
 
 export default function TopAppBar({
-  breadcrumbs = [{ label: "Dashboard" }],
+  breadcrumbs = [{ label: "Beranda" }],
   sidebarOpen = true,
   onToggleSidebar,
 }: TopAppBarProps) {
@@ -48,11 +48,11 @@ export default function TopAppBar({
                 </svg>
               )}
               {crumb.href ? (
-                <Link to={crumb.href} className="text-[#424655] hover:text-[#256EEF] transition-colors">
+                <Link to={crumb.href} className="text-[#256EEF] hover:underline transition-colors">
                   {crumb.label}
                 </Link>
               ) : (
-                <span className="font-bold text-[#256EEF]">{crumb.label}</span>
+                <span className="font-bold text-[#767676]">{crumb.label}</span>
               )}
             </span>
           ))}

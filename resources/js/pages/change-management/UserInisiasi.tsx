@@ -324,7 +324,7 @@ export default function UserInisiasi() {
   if (detailPkg) {
     const init = detailPkg.initiation;
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: roleCrumb }, { label: "Detail Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: roleCrumb }, { label: "Detail Permohonan" }]}>
         <button
           className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
           onClick={() => setDetailPkg(null)}
@@ -382,7 +382,7 @@ export default function UserInisiasi() {
   /* ── Form view (dibuka dari "+ Ajukan Permohonan" / Edit) ─────── */
   if (showForm) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: roleCrumb }, { label: "Ajukan Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: roleCrumb }, { label: "Ajukan Permohonan" }]}>
         <PageTitle
           title={editingId != null ? "Edit Permohonan" : "Ajukan Permohonan"}
           subtitle="Isi detail perubahan yang diajukan"
@@ -623,7 +623,7 @@ export default function UserInisiasi() {
 
   /* ── List view (Permohonan Saya / Riwayat) ────────────────────── */
   return (
-    <AppLayout breadcrumbs={[{ label: "Beranda" }, { label: roleCrumb }, { label: "Inisiasi Perubahan" }]}>
+    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: roleCrumb }, { label: "Inisiasi Perubahan" }]}>
       <div className="flex items-center justify-between gap-4">
         <PageTitle
           title="Inisiasi Perubahan"

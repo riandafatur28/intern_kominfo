@@ -153,14 +153,14 @@ export default function WfhLaporanTim() {
 
   if (status === "loading" && reports.length === 0) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Laporan Tim" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Laporan Tim" }]}>
         <div className="text-center py-12 text-sm text-[#767676]">Memuat...</div>
       </AppLayout>
     );
   }
 
   return (
-    <AppLayout breadcrumbs={[{ label: "WFH" }, { label: "Laporan Tim" }]}>
+    <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Laporan Tim" }]}>
       <div className="flex items-center justify-between">
         <PageTitle title="Laporan Tim" subtitle={`${total} laporan`} />
         <Button onClick={() => setShowCreate(true)}>
