@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import Button from "../../components/ui/Button";
 import Toast from "../../components/ui/Toast";
@@ -57,6 +58,10 @@ interface SessionState {
 }
 
 export default function WfhAbsensi() {
+  const navigate = useNavigate();
+  const { date: dateParam } = useParams<{ date?: string }>();
+  const isForm = !!dateParam;
+
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -66,9 +71,8 @@ export default function WfhAbsensi() {
   const [dateFilter, setDateFilter] = useState(todayStr());
 
   /* ── Form absensi + bukti kerja ─────────────────────────────── */
-  const [formOpen, setFormOpen] = useState(false);
   const formRef = useRef<HTMLDivElement>(null);
-  const [formDate, setFormDate] = useState(todayStr());
+  const [formDate, setFormDate] = useState(dateParam ?? todayStr());
   const [report, setReport] = useState<WfhReport | null>(null);
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [activities, setActivities] = useState<WfhReportActivity[]>([]);
@@ -179,15 +183,21 @@ export default function WfhAbsensi() {
     setActivities(currentReport?.activities ?? []);
   }
 
-  /* ── Init ────────────────────────────────────────────────────── */
+  /* ── Init / sync dengan rute ─────────────────────────────────── */
   useEffect(() => {
     (async () => {
       setLoading(true);
-      await Promise.all([loadTable(), loadFormForDate(todayStr())]);
+      setFormDate(dateParam ?? todayStr());
+      if (isForm && dateParam) {
+        setReports([]);
+        await loadFormForDate(dateParam);
+      } else {
+        await Promise.all([loadTable(), loadFormForDate(todayStr())]);
+      }
       setLoading(false);
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- init-only, run once
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- sengaja hanya 2 dep
+  }, [dateParam]);
 
   /* ── Reload server-side saat filter tanggal/bulan berubah ───── */
   const firstFilter = useRef(true);
@@ -208,12 +218,9 @@ export default function WfhAbsensi() {
     return res.data;
   }
 
-  /* ── Open form ───────────────────────────────────────────────── */
-  async function openFormDate(date: string) {
-    setFormDate(date);
-    await loadFormForDate(date);
-    setFormOpen(true);
-    setTimeout(() => formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+  /* ── Open form (navigasi ke rute tanggal) ───────────────────── */
+  function openFormDate(date: string) {
+    navigate(`/wfh/absensi/${date}`);
   }
 
   function handleTambahAbsensi() {
@@ -387,7 +394,6 @@ export default function WfhAbsensi() {
       <AppLayout
         breadcrumbs={[
           { label: "Beranda", href: "/" },
-          { label: "Pegawai" },
           { label: "Absensi WFH" },
         ]}
       >
@@ -416,11 +422,18 @@ export default function WfhAbsensi() {
 
   return (
     <AppLayout
-      breadcrumbs={[
-        { label: "Beranda", href: "/" },
-        { label: "Pegawai" },
-        { label: "Absensi WFH" },
-      ]}
+      breadcrumbs={
+        isForm
+          ? [
+              { label: "Beranda", href: "/" },
+              { label: "Absensi WFH", href: "/wfh/absensi" },
+              { label: "Isi Absensi" },
+            ]
+          : [
+              { label: "Beranda", href: "/" },
+              { label: "Absensi WFH" },
+            ]
+      }
     >
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1">
@@ -433,7 +446,7 @@ export default function WfhAbsensi() {
       </div>
 
       {/* ── Tombol tambah absensi (di atas filtering, sembunyi saat form) ── */}
-      {!formOpen &&
+      {!isForm &&
         (isWfhDay(todayStr()) ? (
           <div className="flex justify-end mb-4">
             <Button onClick={handleTambahAbsensi} className="gap-2">
@@ -452,7 +465,7 @@ export default function WfhAbsensi() {
         ))}
 
       {/* ── Toolbar: filtering (sembunyi saat form terbuka) ────── */}
-      {!formOpen && (
+      {!isForm && (
       <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
         <FilterDropdown align="left" badge={Number(!!dateFilter)}>
           <div className="flex flex-col gap-3">
@@ -472,7 +485,7 @@ export default function WfhAbsensi() {
       )}
 
       {/* ── Tabel riwayat absensi (sembunyi saat form terbuka) ── */}
-      {!formOpen && (
+      {!isForm && (
       <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
         {rows.length === 0 ? (
           <p className="text-center text-[13px] text-[#9CA3AF] py-8">
@@ -581,7 +594,7 @@ export default function WfhAbsensi() {
       )}
 
       {/* ── Form: absensi + bukti kerja ─────────────────────────── */}
-      {formOpen && (
+      {isForm && (
         <div ref={formRef} className="flex flex-col gap-4 mt-6 scroll-mt-6">
           {/* Tanggal WFH */}
           <div className="bg-white border border-[#e5e7eb] rounded-lg p-4">
@@ -791,7 +804,7 @@ export default function WfhAbsensi() {
               variant="outline"
               className="!bg-[#e5e7eb] !border-[#e5e7eb] !text-[#374151] hover:!bg-gray-200"
               disabled={saving}
-              onClick={() => setFormOpen(false)}
+              onClick={() => navigate("/wfh/absensi")}
             >
               Tutup Form
             </Button>

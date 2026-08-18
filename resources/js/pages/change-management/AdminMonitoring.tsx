@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
@@ -26,6 +27,8 @@ const BULAN = [
 ];
 
 export default function AdminMonitoring() {
+  const navigate = useNavigate();
+  const { id: detailId } = useParams<{ id?: string }>();
   const [status, setStatus] = useState<PageStatus>("loading");
   const [errMsg, setErrMsg] = useState("");
   const [packages, setPackages] = useState<ChangePackage[]>([]);
@@ -61,21 +64,38 @@ export default function AdminMonitoring() {
   }
 
   useEffect(() => {
-    load();
+    if (!detailId) {
+      load();
+      return;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [statusFilter]);
+  }, [statusFilter, detailId]);
 
   // listChangePackages() is a light "summary" read (no attachment rows) so the table
   // stays cheap; fetch the full package (with lampiran) when a row is opened, same as
   // staf's detail view does via getChangePackage().
-  async function handleViewDetail(id: number) {
-    setErrMsg("");
-    try {
-      const res = await getChangePackage(id);
-      setSelected(res.data);
-    } catch (e: unknown) {
-      setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
+  useEffect(() => {
+    if (!detailId) {
+      setSelected(null);
+      return;
     }
+    let cancelled = false;
+    setSelected(null);
+    setErrMsg("");
+    getChangePackage(Number(detailId))
+      .then((res) => {
+        if (!cancelled) setSelected(res.data);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setErrMsg(extractChangeError(e, "Gagal memuat detail permohonan."));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [detailId]);
+
+  function handleViewDetail(id: number) {
+    navigate(`/change-management/monitoring/${id}`);
   }
 
   const counts = useMemo(() => {
@@ -103,12 +123,12 @@ export default function AdminMonitoring() {
 
   const now = new Date();
 
-  if (selected) {
+  if (detailId && selected) {
     return (
-      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Admin" }, { label: "Detail Permohonan" }]}>
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Monitoring", href: "/change-management/monitoring" }, { label: "Detail Permohonan" }]}>
         <button
           className="inline-flex items-center gap-1 text-[#256EEF] text-sm hover:underline mb-4"
-          onClick={() => setSelected(null)}
+          onClick={() => navigate("/change-management/monitoring")}
         >
           <ArrowLeftIcon size={16} /> Kembali
         </button>
@@ -138,8 +158,18 @@ export default function AdminMonitoring() {
     );
   }
 
+  if (detailId && !selected) {
+    return (
+      <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Monitoring", href: "/change-management/monitoring" }, { label: "Detail Permohonan" }]}>
+        <div className="text-center py-12 text-sm text-[#767676]">
+          {errMsg || "Memuat..."}
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
-<AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Admin" }, { label: "Monitoring" }]}>
+<AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Monitoring" }]}>
       <PageTitle
         title="Monitoring Inisiasi Perubahan"
         subtitle={`Total ${counts.total} permohonan • Bulan ${BULAN[now.getMonth()]} ${now.getFullYear()}`}

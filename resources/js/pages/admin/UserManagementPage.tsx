@@ -211,7 +211,6 @@ export default function UserManagementPage() {
         <AppLayout
             breadcrumbs={[
                 { label: "Beranda", href: "/" },
-                { label: "Admin WFH" },
                 { label: "Manajemen Pengguna" },
             ]}
         >

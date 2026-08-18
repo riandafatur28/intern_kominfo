@@ -173,7 +173,6 @@ export default function SettingsPage() {
         <AppLayout
             breadcrumbs={[
                 { label: "Beranda", href: "/" },
-                { label: "Admin WFH" },
                 { label: "Pengaturan" },
             ]}
         >

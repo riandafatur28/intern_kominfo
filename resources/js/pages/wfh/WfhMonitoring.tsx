@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
@@ -60,7 +61,8 @@ export default function WfhMonitoring() {
   const canTReject = hasPermission("wfh.team_report.reject");
 
   /* ── Tabs & shared ───────────────────────────────────────────── */
-  const [tab, setTab] = useState<Tab>("individu");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: Tab = searchParams.get("tab") === "tim" ? "tim" : "individu";
   const [teams, setTeams] = useState<Team[]>([]);
   const [toastOpen, setToastOpen] = useState(false);
   const [toastMsg, setToastMsg] = useState("");
@@ -206,7 +208,6 @@ export default function WfhMonitoring() {
 
   useEffect(() => {
     if (tab === "tim") loadTeamReports();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, tSearch, tTeamId, tStatus, tDate]);
 
   useEffect(() => {
@@ -369,7 +370,6 @@ export default function WfhMonitoring() {
     <AppLayout
       breadcrumbs={[
         { label: "Beranda", href: "/" },
-        { label: "Admin WFH" },
         { label: "Monitor WFH" },
       ]}
     >
@@ -382,14 +382,14 @@ export default function WfhMonitoring() {
       <div className="flex gap-3 mb-6">
         <TabButton
           active={tab === "individu"}
-          onClick={() => setTab("individu")}
+          onClick={() => setSearchParams({})}
           icon={<UserIcon size={18} />}
         >
           Laporan Individu
         </TabButton>
         <TabButton
           active={tab === "tim"}
-          onClick={() => setTab("tim")}
+          onClick={() => setSearchParams({ tab: "tim" })}
           icon={<UsersIcon size={18} />}
         >
           Laporan Tim
@@ -1011,16 +1011,6 @@ function UsersIcon({ size = 18 }: { size?: number }) {
       <path d="M15 13.5c1.7.5 2.8 1.8 3.2 3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
     </svg>
   );
-}
-
-function inisial(name?: string | null): string {
-  if (!name) return "?";
-  return name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0]?.toUpperCase())
-    .join("");
 }
 
 
