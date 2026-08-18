@@ -29,6 +29,8 @@ export interface SidebarProps {
 function isActive(href: string | undefined, matchPaths: string[] | undefined, currentPath: string): boolean {
   if (!href) return false;
   if (currentPath === href) return true;
+  // Sub-rute dinamis (mis. /wfh/absensi/2026-08-10) tetap men-highlight menu induk.
+  if (currentPath.startsWith(href + "/")) return true;
   if (matchPaths?.includes(currentPath)) return true;
   return false;
 }

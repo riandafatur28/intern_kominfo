@@ -2,15 +2,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import Button from "../../components/ui/Button";
+import PageTitle from "../../components/ui/PageTitle";
 import Toast from "../../components/ui/Toast";
 import Modal from "../../components/ui/Modal";
+import DatePicker from "../../components/ui/DatePicker";
+import Pagination from "../../components/ui/Pagination";
 import DropdownMenu from "../../components/ui/DropdownMenu";
 import TimePicker from "../../components/ui/TimePicker";
 import {
   AddIcon,
+  DownloadIcon,
   EditIcon,
   EyeIcon,
   MoreVerticalIcon,
+  SaveIcon,
   TrashIcon,
 } from "../../components/ui/AdminActionIcons";
 import FilterDropdown from "../../components/ui/FilterDropdown";
@@ -22,13 +27,11 @@ import { addReportAttendance, createReportActivity, createWfhReport,
   getWfhSessionConfig,
   listWfhReports,
   submitWfhReport,
-  updateWfhReport,
   type WfhReport,
   type WfhReportActivity,
 } from "../../api/wfh";
 import { openPdfDirect } from "../../utils/swAuth";
 import { catatanLaporan } from "../../utils/wfhReportNote";
-import { formatTanggalLengkap } from "../../utils/userDisplay";
 import {
   capFirst,
   fmtWaktu,
@@ -69,6 +72,8 @@ export default function WfhAbsensi() {
   const [reports, setReports] = useState<WfhReport[]>([]);
   const [allowedDays, setAllowedDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [dateFilter, setDateFilter] = useState(todayStr());
+  const [statusFilter, setStatusFilter] = useState("");
+  const [page, setPage] = useState(1);
 
   /* ── Form absensi + bukti kerja ─────────────────────────────── */
   const formRef = useRef<HTMLDivElement>(null);
@@ -77,6 +82,9 @@ export default function WfhAbsensi() {
   const [sessions, setSessions] = useState<SessionState[]>([]);
   const [activities, setActivities] = useState<WfhReportActivity[]>([]);
   const [imgFailed, setImgFailed] = useState<Record<string, boolean>>({});
+
+  const isSubmitted =
+    report?.status === "pending" || report?.status === "approved";
 
   /* ── Upload ──────────────────────────────────────────────────── */
   const [uploadingSession, setUploadingSession] = useState<string | null>(null);
@@ -99,15 +107,6 @@ export default function WfhAbsensi() {
   function addKegRow() {
     setKegRows((prev) => [...prev, { id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
   }
-
-  /* Simpan/Batal hanya muncul saat inputan terakhir terisi */
-  const lastKegRow = kegRows[kegRows.length - 1];
-  const lastKegFilled =
-    !!lastKegRow &&
-    (lastKegRow.nama.trim() !== "" ||
-      lastKegRow.start_time !== "" ||
-      lastKegRow.end_time !== "" ||
-      lastKegRow.link.trim() !== "");
 
   function updateKegRow(id: number, field: "nama" | "start_time" | "end_time" | "link", value: string) {
     setKegRows((prev) => prev.map((r) => (r.id === id ? { ...r, [field]: value } : r)));
@@ -357,33 +356,23 @@ export default function WfhAbsensi() {
     }
   }
 
-  /* ── Save report (draft) ─────────────────────────────────────── */
-  async function handleSaveReport() {
-    setSaving(true);
-    try {
-      const rpt = await ensureReport(formDate);
-      await updateWfhReport(rpt.id, { report_date: formDate });
-      showToast("Laporan disimpan.", "success");
-      loadTable();
-    } catch (e: unknown) {
-      showToast(extractWfhError(e, "Gagal menyimpan laporan."), "error");
-    } finally {
-      setSaving(false);
-    }
-  }
-
   /* ── Riwayat rows: olah data dari response server (sudah difilter) ── */
   const rows = useMemo(() => {
     // Satu baris per tanggal; ambil laporan pertama per tanggal (urutan desc).
     const byDate = new Map<string, WfhReport>();
     for (const r of reports) {
+      if (statusFilter && r.status !== statusFilter) continue;
       const d = normDate(r.report_date);
       if (!byDate.has(d)) byDate.set(d, r);
     }
     return [...byDate.entries()]
       .map(([date, report]) => ({ date, report }))
       .sort((a, b) => b.date.localeCompare(a.date));
-  }, [reports]);
+  }, [reports, statusFilter]);
+
+  const PAGE_SIZE = 15;
+  const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const rowLastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 
   /* ── Hari WFH (dari konfigurasi admin) ───────────────────────── */
   const isWfhDay = (date: string) => allowedDays.includes(wfhDayNumber(date));
@@ -436,51 +425,66 @@ export default function WfhAbsensi() {
       }
     >
       {/* ── Header ─────────────────────────────────────────────── */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-[32px] font-bold text-black leading-10">
-          Absensi WFH
-        </h1>
-        <p className="text-lg text-[#767676]">
-          Pantau status kehadiran dan pengumpulan tugas WFH Anda.
-        </p>
-      </div>
-
-      {/* ── Tombol tambah absensi (di atas filtering, sembunyi saat form) ── */}
-      {!isForm &&
-        (isWfhDay(todayStr()) ? (
-          <div className="flex justify-end mb-4">
+      {/* ── Header + tombol tambah (satu baris, pola sama dgn halaman lain) ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageTitle
+          title="Absensi WFH"
+          subtitle="Pantau status kehadiran dan pengumpulan tugas WFH Anda."
+        />
+        {!isForm &&
+          (isWfhDay(todayStr()) ? (
             <Button onClick={handleTambahAbsensi} className="gap-2">
               <AddIcon size={17} />
               Tambah Absensi
             </Button>
-          </div>
-        ) : (
-          <div className="flex justify-end mb-4">
+          ) : (
             <div className="w-full rounded-[10px] border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
               Hari ini bukan hari WFH Anda. Absensi dan pengumpulan tugas hanya
               dapat dilakukan pada hari WFH yang ditentukan admin (
               {allowedDays.map((d) => DAY_NAMES[d]).join(", ")}).
             </div>
-          </div>
-        ))}
+          ))}
+      </div>
 
       {/* ── Toolbar: filtering (sembunyi saat form terbuka) ────── */}
       {!isForm && (
-      <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
-        <FilterDropdown align="left" badge={Number(!!dateFilter)}>
-          <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="ml-auto">
+          <FilterDropdown badge={Number(dateFilter !== todayStr()) + Number(!!statusFilter)}>
+            <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
                 Tanggal
                 <input
                   type="date"
                   value={dateFilter}
-                  onChange={(e) => setDateFilter(e.target.value)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                  onChange={(e) => {
+                    setDateFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
                 />
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                Status Laporan
+                <select
+                  value={statusFilter}
+                  onChange={(e) => {
+                    setStatusFilter(e.target.value);
+                    setPage(1);
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                >
+                  <option value="">Semua Status</option>
+                  {Object.entries(STATUS_LABEL).map(([val, { label }]) => (
+                    <option key={val} value={val}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </label>
             </div>
           </FilterDropdown>
-        <span className="text-sm text-[#767676]">{rows.length} hari</span>
+        </div>
       </div>
       )}
 
@@ -492,6 +496,7 @@ export default function WfhAbsensi() {
             Belum ada data. Klik &quot;+ Tambah Absensi&quot; untuk mengisi.
           </p>
         ) : (
+          <>
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -511,7 +516,7 @@ export default function WfhAbsensi() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ date, report: rep }) => {
+              {pageRows.map(({ date, report: rep }) => {
                 const acts: {
                   label: string;
                   icon: React.ReactNode;
@@ -589,21 +594,34 @@ export default function WfhAbsensi() {
               })}
             </tbody>
           </table>
+          <div className="px-4 py-3 border-t border-[#E0E9F2]">
+            <Pagination
+              currentPage={page}
+              lastPage={rowLastPage}
+              total={rows.length}
+              from={(page - 1) * PAGE_SIZE + 1}
+              to={Math.min(page * PAGE_SIZE, rows.length)}
+              unit="laporan"
+              onPageChange={setPage}
+            />
+          </div>
+          </>
         )}
       </div>
       )}
 
       {/* ── Form: absensi + bukti kerja ─────────────────────────── */}
       {isForm && (
-        <div ref={formRef} className="flex flex-col gap-4 mt-6 scroll-mt-6">
-          {/* Tanggal WFH */}
-          <div className="bg-white border border-[#e5e7eb] rounded-lg p-4">
-            <label className="text-xs font-bold text-[#374151] block mb-1.5">
-              Tanggal WFH
-            </label>
-            <div className="text-[13px] text-[#374151]">
-              {formatTanggalLengkap(formDate)}
-            </div>
+        <div ref={formRef} className="flex flex-col gap-4 scroll-mt-6">
+          {/* Tanggal WFH — rata kanan, tanpa kartu (transparan) */}
+          <div className="ml-auto w-full max-w-[24rem]">
+            <DatePicker
+              label="Tanggal WFH"
+              value={formDate}
+              onChange={(v) => {
+                if (v) openFormDate(v);
+              }}
+            />
           </div>
 
           {!isWfhDay(formDate) && (
@@ -665,7 +683,7 @@ export default function WfhAbsensi() {
                           disabled={saving}
                           className="absolute top-1 right-1 bg-white/80 hover:bg-white rounded-full p-1 text-[#b91c1c] text-xs"
                           title="Hapus foto"
-                          hidden={!session.attendanceId}
+                          hidden={!session.attendanceId || isSubmitted}
                         >
                           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
                             <path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -699,6 +717,7 @@ export default function WfhAbsensi() {
               <h3 className="text-[15px] font-bold text-[#1f2937]">
                 Daftar Kegiatan
               </h3>
+              {!isSubmitted && (
               <button
                 onClick={() => setKegModal(true)}
                 disabled={saving}
@@ -707,6 +726,7 @@ export default function WfhAbsensi() {
                 <AddIcon size={14} />
                 Tambah Kegiatan
               </button>
+              )}
             </div>
 
             {activities.length > 0 ? (
@@ -756,6 +776,7 @@ export default function WfhAbsensi() {
                           )}
                         </td>
                         <td className="px-4 py-3 text-center">
+                          {!isSubmitted && (
                           <button
                             onClick={() => handleDeleteActivity(act.id)}
                             disabled={saving}
@@ -764,6 +785,7 @@ export default function WfhAbsensi() {
                           >
                             <TrashIcon size={16} />
                           </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -781,32 +803,41 @@ export default function WfhAbsensi() {
 
           {/* Action buttons */}
           <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              className="!bg-[#1E3A5F] !border-[#1E3A5F] !text-white hover:!bg-[#16304f]"
-              disabled={saving}
-              onClick={handlePdfButton}
-            >
-              {report?.status === "approved" ? "Download" : "Preview"} PDF
-            </Button>
-            <Button variant="primary" disabled={saving} onClick={handleSaveReport}>
-              {saving ? "Menyimpan..." : "Simpan"}
-            </Button>
-            <Button
-              variant="primary"
-              className="!bg-[#22c55e] !border-[#22c55e] hover:!bg-[#16a34a]"
-              disabled={saving}
-              onClick={handleSubmit}
-            >
-              {saving ? "Mengirim..." : "Kirim Laporan"}
-            </Button>
+            {isSubmitted && (
+              <Button
+                variant="outline"
+                className="!bg-[#1E3A5F] !border-[#1E3A5F] !text-white hover:!bg-[#16304f]"
+                disabled={saving}
+                onClick={handlePdfButton}
+              >
+                {report?.status === "approved" ? (
+                  <>
+                    <DownloadIcon size={16} /> Download PDF
+                  </>
+                ) : (
+                  <>
+                    <EyeIcon size={16} /> Preview PDF
+                  </>
+                )}
+              </Button>
+            )}
+            {!isSubmitted && (
+              <Button
+                variant="primary"
+                className="!bg-[#22c55e] !border-[#22c55e] hover:!bg-[#16a34a]"
+                disabled={saving}
+                onClick={handleSubmit}
+              >
+                <SendIcon size={16} /> {saving ? "Mengirim..." : "Kirim Laporan"}
+              </Button>
+            )}
             <Button
               variant="outline"
               className="!bg-[#e5e7eb] !border-[#e5e7eb] !text-[#374151] hover:!bg-gray-200"
               disabled={saving}
               onClick={() => navigate("/wfh/absensi")}
             >
-              Tutup Form
+              <BackIcon size={16} /> Kembali
             </Button>
           </div>
         </div>
@@ -831,7 +862,7 @@ export default function WfhAbsensi() {
           {/* ── Scrollable form rows ────────────────────────────── */}
           <div className="space-y-4 max-h-[420px] overflow-y-auto pr-1">
             {kegRows.map((row, idx) => (
-              <div key={row.id} className="relative border-b border-white/40 pb-4 last:border-b-0">
+              <div key={row.id} className="relative border-b border-white/40 pb-4 last:border-b-0 last:pb-0">
                 {kegRows.length > 1 && (
                   <div className="flex items-center justify-between mb-2.5">
                     <span className="text-[11px] text-[#64748B] font-bold">
@@ -839,8 +870,9 @@ export default function WfhAbsensi() {
                     </span>
                     <button
                       onClick={() => removeKegRow(row.id)}
-                      className="text-[#F87171] hover:text-red-600 text-xs font-bold"
+                      className="inline-flex items-center gap-1 text-[#F87171] hover:text-red-600 text-xs font-bold"
                     >
+                      <TrashIcon size={13} />
                       Hapus
                     </button>
                   </div>
@@ -883,9 +915,11 @@ export default function WfhAbsensi() {
                 </div>
               </div>
             ))}
+          </div>
 
-            {/* ── Tambah (kanan) + Simpan/Batal — hanya saat inputan terakhir terisi ── */}
-            <div className="pt-4 flex flex-col items-end gap-3">
+          {/* ── Tambah row (rapat ke form) + Simpan/Batal (selalu terlihat) ── */}
+          <div className="pt-4">
+            <div className="flex justify-end">
               <button
                 onClick={addKegRow}
                 className="inline-flex items-center gap-1.5 bg-[#1E3A5F] text-white text-sm font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity"
@@ -893,26 +927,26 @@ export default function WfhAbsensi() {
                 <AddIcon size={15} />
                 Tambah Kegiatan
               </button>
-              {lastKegFilled && (
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={() => {
-                      setKegModal(false);
-                      setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
-                    }}
-                    className="bg-[#E2E8F0] text-[#475569] text-sm font-bold px-9 py-2.5 rounded-lg hover:opacity-80 transition-opacity"
-                  >
-                    Batal
-                  </button>
-                  <button
-                    disabled={saving || !kegRows.some((r) => r.nama.trim())}
-                    onClick={handleSaveAllActivities}
-                    className="bg-[#2563EB] text-white text-sm font-bold px-10 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  >
-                    {saving ? "Menyimpan..." : "Simpan"}
-                  </button>
-                </div>
-              )}
+            </div>
+            <div className="flex items-center justify-end gap-3 mt-10">
+              <button
+                onClick={() => {
+                  setKegModal(false);
+                  setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
+                }}
+                className="inline-flex items-center gap-1.5 bg-[#E2E8F0] text-[#475569] text-sm font-bold px-9 py-2.5 rounded-lg hover:opacity-80 transition-opacity"
+              >
+                <XIcon size={15} />
+                Batal
+              </button>
+              <button
+                disabled={saving || !kegRows.some((r) => r.nama.trim())}
+                onClick={handleSaveAllActivities}
+                className="inline-flex items-center gap-1.5 bg-[#2563EB] text-white text-sm font-bold px-10 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <SaveIcon size={15} />
+                {saving ? "Menyimpan..." : "Simpan"}
+              </button>
             </div>
           </div>
         </div>
@@ -930,6 +964,30 @@ export default function WfhAbsensi() {
 }
 
 /* ── Helpers & icons ──────────────────────────────────────────── */
+
+function BackIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M9.5 4.5L4 10l5.5 5.5M4 10h12" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function SendIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M3 10l14-6-3.5 12L9 12l3-2-3-2-6 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function XIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20" fill="none">
+      <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}
 
 function CheckIcon() {
   return (

@@ -9,6 +9,7 @@ import Pagination from "../../components/ui/Pagination";
 import Toast from "../../components/ui/Toast";
 import DropdownMenu from "../../components/ui/DropdownMenu";
 import {
+  AddIcon,
   DownloadIcon,
   EyeIcon,
   MoreVerticalIcon,
@@ -357,6 +358,29 @@ export default function WfhMonitoring() {
   const tPageRows = tRows.slice((tPage - 1) * PAGE_SIZE, tPage * PAGE_SIZE);
   const tRowLastPage = Math.max(1, Math.ceil(tRows.length / PAGE_SIZE));
 
+  // ── Statistik (pola Monitoring Perubahan: hitung client-side) ──
+  const iCounts = useMemo(() => {
+    const c = { total: reports.length, pending: 0, approved: 0, rejected: 0 };
+    for (const r of reports) {
+      if (r.status === "pending") c.pending++;
+      else if (r.status === "approved") c.approved++;
+      else if (r.status === "rejected") c.rejected++;
+    }
+    return c;
+  }, [reports]);
+
+  const tCounts = useMemo(() => {
+    const c = { total: tRows.length, pending: 0, approved: 0, rejected: 0 };
+    for (const r of tRows) {
+      if (r.status === "pending") c.pending++;
+      else if (r.status === "approved") c.approved++;
+      else if (r.status === "rejected") c.rejected++;
+    }
+    return c;
+  }, [tRows]);
+
+  const counts = tab === "individu" ? iCounts : tCounts;
+
   function attendanceState(
     r: WfhReport,
     session: (typeof SESI)[number]
@@ -373,13 +397,21 @@ export default function WfhMonitoring() {
         { label: "Monitor WFH" },
       ]}
     >
-      <PageTitle
-        title="Monitoring WFH"
-        subtitle="Pemantauan laporan dan absensi WFH pegawai"
-      />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <PageTitle
+          title="Monitoring WFH"
+          subtitle="Pemantauan laporan dan absensi WFH pegawai"
+        />
+        {tab === "tim" && hasPermission("wfh.team_report.create") && (
+          <Button onClick={() => setShowCreate(true)} className="gap-2">
+            <AddIcon size={17} />
+            Buat Laporan Tim
+          </Button>
+        )}
+      </div>
 
       {/* ── Tabs (gaya inisiasi) ────────────────────────────────── */}
-      <div className="flex gap-3 mb-6">
+      <div className="flex gap-3">
         <TabButton
           active={tab === "individu"}
           onClick={() => setSearchParams({})}
@@ -396,11 +428,19 @@ export default function WfhMonitoring() {
         </TabButton>
       </div>
 
+      {/* ── Statistik (pola Monitoring Perubahan) ────────────────── */}
+      <div className="grid grid-cols-4 gap-5">
+        <StatCard value={counts.total} label="Total" color="text-[#141D23]" />
+        <StatCard value={counts.pending} label="Menunggu" color="text-yellow-600" />
+        <StatCard value={counts.approved} label="Disetujui" color="text-green-600" />
+        <StatCard value={counts.rejected} label="Ditolak" color="text-red-600" />
+      </div>
+
       {tab === "individu" ? (
         /* ══════════════ TAB INDIVIDU ══════════════ */
         <>
           {/* Filters: satu dropdown + cari (pola Manajemen Pengguna) */}
-          <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[220px]">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#767676]">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -459,7 +499,7 @@ export default function WfhMonitoring() {
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
-                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
                     />
                   </label>
                 </div>
@@ -657,12 +697,15 @@ export default function WfhMonitoring() {
               </table>
             )}
 
-            {rows.length > PAGE_SIZE && (
+            {rows.length > 0 && (
               <div className="px-4 py-3 border-t border-[#E0E9F2]">
                 <Pagination
                   currentPage={page}
                   lastPage={rowLastPage}
                   total={rows.length}
+                  from={(page - 1) * PAGE_SIZE + 1}
+                  to={Math.min(page * PAGE_SIZE, rows.length)}
+                  unit="laporan"
                   onPageChange={setPage}
                 />
               </div>
@@ -673,7 +716,7 @@ export default function WfhMonitoring() {
         /* ══════════════ TAB TIM ══════════════ */
         <>
           {/* Filters: cari + dropdown (sama seperti individu) */}
-          <div className="bg-white rounded-[10px] shadow-sm p-5 mb-6 flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <div className="relative flex-1 min-w-[220px]">
               <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[#767676]">
                 <svg width="16" height="16" viewBox="0 0 20 20" fill="none">
@@ -726,20 +769,11 @@ export default function WfhMonitoring() {
                     type="date"
                     value={tDate}
                     onChange={(e) => setTDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
                   />
                 </label>
               </div>
             </FilterDropdown>
-          </div>
-
-          <div className="flex items-center justify-between mb-6">
-            <p className="text-sm text-[#767676]">{tRows.length} laporan</p>
-            {hasPermission("wfh.team_report.create") && (
-              <Button onClick={() => setShowCreate(true)}>
-                + Buat Laporan Tim
-              </Button>
-            )}
           </div>
 
           <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
@@ -830,12 +864,15 @@ export default function WfhMonitoring() {
               </tbody>
             </table>
 
-            {tRowLastPage > 1 && (
+            {tRows.length > 0 && (
               <div className="px-4 py-3 border-t border-[#E0E9F2]">
                 <Pagination
                   currentPage={tPage}
                   lastPage={tRowLastPage}
                   total={tRows.length}
+                  from={(tPage - 1) * PAGE_SIZE + 1}
+                  to={Math.min(tPage * PAGE_SIZE, tRows.length)}
+                  unit="laporan"
                   onPageChange={setTPage}
                 />
               </div>
@@ -868,7 +905,7 @@ export default function WfhMonitoring() {
               onClick={handleConfirmReject}
               disabled={saving || !rejectReason.trim()}
             >
-              {saving ? "Menyimpan..." : "Tolak"}
+              <RejectIcon /> {saving ? "Menyimpan..." : "Tolak"}
             </Button>
           </div>
         </div>
@@ -903,7 +940,7 @@ export default function WfhMonitoring() {
               type="date"
               value={createDate}
               onChange={(e) => setCreateDate(e.target.value)}
-              className="border border-[#D0D5DD] rounded-lg px-3 py-2 text-sm"
+              className="border border-[#D0D5DD] rounded-lg px-3 py-2 text-sm bg-white"
               required
             />
           </div>
@@ -918,7 +955,7 @@ export default function WfhMonitoring() {
               Batal
             </Button>
             <Button type="submit" disabled={saving || !createTeamId}>
-              {saving ? "Menyimpan..." : "Buat"}
+              <AddIcon size={16} /> {saving ? "Menyimpan..." : "Buat"}
             </Button>
           </div>
         </form>
@@ -948,7 +985,7 @@ export default function WfhMonitoring() {
               onClick={handleTConfirmReject}
               disabled={saving || !tRejectReason.trim()}
             >
-              {saving ? "Menyimpan..." : "Tolak"}
+              <RejectIcon /> {saving ? "Menyimpan..." : "Tolak"}
             </Button>
           </div>
         </div>
@@ -983,7 +1020,7 @@ function TabButton({
       onClick={onClick}
       className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-xl border transition-colors ${
         active
-          ? "bg-[#141D23] text-white border-[#141D23]"
+          ? "bg-[#256EEF] text-white border-[#256EEF]"
           : "bg-white text-[#424655] border-[#C2C6D8] hover:bg-gray-50"
       }`}
     >
@@ -1085,6 +1122,15 @@ function CheckIcon() {
         strokeLinejoin="round"
       />
     </svg>
+  );
+}
+
+function StatCard({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <div className="bg-white rounded-[10px] shadow-sm p-5">
+      <p className={`text-3xl font-bold ${color}`}>{value}</p>
+      <p className="text-sm text-[#767676] mt-1">{label}</p>
+    </div>
   );
 }
 

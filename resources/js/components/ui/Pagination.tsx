@@ -3,6 +3,9 @@ export interface PaginationProps {
     lastPage: number;
     total: number;
     onPageChange: (page: number) => void;
+    from?: number;
+    to?: number;
+    unit?: string;
 }
 
 /**
@@ -15,6 +18,9 @@ export default function Pagination({
     lastPage,
     total,
     onPageChange,
+    from,
+    to,
+    unit = "data",
 }: PaginationProps) {
     const canPrev = currentPage > 1;
     const canNext = currentPage < lastPage;
@@ -22,29 +28,34 @@ export default function Pagination({
     const btn =
         "px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-gray-50";
 
+    const label =
+        from !== undefined && to !== undefined
+            ? `Menampilkan ${from}-${to} dari ${total} ${unit}`
+            : `Halaman ${currentPage} dari ${lastPage} • ${total} ${unit}`;
+
     return (
         <div className="flex items-center justify-between gap-4 py-3">
-            <span className="text-sm text-[#767676]">
-                Halaman {currentPage} dari {lastPage} • {total} data
-            </span>
-            <div className="flex gap-2">
-                <button
-                    type="button"
-                    className={btn}
-                    disabled={!canPrev}
-                    onClick={() => canPrev && onPageChange(currentPage - 1)}
-                >
-                    Sebelumnya
-                </button>
-                <button
-                    type="button"
-                    className={btn}
-                    disabled={!canNext}
-                    onClick={() => canNext && onPageChange(currentPage + 1)}
-                >
-                    Selanjutnya
-                </button>
-            </div>
+            <span className="text-sm text-[#767676]">{label}</span>
+            {(canPrev || canNext) && (
+                <div className="flex gap-2">
+                    <button
+                        type="button"
+                        className={btn}
+                        disabled={!canPrev}
+                        onClick={() => canPrev && onPageChange(currentPage - 1)}
+                    >
+                        Sebelumnya
+                    </button>
+                    <button
+                        type="button"
+                        className={btn}
+                        disabled={!canNext}
+                        onClick={() => canNext && onPageChange(currentPage + 1)}
+                    >
+                        Selanjutnya
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

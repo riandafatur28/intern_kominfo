@@ -343,7 +343,7 @@ export default function WfhLaporan() {
               setDateFilter(e.target.value);
               setPage(1);
             }}
-            className="px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655]"
+            className="px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
           />
           <Button onClick={handleCreate}>+ Buat Laporan Baru</Button>
         </div>
@@ -368,12 +368,7 @@ export default function WfhLaporan() {
             </FormField>
 
             <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-[#333]">Kegiatan</h3>
-                <Button type="button" variant="outline" size="sm" onClick={addActivityRow}>
-                  + Tambah Kegiatan
-                </Button>
-              </div>
+              <h3 className="text-sm font-medium text-[#333]">Kegiatan</h3>
 
               {activities.map((act, i) => (
                 <div key={i} className="border border-[#E0E9F2] rounded-lg p-4 flex flex-col gap-3">
@@ -437,6 +432,10 @@ export default function WfhLaporan() {
                   </FormField>
                 </div>
               ))}
+
+              <Button type="button" variant="outline" size="sm" onClick={addActivityRow}>
+                + Tambah Kegiatan
+              </Button>
             </div>
 
             {formMsg && (
