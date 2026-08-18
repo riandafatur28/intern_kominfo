@@ -18,7 +18,6 @@ export interface SidebarMenuItem {
 }
 
 export interface SidebarProps {
-  onClose?: () => void;
   logoSrc?: string;
   logoAlt?: string;
   logoHref?: string;
@@ -35,7 +34,6 @@ function isActive(href: string | undefined, matchPaths: string[] | undefined, cu
 }
 
 export default function Sidebar({
-  onClose,
   logoSrc = "/images/Logo.svg",
   logoAlt = "Logo",
   logoHref,
@@ -69,9 +67,7 @@ export default function Sidebar({
     }
     if (item.children) {
       toggleExpand(item.label ?? "");
-      return;
     }
-    onClose?.();
   }
 
   function renderItem(item: SidebarMenuItem, depth = 0): ReactNode {
@@ -135,7 +131,6 @@ export default function Sidebar({
         <div key={item.label}>
           <Link
             to={item.href}
-            onClick={() => onClose?.()}
             className={`block ${item.disabled ? "pointer-events-none" : ""}`}
           >
             {wrappedContent}

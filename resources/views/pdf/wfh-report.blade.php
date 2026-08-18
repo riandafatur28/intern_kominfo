@@ -1,3 +1,4 @@
+@php include resource_path('views/pdf/_helpers.php'); @endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -91,6 +92,7 @@
   /* ===== TABLE (KEGIATAN) ===== */
   table.data {
     width: 100%;
+    /* table-layout: fixed; */
     border-collapse: collapse;
     font-size: 10pt;
   }
@@ -109,17 +111,44 @@
   }
   table.data td.link {
     text-align: left;
+    width: 180pt;
     word-break: break-all;
+    overflow-wrap: break-word;
   }
   table.data td.link a {
     color: #0b57d0;
     text-decoration: underline;
+    word-break: break-all;
+    overflow-wrap: break-word;
+  }
+  table.data td.kegiatan {
+    width: 153pt;
+    text-align: left;
+    word-break: break-word;
+    overflow-wrap: break-word;
+  }
+  table.data td.waktu {
+    width: 90pt;
   }
 
-  col.no { width: 6%; }
-  col.waktu { width: 22%; }
-  col.kegiatan { width: 24%; }
-  col.link { width: 48%; }
+  col.no { width: 24pt; }
+  col.waktu { width: 90pt; }
+  col.kegiatan { width: 153pt; }
+  col.link { width: 180pt; }
+
+  table.data td.no, table.data th.no {
+    text-align: center;
+    padding: 7pt 2pt;
+    white-space: nowrap;
+    width: 24pt;
+  }
+  table.data th.no {
+    width: 24pt;
+  }
+  table.data td.waktu {
+    width: 90pt;
+    white-space: nowrap;
+  }
 
   /* ===== FOOTER / TTD ===== */
   .footer-wrap {
@@ -172,6 +201,15 @@
     $tanggalDisplay = collect($bulanId)->contains(fn ($b) => str_contains($tanggalPelaksanaan, $b))
         ? $tanggalPelaksanaan
         : \Illuminate\Support\Carbon::parse($tanggalPelaksanaan)->locale('id')->isoFormat('D MMMM Y');
+    // Atasan langsung = kepala bidang (field head). Controller mengirim supervisor
+    // dari report; fallback ke kepala bidang saat report belum punya supervisor.
+    // TTD atasan tetap hanya muncul setelah laporan disetujui (dikirim controller).
+    if ($supervisorName === '-' || $supervisorNip === '-') {
+        $headId = \App\Models\Field::whereNotNull('head_id')->value('head_id');
+        $kabid = $headId ? \App\Models\User::find($headId) : null;
+        $supervisorName = $kabid?->name ?? '-';
+        $supervisorNip = $kabid?->nip ?? '-';
+    }
     $ttdMaker = ucwords(strtolower($makerName));
     $ttdAtasan = ucwords(strtolower($supervisorName));
     // Controller kirim waktu "2026-07-31 08:00:00 – 11:00:00" (cast datetime)
@@ -200,7 +238,7 @@
   <!-- KOP SURAT -->
   <div class="kop">
     <div class="kop-logo">
-      <img src="{{ public_path('images/logo-jatim.png') }}" alt="Logo Jawa Timur">
+      <img src="{{ wfh_pdf_photo_src(public_path('images/logo-jatim.png'), 120) }}" alt="Logo Jawa Timur">
     </div>
     <div class="kop-text">
       <p class="instansi1">PEMERINTAH PROVINSI JAWA TIMUR</p>
@@ -258,21 +296,22 @@
     </colgroup>
     <thead>
       <tr>
-        <th>No</th>
-        <th>Waktu Pelaksanaan</th>
-        <th>Kegiatan</th>
-        <th>Link Bukti Kerja</th>
+        <th class="no" style="width:24pt">No</th>
+        <th style="width:90pt">Waktu Pelaksanaan</th>
+        <th style="width:153pt">Kegiatan</th>
+        <th style="width:180pt">Link Bukti Kerja</th>
       </tr>
     </thead>
     <tbody>
       @forelse($kegiatan as $i => $k)
         <tr>
-          <td>{{ $i + 1 }}.</td>
+          <td class="no">{{ $i + 1 }}.</td>
           <td>{{ $k['waktu'] }}</td>
           <td>{{ $k['kegiatan'] }}</td>
           <td class="link">
             @forelse($k['links'] as $link)
-              <a class="link-biru" href="{{ $link }}">{{ $link }}</a>@if (!$loop->last)<br><br>@endif
+              @php $broken = preg_replace('/(.{20})/', '$1<wbr>', e($link)); @endphp
+              <a class="link-biru" href="{{ $link }}">{!! $broken !!}</a>@if (!$loop->last)<br><br>@endif
             @empty
               -
             @endforelse

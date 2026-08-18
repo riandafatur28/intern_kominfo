@@ -1,3 +1,4 @@
+@php include resource_path('views/pdf/_helpers.php'); @endphp
 <!DOCTYPE html>
 <html lang="id">
 <head>
@@ -100,6 +101,7 @@
   /* ===== TABLES ===== */
   table.data {
     width: 100%;
+    /* table-layout: fixed; */
     border-collapse: collapse;
     font-size: 10pt;
   }
@@ -119,20 +121,50 @@
   table.data td.nama, table.data td.link {
     text-align: left;
   }
+  table.data td.nama {
+    width: 170pt;
+    white-space: normal;
+    word-break: break-word;
+  }
   table.data td.link {
+    width: 276pt;
     word-break: break-all;
+    overflow-wrap: break-word;
+  }
+  table.data td.sesi {
+    width: 84pt;
   }
   table.data td.link a {
     color: #0b57d0;
     text-decoration: underline;
+    word-break: break-all;
+    overflow-wrap: break-word;
   }
 
-  col.no { width: 6%; }
-  col.nama-p1 { width: 44%; }
-  col.link { width: 50%; }
+  col.nama-p1 { width: 170pt; }
+  col.link { width: 276pt; }
+  col.no { width: 24pt; }
 
-  col.nama-p2 { width: 24%; }
-  col.sesi { width: 23.33%; }
+  col.nama-p2 { width: 170pt; }
+  col.sesi { width: 84pt; }
+
+  table.data td.no, table.data th.no {
+    text-align: center;
+    padding: 4pt 2pt;
+    white-space: nowrap;
+    width: 24pt;
+  }
+  table.data th.no {
+    width: 24pt;
+  }
+  table.data td.nama {
+    white-space: normal;
+    word-break: break-word;
+  }
+  table.data td.nama-wrap {
+    text-align: left;
+    word-break: break-word;
+  }
 
   .foto-pagi {
     width: 72pt;
@@ -225,7 +257,7 @@
 
   <div class="kop">
     <div class="kop-logo">
-      <img src="{{ public_path('images/logo-jatim.png') }}" alt="Logo Jawa Timur">
+      <img src="{{ wfh_pdf_photo_src(public_path('images/logo-jatim.png'), 120) }}" alt="Logo Jawa Timur">
     </div>
     <div class="kop-text">
       <p class="instansi1">PEMERINTAH PROVINSI JAWA TIMUR</p>
@@ -266,20 +298,21 @@
     </colgroup>
     <thead>
       <tr>
-        <th>No</th>
-        <th>Nama Pegawai</th>
-        <th>Link Bukti Kerja</th>
+        <th class="no" style="width:24pt">No</th>
+        <th style="width:170pt">Nama Pegawai</th>
+        <th style="width:276pt">Link Bukti Kerja</th>
       </tr>
     </thead>
     <tbody>
       @foreach($staff as $i => $member)
         @php $links = array_values(array_filter($member['links'] ?? [])); @endphp
         <tr>
-          <td>{{ $i + 1 }}.</td>
+          <td class="no">{{ $i + 1 }}.</td>
           <td class="nama">{{ $member['name'] }}</td>
           <td class="link">
             @forelse($links as $link)
-              <a class="link-biru" href="{{ $link }}">{{ $link }}</a>@if (!$loop->last)<br><br>@endif
+              @php $broken = preg_replace('/(.{20})/', '$1<wbr>', e($link)); @endphp
+              <a class="link-biru" href="{{ $link }}">{!! $broken !!}</a>@if (!$loop->last)<br><br>@endif
             @empty
               -
             @endforelse
@@ -324,7 +357,7 @@
 
   <div class="kop">
     <div class="kop-logo">
-      <img src="{{ public_path('images/logo-jatim.png') }}" alt="Logo Jawa Timur">
+      <img src="{{ wfh_pdf_photo_src(public_path('images/logo-jatim.png'), 120) }}" alt="Logo Jawa Timur">
     </div>
     <div class="kop-text">
       <p class="instansi1">PEMERINTAH PROVINSI JAWA TIMUR</p>
@@ -348,26 +381,29 @@
     </colgroup>
     <thead>
       <tr>
-        <th rowspan="2">No</th>
-        <th rowspan="2">Nama</th>
+        <th class="no" rowspan="2" style="width:24pt">No</th>
+        <th rowspan="2" style="width:170pt">Nama</th>
         <th colspan="{{ count($sessionNames) }}">Sesi</th>
       </tr>
       <tr>
         @foreach($sessionNames as $s)
-          <th>{{ ucfirst($s) }}</th>
+          <th style="width:84pt">{{ ucfirst($s) }}</th>
         @endforeach
       </tr>
     </thead>
     <tbody>
       @foreach($staff as $i => $member)
         <tr>
-          <td>{{ $i + 1 }}.</td>
-          <td class="nama">{{ $member['name'] }}</td>
+          <td class="no">{{ $i + 1 }}.</td>
+          <td class="nama-wrap">{{ $member['name'] }}</td>
           @foreach($sessionNames as $s)
-            @php $photo = $sessions[$s][$i]['photo'] ?? null; @endphp
+            @php
+              $photo = $sessions[$s][$i]['photo'] ?? null;
+              $photoSrc = wfh_pdf_photo_src($photo);
+            @endphp
             <td>
-              @if ($photo)
-                <img class="foto-pagi" src="{{ $photo }}" alt="Foto absensi {{ $s }}">
+              @if ($photoSrc)
+                <img class="foto-pagi" src="{{ $photoSrc }}" alt="Foto absensi {{ $s }}">
               @else
                 Belum diisi
               @endif
