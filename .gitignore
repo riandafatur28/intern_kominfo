@@ -39,3 +39,7 @@ MEMORY.md
 # screenshot/QA artifacts (dev-only)
 public/assets/*.png
 public/assets/profile/
+
+# agent/tool artifacts (dev-only)
+.omo/
+.playwright-mcp/
