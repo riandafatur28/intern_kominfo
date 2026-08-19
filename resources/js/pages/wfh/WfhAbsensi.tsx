@@ -73,6 +73,7 @@ export default function WfhAbsensi() {
   const [allowedDays, setAllowedDays] = useState<number[]>([1, 2, 3, 4, 5]);
   const [dateFilter, setDateFilter] = useState(todayStr());
   const [statusFilter, setStatusFilter] = useState("");
+  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
   const [page, setPage] = useState(1);
 
   /* ── Form absensi + bukti kerja ─────────────────────────────── */
@@ -367,10 +368,14 @@ export default function WfhAbsensi() {
     }
     return [...byDate.entries()]
       .map(([date, report]) => ({ date, report }))
-      .sort((a, b) => b.date.localeCompare(a.date));
-  }, [reports, statusFilter]);
+      .sort((a, b) =>
+        sortOrder === "oldest"
+          ? a.date.localeCompare(b.date)
+          : b.date.localeCompare(a.date)
+      );
+  }, [reports, statusFilter, sortOrder]);
 
-  const PAGE_SIZE = 15;
+  const PAGE_SIZE = 20;
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const rowLastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
 
@@ -450,7 +455,7 @@ export default function WfhAbsensi() {
       {!isForm && (
       <div className="flex flex-wrap items-center gap-3">
         <div className="ml-auto">
-          <FilterDropdown badge={Number(dateFilter !== todayStr()) + Number(!!statusFilter)}>
+          <FilterDropdown badge={Number(dateFilter !== todayStr()) + Number(!!statusFilter) + Number(sortOrder !== "newest")}>
             <div className="flex flex-col gap-3">
               <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
                 Tanggal
@@ -480,6 +485,20 @@ export default function WfhAbsensi() {
                       {label}
                     </option>
                   ))}
+                </select>
+              </label>
+              <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                Urutan
+                <select
+                  value={sortOrder}
+                  onChange={(e) => {
+                    setSortOrder(e.target.value as "newest" | "oldest");
+                    setPage(1);
+                  }}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                >
+                  <option value="newest">Tanggal Terbaru</option>
+                  <option value="oldest">Tanggal Terlama</option>
                 </select>
               </label>
             </div>

@@ -36,7 +36,12 @@ import { openPdfDirect } from "../../utils/swAuth";
 import { formatTanggalLengkap } from "../../utils/userDisplay";
 import { catatanLaporan } from "../../utils/wfhReportNote";
 import { normDate, todayStr } from "../../utils/wfhDate";
-import { buildMonitoringRows, inisial } from "../../utils/wfhMonitoring";
+import {
+  buildMonitoringRows,
+  inisial,
+  sortMonitoringRows,
+  type SortKey,
+} from "../../utils/wfhMonitoring";
 
 type PageStatus = "loading" | "ready" | "error";
 type Tab = "individu" | "tim";
@@ -74,6 +79,7 @@ export default function WfhMonitoring() {
   const [teamId, setTeamId] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [search, setSearch] = useState("");
+  const [sortBy, setSortBy] = useState<SortKey>("name-asc");
 
   /* ── Individu list ───────────────────────────────────────────── */
   const [status, setStatus] = useState<PageStatus>("loading");
@@ -92,6 +98,7 @@ export default function WfhMonitoring() {
   const [tTeamId, setTTeamId] = useState("");
   const [tStatus, setTStatus] = useState("");
   const [tDate, setTDate] = useState(TODAY);
+  const [tSortBy, setTSortBy] = useState<SortKey>("date-new");
 
   /* ── Individu reject ─────────────────────────────────────────── */
   const [showReject, setShowReject] = useState(false);
@@ -326,12 +333,17 @@ export default function WfhMonitoring() {
   }
 
   /* ── Derived ─────────────────────────────────────────────────── */
-  const PAGE_SIZE = 15;
+  const PAGE_SIZE = 20;
 
   // Gabungan laporan (terkirim) + pegawai yang belum mengirim — satu list
   const rows = useMemo<import("../../utils/wfhMonitoring").MonitoringRow[]>(
-    () => buildMonitoringRows(reports, missingUsers, statusFilter, teamId, search),
-    [reports, missingUsers, statusFilter, teamId, search]
+    () =>
+      sortMonitoringRows(
+        buildMonitoringRows(reports, missingUsers, statusFilter, teamId, search),
+        sortBy,
+        date
+      ),
+    [reports, missingUsers, statusFilter, teamId, search, sortBy, date]
   );
   const pageRows = rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const rowLastPage = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
@@ -339,7 +351,7 @@ export default function WfhMonitoring() {
   // ── Tim rows (filter client-side, per_page 100) ───────────────
   const tRows = useMemo(() => {
     const q = tSearch.trim().toLowerCase();
-    return teamReports.filter((r) => {
+    const filtered = teamReports.filter((r) => {
       if (tTeamId && r.team_id !== Number(tTeamId)) return false;
       if (tStatus && r.status !== tStatus) return false;
       if (tDate) {
@@ -354,7 +366,17 @@ export default function WfhMonitoring() {
       }
       return true;
     });
-  }, [teamReports, tSearch, tTeamId, tStatus, tDate]);
+    const sorted = [...filtered];
+    switch (tSortBy) {
+      case "date-new":
+        sorted.sort((a, b) => normDate(b.report_date).localeCompare(normDate(a.report_date)));
+        break;
+      case "date-old":
+        sorted.sort((a, b) => normDate(a.report_date).localeCompare(normDate(b.report_date)));
+        break;
+    }
+    return sorted;
+  }, [teamReports, tSearch, tTeamId, tStatus, tDate, tSortBy]);
   const tPageRows = tRows.slice((tPage - 1) * PAGE_SIZE, tPage * PAGE_SIZE);
   const tRowLastPage = Math.max(1, Math.ceil(tRows.length / PAGE_SIZE));
 
@@ -456,7 +478,7 @@ export default function WfhMonitoring() {
                 className="w-full pl-9 pr-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] placeholder:text-[#767676]"
               />
             </div>
-            <FilterDropdown badge={Number(!!teamId) + Number(!!statusFilter) + Number(date !== TODAY)}>
+            <FilterDropdown badge={Number(!!teamId) + Number(!!statusFilter) + Number(date !== TODAY) + Number(sortBy !== "name-asc")}>
               <div className="flex flex-col gap-3">
                   <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
                     Tim
@@ -501,6 +523,22 @@ export default function WfhMonitoring() {
                       onChange={(e) => setDate(e.target.value)}
                       className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
                     />
+                  </label>
+                  <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                    Urutan
+                    <select
+                      value={sortBy}
+                      onChange={(e) => {
+                        setSortBy(e.target.value as SortKey);
+                        setPage(1);
+                      }}
+                      className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                    >
+                      <option value="name-asc">Nama A-Z</option>
+                      <option value="name-desc">Nama Z-A</option>
+                      <option value="date-new">Tanggal Terbaru</option>
+                      <option value="date-old">Tanggal Terlama</option>
+                    </select>
                   </label>
                 </div>
             </FilterDropdown>
@@ -732,7 +770,7 @@ export default function WfhMonitoring() {
                 className="w-full pl-9 pr-4 py-[10px] text-sm rounded-[10px] border border-[#C2C6D8] outline-none focus:border-[#256EEF] placeholder:text-[#767676]"
               />
             </div>
-            <FilterDropdown badge={Number(!!tTeamId) + Number(!!tStatus) + Number(!!tDate)}>
+            <FilterDropdown badge={Number(!!tTeamId) + Number(!!tStatus) + Number(!!tDate) + Number(tSortBy !== "date-new")}>
               <div className="flex flex-col gap-3">
                 <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
                   Tim
@@ -771,6 +809,20 @@ export default function WfhMonitoring() {
                     onChange={(e) => setTDate(e.target.value)}
                     className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
                   />
+                </label>
+                <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
+                  Urutan
+                  <select
+                    value={tSortBy}
+                    onChange={(e) => {
+                      setTSortBy(e.target.value as SortKey);
+                      setTPage(1);
+                    }}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] outline-none focus:border-[#256EEF] text-[#424655] bg-white"
+                  >
+                    <option value="date-new">Tanggal Terbaru</option>
+                    <option value="date-old">Tanggal Terlama</option>
+                  </select>
                 </label>
               </div>
             </FilterDropdown>
