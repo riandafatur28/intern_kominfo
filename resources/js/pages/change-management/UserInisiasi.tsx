@@ -373,7 +373,7 @@ export default function UserInisiasi() {
         ) : (
           <>
             <PackageDetailView pkg={detailPkg} />
-            <div className="flex gap-3 mt-4">
+            <div className="flex flex-wrap gap-3 mt-4">
               {init!.status === "approved" && (
                 <>
                   <Button variant="outline" className="gap-2" onClick={() => openInitiationPdf(init!.id)}>
@@ -487,7 +487,7 @@ export default function UserInisiasi() {
                 </div>
               </FormField>
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField label="Prioritas Perubahan">
                   <div className="flex flex-wrap gap-4">
                     {PRIORITY_OPTIONS.map((o) => (
@@ -529,7 +529,7 @@ export default function UserInisiasi() {
                 rows={2}
               />
 
-              <div className="grid grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <FormField label="Kebutuhan Biaya">
                   <div className="flex gap-4">
                     <RadioOption
@@ -596,7 +596,7 @@ export default function UserInisiasi() {
                   />
                 </div>
                 {(existingAttachments.length > 0 || pendingFiles.length > 0) && (
-                  <div className="grid grid-cols-4 gap-3 mt-3">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
                     {existingAttachments.map((att) => (
                       <img
                         key={att.id}
@@ -651,7 +651,7 @@ export default function UserInisiasi() {
             </div>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="flex flex-wrap justify-end gap-3">
             <Button type="button" variant="outline" className="gap-2" onClick={() => { resetForm(); goBackToList(); }}>
               <CloseIcon size={17} /> Batal
             </Button>
@@ -670,7 +670,7 @@ export default function UserInisiasi() {
   /* ── List view (Permohonan Saya / Riwayat) ────────────────────── */
   return (
     <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Inisiasi Perubahan" }]}>
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <PageTitle
           title="Inisiasi Perubahan"
           subtitle={
@@ -679,12 +679,12 @@ export default function UserInisiasi() {
               : `${filtered.length} permohonan selesai (disetujui & ditolak)`
           }
         />
-        <Button onClick={openNewForm} className="gap-2">
+        <Button onClick={openNewForm} className="gap-2 shrink-0">
           <AddIcon size={17} /> Ajukan Permohonan
         </Button>
       </div>
 
-      <div className="flex gap-3">
+      <div className="flex flex-wrap gap-3">
         <TabButton active={tab === "permohonan"} onClick={() => switchTab("permohonan")} icon={<DocumentIcon size={18} />}>
           Permohonan Saya
         </TabButton>
@@ -708,6 +708,7 @@ export default function UserInisiasi() {
           ) : listStatus === "error" ? (
             <div className="text-center py-10 text-sm text-red-500">{errMsg}</div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -801,6 +802,7 @@ export default function UserInisiasi() {
                 })}
               </tbody>
             </table>
+            </div>
           )}
 
           {filtered.length > PAGE_SIZE && (

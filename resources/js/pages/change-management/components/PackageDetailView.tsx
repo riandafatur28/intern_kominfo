@@ -58,11 +58,11 @@ export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
   return (
     <div className="flex flex-col gap-6">
       <SectionCard title="Inisiasi Perubahan">
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Field label="Bidang">{initiation.field?.name}</Field>
           <Field label="Tanggal Pengajuan">{formatSlash(initiation.initiation_date)}</Field>
         </div>
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Field label="Nomor">{initiation.doc_number}</Field>
           <Field label="Status">
             <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${statusBadge(initiation.status).color}`}>
@@ -76,7 +76,7 @@ export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
 
       <SectionCard title="Implementasi">
         <Field label="Tipe Perubahan">{typeNames}</Field>
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Field label="Prioritas Perubahan">
             {prioBadge && (
               <span className={`inline-block text-xs font-medium px-2 py-1 rounded-full ${prioBadge.color}`}>
@@ -88,7 +88,7 @@ export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
         </div>
         <Field label="Dampak Terhadap Lingkungan Produksi">{implementation?.production_impact}</Field>
         <Field label="Upaya / Tindakan yang Diperlukan">{implementation?.required_effort}</Field>
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Field label="Kebutuhan Biaya">{implementation?.cost_needed ? "Ada" : "Tidak"}</Field>
           <Field label="Jumlah Biaya">
             {implementation?.cost_needed ? formatRupiah(implementation?.cost_amount) : "-"}
@@ -100,7 +100,7 @@ export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
         <div>
           <p className="text-xs font-medium text-[#256EEF] mb-2">Lampiran Hasil Pengujian</p>
           {attachments.length > 0 ? (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               {attachments.map((att) => (
                 <a
                   key={att.id}
@@ -120,7 +120,7 @@ export default function PackageDetailView({ pkg }: { pkg: ChangePackage }) {
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Field label="Tanggal Rilis">{formatSlash(implementation?.release_date)}</Field>
         </div>
         <Field label="Tanggapan">{implementation?.review_response}</Field>

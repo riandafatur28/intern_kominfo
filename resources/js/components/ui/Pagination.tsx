@@ -23,7 +23,7 @@ export default function Pagination({
         "px-3 py-2 text-sm rounded-lg border border-[#C2C6D8] transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-gray-50";
 
     return (
-        <div className="flex items-center justify-between gap-4 py-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3">
             <span className="text-sm text-[#767676]">
                 Halaman {currentPage} dari {lastPage} • {total} data
             </span>

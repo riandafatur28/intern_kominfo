@@ -379,7 +379,7 @@ export default function WfhMonitoring() {
       />
 
       {/* ── Tabs (gaya inisiasi) ────────────────────────────────── */}
-      <div className="flex gap-3 mb-6">
+      <div className="flex flex-wrap gap-3 mb-6">
         <TabButton
           active={tab === "individu"}
           onClick={() => setSearchParams({})}
@@ -491,6 +491,7 @@ export default function WfhMonitoring() {
                 {errMsg}
               </div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -655,6 +656,7 @@ export default function WfhMonitoring() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
 
             {rows.length > PAGE_SIZE && (
@@ -743,6 +745,7 @@ export default function WfhMonitoring() {
           </div>
 
           <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -826,21 +829,22 @@ export default function WfhMonitoring() {
                       </td>
                     </tr>
                   );
-                })}
-              </tbody>
-            </table>
-
-            {tRowLastPage > 1 && (
-              <div className="px-4 py-3 border-t border-[#E0E9F2]">
-                <Pagination
-                  currentPage={tPage}
-                  lastPage={tRowLastPage}
-                  total={tRows.length}
-                  onPageChange={setTPage}
-                />
-              </div>
-            )}
+})}
+            </tbody>
+          </table>
           </div>
+
+          {tRowLastPage > 1 && (
+            <div className="px-4 py-3 border-t border-[#E0E9F2]">
+              <Pagination
+                currentPage={tPage}
+                lastPage={tRowLastPage}
+                total={tRows.length}
+                onPageChange={setTPage}
+              />
+            </div>
+          )}
+        </div>
         </>
       )}
 
