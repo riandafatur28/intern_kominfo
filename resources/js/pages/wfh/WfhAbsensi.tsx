@@ -437,10 +437,10 @@ export default function WfhAbsensi() {
     >
       {/* ── Header ─────────────────────────────────────────────── */}
       <div className="flex flex-col gap-1">
-        <h1 className="text-[32px] font-bold text-black leading-10">
+        <h1 className="text-2xl md:text-[32px] font-bold text-black leading-8 md:leading-10">
           Absensi WFH
         </h1>
-        <p className="text-lg text-[#767676]">
+        <p className="text-base md:text-lg text-[#767676]">
           Pantau status kehadiran dan pengumpulan tugas WFH Anda.
         </p>
       </div>
@@ -492,6 +492,7 @@ export default function WfhAbsensi() {
             Belum ada data. Klik &quot;+ Tambah Absensi&quot; untuk mengisi.
           </p>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -589,6 +590,7 @@ export default function WfhAbsensi() {
               })}
             </tbody>
           </table>
+          </div>
         )}
       </div>
       )}
@@ -695,7 +697,7 @@ export default function WfhAbsensi() {
 
           {/* Daftar Kegiatan */}
           <div className="bg-white border border-[#e5e7eb] rounded-lg p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <h3 className="text-[15px] font-bold text-[#1f2937]">
                 Daftar Kegiatan
               </h3>
@@ -780,7 +782,7 @@ export default function WfhAbsensi() {
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <Button
               variant="outline"
               className="!bg-[#1E3A5F] !border-[#1E3A5F] !text-white hover:!bg-[#16304f]"
@@ -894,7 +896,7 @@ export default function WfhAbsensi() {
                 Tambah Kegiatan
               </button>
               {lastKegFilled && (
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <button
                     onClick={() => {
                       setKegModal(false);

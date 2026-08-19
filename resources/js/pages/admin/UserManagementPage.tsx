@@ -269,7 +269,7 @@ export default function UserManagementPage() {
                         )}
                         <ChevronDownIcon size={15} className="transition-transform group-open:rotate-180" />
                     </summary>
-                    <div className="absolute right-0 z-20 mt-2 w-64 rounded-xl border border-[#E0E9F2] bg-white p-3 shadow-xl">
+                    <div className="absolute right-0 z-20 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-xl border border-[#E0E9F2] bg-white p-3 shadow-xl">
                         <div className="flex flex-col gap-3">
                             <label className="flex flex-col gap-1.5 text-xs font-medium text-[#424655]">
                                 Peran

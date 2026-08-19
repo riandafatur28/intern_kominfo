@@ -128,7 +128,7 @@ export default function SidebarProfileMenu({
                 onClick={togglePopover}
                 aria-haspopup="menu"
                 aria-expanded={phase !== "closed"}
-                className="w-[331px] flex items-center gap-[22px] pl-[23px] pr-[17px] py-3 rounded-[10px] text-left transition-colors hover:bg-[#F6FAFF]"
+                className="w-full max-w-[331px] flex items-center gap-[22px] pl-[23px] pr-[17px] py-3 rounded-[10px] text-left transition-colors hover:bg-[#F6FAFF]"
             >
                 <div className="w-[72px] h-[69px] rounded-full bg-[#256EEF] flex items-center justify-center shrink-0">
                     <span className="text-white text-xl font-normal">{initial}</span>

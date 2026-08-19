@@ -391,7 +391,7 @@ export default function WfhLaporan() {
                       </button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <FormField label="Mulai">
                       <input
                         type="time"
@@ -483,6 +483,7 @@ export default function WfhLaporan() {
       {/* ── Report list ─────────────────────────────────────────── */}
       {!formMode && (
         <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -592,6 +593,7 @@ export default function WfhLaporan() {
               })}
             </tbody>
           </table>
+          </div>
 
           {lastPage > 1 && (
             <div className="px-4 py-3 border-t border-[#E0E9F2]">
@@ -691,7 +693,7 @@ function DetailView({
       </div>
 
       {/* Info */}
-      <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-sm">
         <div>
           <span className="text-[#767676]">Tanggal:</span>{" "}
           <span className="font-medium">{formatTanggalLengkap(report.report_date)}</span>
@@ -756,7 +758,7 @@ function DetailView({
       </div>
 
       {/* Actions */}
-      <div className="flex gap-3 mt-6">
+      <div className="flex flex-wrap gap-3 mt-6">
         <button
           className="text-[#256EEF] hover:underline text-sm"
           onClick={() => onPdf(report)}
