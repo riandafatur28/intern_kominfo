@@ -93,6 +93,17 @@ export default function UserManagementPage() {
         setPage(1);
     }, [search, roleFilter, statusFilter]);
 
+    // Statistik ringkas (pola StatCard Rianda/Danica) — dihitung client-side
+    // dari seluruh pengguna yang dimuat, bukan hasil filter.
+    const stats = useMemo(() => {
+        return {
+            total: users.length,
+            active: users.filter((u) => u.is_active).length,
+            inactive: users.filter((u) => !u.is_active).length,
+            admin: users.filter((u) => u.roles?.includes("admin")).length,
+        };
+    }, [users]);
+
     const filtered = useMemo(() => {
         const q = search.trim().toLowerCase();
         return users.filter((u) => {
@@ -242,6 +253,14 @@ export default function UserManagementPage() {
                 </div>
             </div>
 
+            {/* Statistik ringkas (pola StatCard Rianda/Danica) */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
+                <StatCard value={stats.total} label="Total Pengguna" color="text-[#141D23]" />
+                <StatCard value={stats.active} label="Aktif" color="text-green-600" />
+                <StatCard value={stats.inactive} label="Tidak Aktif" color="text-red-600" />
+                <StatCard value={stats.admin} label="Admin" color="text-[#256EEF]" />
+            </div>
+
             {/* Toolbar: search + filters + count */}
             <div className="flex flex-col lg:flex-row lg:items-center gap-3">
                 <div className="relative flex-1">
@@ -375,5 +394,14 @@ export default function UserManagementPage() {
                 onClose={() => setToast(null)}
             />
         </AppLayout>
+    );
+}
+
+function StatCard({ value, label, color }: { value: number; label: string; color: string }) {
+    return (
+        <div className="bg-white rounded-[10px] shadow-sm p-5">
+            <p className={`text-3xl font-bold ${color}`}>{value}</p>
+            <p className="text-sm text-[#767676] mt-1">{label}</p>
+        </div>
     );
 }
