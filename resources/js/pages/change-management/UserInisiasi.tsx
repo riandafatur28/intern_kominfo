@@ -64,7 +64,7 @@ const emptyForm = {
   reviewResponse: "",
 };
 
-const PAGE_SIZE = 15;
+const PAGE_SIZE = 20;
 
 export default function UserInisiasi() {
   const { user, hasPermission } = useAuth();
@@ -805,9 +805,17 @@ export default function UserInisiasi() {
             </div>
           )}
 
-          {filtered.length > PAGE_SIZE && (
+          {filtered.length > 0 && (
             <div className="px-4 py-3 border-t border-[#E0E9F2]">
-              <Pagination currentPage={page} lastPage={lastPage} total={filtered.length} onPageChange={setPage} />
+              <Pagination
+                currentPage={page}
+                lastPage={lastPage}
+                total={filtered.length}
+                from={(page - 1) * PAGE_SIZE + 1}
+                to={Math.min(page * PAGE_SIZE, filtered.length)}
+                unit="permohonan"
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>
@@ -845,7 +853,7 @@ function TabButton({
       onClick={onClick}
       className={`inline-flex items-center gap-2 px-5 py-2 text-sm font-semibold rounded-xl border transition-colors ${
         active
-          ? "bg-[#141D23] text-white border-[#141D23]"
+          ? "bg-[#256EEF] text-white border-[#256EEF]" // Mengubah warna aktif menjadi BIRU
           : "bg-white text-[#424655] border-[#C2C6D8] hover:bg-gray-50"
       }`}
     >

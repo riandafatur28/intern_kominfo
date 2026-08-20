@@ -46,7 +46,7 @@ export default function AdminMonitoring() {
     return () => clearTimeout(timer);
   }, [errMsg]);
 
-  const PAGE_SIZE = 15;
+  const PAGE_SIZE = 20;
 
   async function load() {
     setStatus("loading");
@@ -298,9 +298,17 @@ export default function AdminMonitoring() {
           </div>
         )}
 
-        {filtered.length > PAGE_SIZE && (
+        {filtered.length > 0 && (
           <div className="px-4 py-3 border-t border-[#E0E9F2]">
-            <Pagination currentPage={page} lastPage={lastPage} total={filtered.length} onPageChange={setPage} />
+            <Pagination
+              currentPage={page}
+              lastPage={lastPage}
+              total={filtered.length}
+              from={(page - 1) * PAGE_SIZE + 1}
+              to={Math.min(page * PAGE_SIZE, filtered.length)}
+              unit="permohonan"
+              onPageChange={setPage}
+            />
           </div>
         )}
       </div>
