@@ -158,7 +158,7 @@ export default function Sidebar({
   }
 
   return (
-    <div className="w-[334px] h-screen bg-white border-r border-[#E0E9F2] flex flex-col">
+    <div className="w-full max-w-[334px] h-screen bg-white border-r border-[#E0E9F2] flex flex-col">
       {/* Logo */}
       <div className="flex items-center justify-center pt-[34px] pb-[73px]">
         {logoHref ? <Link to={logoHref}>{logo}</Link> : logo}

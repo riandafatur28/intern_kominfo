@@ -54,12 +54,12 @@ export default function Modal({
                 onClick={(e) => e.stopPropagation()}
             >
                 {title && (
-                    <div className="flex items-center justify-between px-6 py-4 border-b border-[#C2C6D8]/30">
-                        <h2 className="text-lg font-bold text-[#141D23]">{title}</h2>
+                    <div className="flex items-center justify-between gap-4 px-4 sm:px-6 py-4 border-b border-[#C2C6D8]/30">
+                        <h2 className="text-lg font-bold text-[#141D23] min-w-0 truncate">{title}</h2>
                         <button
                             onClick={onClose}
                             aria-label="Tutup"
-                            className="text-[#767676] hover:text-[#141D23] transition-colors"
+                            className="text-[#767676] hover:text-[#141D23] transition-colors shrink-0"
                         >
                             <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
                                 <path
@@ -73,10 +73,10 @@ export default function Modal({
                     </div>
                 )}
 
-                <div className="px-6 py-5 overflow-y-auto">{children}</div>
+                <div className="px-4 sm:px-6 py-5 overflow-y-auto">{children}</div>
 
                 {footer && (
-                    <div className="flex gap-3 justify-end px-6 py-4 border-t border-[#C2C6D8]/30">
+                    <div className="flex flex-wrap gap-3 justify-end px-4 sm:px-6 py-4 border-t border-[#C2C6D8]/30">
                         {footer}
                     </div>
                 )}

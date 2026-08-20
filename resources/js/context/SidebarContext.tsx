@@ -14,7 +14,11 @@ const SidebarContext = createContext<SidebarContextValue | null>(null);
  * hilang tiap navigasi (AppLayout ter-mount ulang per halaman).
  */
 export function SidebarProvider({ children }: { children: ReactNode }) {
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Default: terbuka di layar lebar (>=1024px), tertutup di layar kecil
+  // (sidebar mobile tampil sebagai drawer off-canvas lewat hamburger).
+  const [sidebarOpen, setSidebarOpen] = useState(
+    () => typeof window === "undefined" || window.innerWidth >= 1024
+  );
   return (
     <SidebarContext.Provider
       value={{

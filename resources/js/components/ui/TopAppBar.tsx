@@ -17,8 +17,8 @@ export default function TopAppBar({
   onToggleSidebar,
 }: TopAppBarProps) {
   return (
-    <header className="flex items-center gap-6 px-8 bg-[#F6FAFF] border-b border-[#E0E9F2]/20 h-[59px] shrink-0">
-      <div className="flex items-center gap-6">
+    <header className="flex items-center gap-3 sm:gap-6 px-4 sm:px-6 lg:px-8 bg-[#F6FAFF] border-b border-[#E0E9F2]/20 h-[59px] shrink-0">
+      <div className="flex items-center gap-3 sm:gap-6 min-w-0 flex-1">
         {/* Hamburger / Toggle */}
         <button
           onClick={onToggleSidebar}
@@ -39,9 +39,9 @@ export default function TopAppBar({
           )}
         </button>
 
-        <nav className="flex items-center gap-2 text-xs text-[#424655] font-semibold">
+        <nav className="flex items-center gap-2 text-xs text-[#424655] font-semibold min-w-0 overflow-x-auto whitespace-nowrap scrollbar-none">
           {breadcrumbs.map((crumb, i) => (
-            <span key={i} className="flex items-center gap-2">
+            <span key={i} className="flex items-center gap-2 shrink-0">
               {i > 0 && (
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="text-[#C2C6D8]">
                   <path d="M4.5 2.25L7.5 6L4.5 9.75" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>

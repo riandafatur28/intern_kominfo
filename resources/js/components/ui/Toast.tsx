@@ -28,9 +28,9 @@ export default function Toast({
     const isSuccess = type === "success";
 
     return (
-        <div className="fixed top-5 right-5 z-[60]">
+        <div className="fixed top-4 right-4 left-4 sm:left-auto sm:right-5 z-[60]">
             <div
-                className={`flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg border text-sm ${isSuccess
+                className={`flex items-center gap-3 rounded-xl px-4 py-3 shadow-lg border text-sm max-w-full ${isSuccess
                         ? "bg-white border-[#BBF7D0] text-[#15803D]"
                         : "bg-white border-[#FCA5A5] text-[#B91C1C]"
                     }`}
@@ -60,7 +60,7 @@ export default function Toast({
                         </svg>
                     )}
                 </span>
-                <span className="font-medium text-[#141D23]">{message}</span>
+                <span className="font-medium text-[#141D23] min-w-0 break-words">{message}</span>
                 <button
                     onClick={onClose}
                     aria-label="Tutup"

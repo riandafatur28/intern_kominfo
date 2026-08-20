@@ -189,7 +189,7 @@ export default function ProfilSaya() {
       <div className="flex flex-col gap-6">
         <FormSection title="Data Diri">
           <form id="profile-form" onSubmit={handleSaveProfile}>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField label="Nama Lengkap">
                 <input
                   type="text"
@@ -266,7 +266,7 @@ export default function ProfilSaya() {
 
         <FormSection title="Keamanan">
           <form onSubmit={handleChangePassword}>
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormField label="Password Saat Ini">
                 <input
                   type="password"
@@ -277,7 +277,6 @@ export default function ProfilSaya() {
                   className="w-full px-4 py-[10px] text-sm text-[#141D23] rounded-[10px] border border-[#C2C6D8] outline-none hover:border-[#A0A0A0] focus:border-[#256EEF] transition-colors placeholder:text-[#767676]"
                 />
               </FormField>
-              <div />
               <FormField label="Password Baru">
                 <input
                   type="password"
@@ -307,7 +306,7 @@ export default function ProfilSaya() {
               <p className="text-xs text-green-600 mt-4">{passMsg}</p>
             )}
 
-            <div className="flex items-center gap-4 mt-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-6">
               <Button variant="primary" type="submit" size="sm" disabled={passLoading}>
                 <LockIcon className="mr-1.5" />
                 {passLoading ? "Memproses..." : "Ubah Password"}
@@ -316,7 +315,7 @@ export default function ProfilSaya() {
           </form>
         </FormSection>
 
-        <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
           <Button
             variant="primary"
             type="submit"
