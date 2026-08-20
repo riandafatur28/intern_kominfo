@@ -233,7 +233,7 @@ export default function LeadApproval() {
         )}
         <PackageDetailView pkg={detail} />
         {isQueue && canDecide && (
-          <div className="flex gap-3 mt-4">
+          <div className="flex flex-wrap gap-3 mt-4">
             <Button
               className="!bg-green-50 !text-green-700 !border-green-200 hover:!bg-green-100 gap-2"
               variant="outline"
@@ -253,7 +253,7 @@ export default function LeadApproval() {
           </div>
         )}
         {!isQueue && detail.initiation.status === "approved" && (
-          <div className="flex gap-3 mt-4">
+          <div className="flex flex-wrap gap-3 mt-4">
             <Button
               variant="outline"
               className="gap-2"
@@ -286,7 +286,7 @@ export default function LeadApproval() {
 
   return (
     <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Permintaan Persetujuan" }]}>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
         {view === "queue" ? (
           <PageTitle title="Permintaan Persetujuan" subtitle={`${queue.length} permohonan menunggu review`} />
         ) : (
@@ -294,7 +294,7 @@ export default function LeadApproval() {
         )}
         <Button
           variant="outline"
-          className="inline-flex items-center gap-2"
+          className="inline-flex items-center gap-2 shrink-0"
           onClick={() => switchView(view === "queue" ? "history" : "queue")}
         >
           {view === "queue" ? <HistoryIcon size={16} /> : <QueueIcon size={16} />}
@@ -314,6 +314,7 @@ export default function LeadApproval() {
           {queueLoading ? (
             <div className="text-center py-10 text-sm text-[#767676]">Memuat...</div>
           ) : (
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -367,6 +368,7 @@ export default function LeadApproval() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       ) : (
@@ -396,6 +398,7 @@ export default function LeadApproval() {
             {historyLoading ? (
               <div className="text-center py-10 text-sm text-[#767676]">Memuat...</div>
             ) : (
+              <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -456,6 +459,7 @@ export default function LeadApproval() {
                   })}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </>

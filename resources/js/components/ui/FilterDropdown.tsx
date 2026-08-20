@@ -44,7 +44,7 @@ export default function FilterDropdown({ badge = 0, align = "right", children }:
         <ChevronDownIcon size={15} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className={`absolute ${align === "left" ? "left-0" : "right-0"} z-20 mt-2 w-72 rounded-xl border border-[#E0E9F2] bg-white p-3 shadow-xl`}>
+        <div className={`absolute ${align === "left" ? "left-0" : "right-0"} z-20 mt-2 w-72 max-w-[calc(100vw-2rem)] rounded-xl border border-[#E0E9F2] bg-white p-3 shadow-xl`}>
           {children}
         </div>
       )}

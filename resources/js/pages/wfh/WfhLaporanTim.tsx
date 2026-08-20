@@ -161,7 +161,7 @@ export default function WfhLaporanTim() {
 
   return (
     <AppLayout breadcrumbs={[{ label: "Beranda", href: "/" }, { label: "Laporan Tim" }]}>
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <PageTitle title="Laporan Tim" subtitle={`${total} laporan`} />
         <Button onClick={() => setShowCreate(true)}>
           + Buat Laporan Tim
@@ -170,6 +170,7 @@ export default function WfhLaporanTim() {
 
       {/* ── Table ───────────────────────────────────────────────── */}
       <div className="bg-white rounded-[10px] shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -241,6 +242,7 @@ export default function WfhLaporanTim() {
             })}
           </tbody>
         </table>
+        </div>
 
         {lastPage > 1 && (
           <div className="px-4 py-3 border-t border-[#E0E9F2]">

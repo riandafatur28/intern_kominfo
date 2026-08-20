@@ -181,7 +181,7 @@ export default function RolePermissionPage() {
                     {/* Permission matrix */}
                     <div className="flex-1 min-w-0">
                         <div className="bg-white border border-[#C2C6D8]/50 rounded-xl p-6">
-                            <div className="flex items-center justify-between mb-4">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mb-4">
                                 <div>
                                     <h2 className="text-base font-bold text-[#141D23]">
                                         Permission untuk {selectedRole ? roleLabel(selectedRole.name) : "-"}

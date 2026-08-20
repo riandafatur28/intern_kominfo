@@ -34,7 +34,7 @@ export default function Pagination({
             : `Halaman ${currentPage} dari ${lastPage} • ${total} ${unit}`;
 
     return (
-        <div className="flex items-center justify-between gap-4 py-3">
+<div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3">
             <span className="text-sm text-[#767676]">{label}</span>
             {(canPrev || canNext) && (
                 <div className="flex gap-2">

@@ -74,7 +74,7 @@ export default function ConfirmModal({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end gap-3">
+        <div className="flex flex-wrap justify-end gap-3">
           <button
             onClick={onCancel}
             className="px-6 py-2.5 text-sm font-medium text-[#424655] rounded-xl border border-[#C2C6D8] hover:bg-gray-50 hover:border-[#A0A0A0] transition-colors"

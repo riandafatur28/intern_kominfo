@@ -133,3 +133,12 @@ input[type="password"]::-webkit-credentials-auto-fill-button,
 input[type="password"]::-webkit-strong-password-auto-fill-button {
   display: none !important;
 }
+
+/* Sembunyikan scrollbar untuk bar breadcrumb/overflow-x horizontal. */
+.scrollbar-none {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}

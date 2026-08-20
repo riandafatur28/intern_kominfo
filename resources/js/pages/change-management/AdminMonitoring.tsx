@@ -137,7 +137,7 @@ export default function AdminMonitoring() {
         )}
         <PackageDetailView pkg={selected} />
         {selected.initiation.status === "approved" && (
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <Button
               variant="outline"
               className="gap-2"
@@ -175,7 +175,7 @@ export default function AdminMonitoring() {
         subtitle={`Total ${counts.total} permohonan • Bulan ${BULAN[now.getMonth()]} ${now.getFullYear()}`}
       />
 
-      <div className="grid grid-cols-4 gap-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
         <StatCard value={counts.total} label="Total" color="text-[#141D23]" />
         <StatCard value={counts.pending} label="Menunggu" color="text-yellow-600" />
         <StatCard value={counts.approved} label="Disetujui" color="text-green-600" />
@@ -221,6 +221,7 @@ export default function AdminMonitoring() {
         ) : status === "error" ? (
           <div className="text-center py-12 text-sm text-red-500">{errMsg}</div>
         ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -294,6 +295,7 @@ export default function AdminMonitoring() {
               })}
             </tbody>
           </table>
+          </div>
         )}
 
         {filtered.length > PAGE_SIZE && (

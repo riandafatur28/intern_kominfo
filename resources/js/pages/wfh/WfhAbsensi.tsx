@@ -430,7 +430,7 @@ export default function WfhAbsensi() {
       }
     >
       {/* ── Header ─────────────────────────────────────────────── */}
-      {/* ── Header + tombol tambah (satu baris, pola sama dgn halaman lain) ── */}
+{/* ── Header + tombol tambah (satu baris, pola sama dgn halaman lain) ── */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <PageTitle
           title="Absensi WFH"
@@ -516,6 +516,7 @@ export default function WfhAbsensi() {
           </p>
         ) : (
           <>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-[#F9FAFB] border-b border-[#E0E9F2]">
@@ -613,6 +614,8 @@ export default function WfhAbsensi() {
               })}
             </tbody>
           </table>
+          </div>
+
           <div className="px-4 py-3 border-t border-[#E0E9F2]">
             <Pagination
               currentPage={page}
@@ -732,7 +735,7 @@ export default function WfhAbsensi() {
 
           {/* Daftar Kegiatan */}
           <div className="bg-white border border-[#e5e7eb] rounded-lg p-5">
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
               <h3 className="text-[15px] font-bold text-[#1f2937]">
                 Daftar Kegiatan
               </h3>
@@ -821,7 +824,7 @@ export default function WfhAbsensi() {
           )}
 
           {/* Action buttons */}
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {isSubmitted && (
               <Button
                 variant="outline"
