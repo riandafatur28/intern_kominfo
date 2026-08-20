@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import AppLayout from "../../layouts/AppLayout";
 import PageTitle from "../../components/ui/PageTitle";
 import Button from "../../components/ui/Button";
+import Pagination from "../../components/ui/Pagination";
 import PackageDetailView from "./components/PackageDetailView";
 import DropdownMenu from "../../components/ui/DropdownMenu";
 import { CloseIcon, DownloadIcon, MoreVerticalIcon } from "../../components/ui/AdminActionIcons";
@@ -100,6 +101,10 @@ export default function LeadApproval() {
   const [history, setHistory] = useState<ChangePackage[]>([]);
   const [historyLoading, setHistoryLoading] = useState(true);
 
+  const [page, setPage] = useState(1);
+  const [hPage, setHPage] = useState(1);
+  const PAGE_SIZE = 20;
+
   function switchView(v: View) {
     if (v === "history") setSearchParams({ view: "history" });
     else setSearchParams({});
@@ -116,6 +121,7 @@ export default function LeadApproval() {
     try {
       const res = await listChangePackages({ status: "pending", per_page: 100 });
       setQueue(res.data);
+      setPage(1);
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal memuat antrian persetujuan."));
     } finally {
@@ -136,6 +142,7 @@ export default function LeadApproval() {
       );
       merged.sort((a, b) => (a.initiation.reviewed_at! < b.initiation.reviewed_at! ? 1 : -1));
       setHistory(merged);
+      setHPage(1);
     } catch (e: unknown) {
       setErrMsg(extractChangeError(e, "Gagal memuat riwayat persetujuan."));
     } finally {
@@ -161,6 +168,11 @@ export default function LeadApproval() {
     }
     return { approved, rejected };
   }, [history]);
+
+  const queueLastPage = Math.max(1, Math.ceil(queue.length / PAGE_SIZE));
+  const queuePageRows = queue.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
+  const hLastPage = Math.max(1, Math.ceil(history.length / PAGE_SIZE));
+  const hPageRows = history.slice((hPage - 1) * PAGE_SIZE, hPage * PAGE_SIZE);
 
   async function handleViewDetail(id: number) {
     navigate(`/change-management/persetujuan/${id}${view === "history" ? "?view=history" : ""}`);
@@ -333,7 +345,7 @@ export default function LeadApproval() {
                     </td>
                   </tr>
                 )}
-                {queue.map((p) => (
+                {queuePageRows.map((p) => (
                   <tr key={p.initiation.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
                     <td className="px-4 py-3 text-[#333] whitespace-nowrap">{formatSlash(p.initiation.initiation_date)}</td>
                     <td className="px-4 py-3 text-[#333] font-medium whitespace-nowrap">{p.initiation.doc_number}</td>
@@ -368,6 +380,20 @@ export default function LeadApproval() {
                 ))}
               </tbody>
             </table>
+            </div>
+          )}
+
+          {queue.length > 0 && (
+            <div className="px-4 py-3 border-t border-[#E0E9F2]">
+              <Pagination
+                currentPage={page}
+                lastPage={queueLastPage}
+                total={queue.length}
+                from={(page - 1) * PAGE_SIZE + 1}
+                to={Math.min(page * PAGE_SIZE, queue.length)}
+                unit="permohonan"
+                onPageChange={setPage}
+              />
             </div>
           )}
         </div>
@@ -418,7 +444,7 @@ export default function LeadApproval() {
                       </td>
                     </tr>
                   )}
-                  {history.map((p) => {
+                  {hPageRows.map((p) => {
                     const st = statusBadge(p.initiation.status);
                     return (
                       <tr key={p.initiation.id} className="border-b border-[#F0F0F0] hover:bg-[#F9FAFB]">
@@ -459,6 +485,20 @@ export default function LeadApproval() {
                   })}
                 </tbody>
               </table>
+              </div>
+            )}
+
+            {history.length > 0 && (
+              <div className="px-4 py-3 border-t border-[#E0E9F2]">
+                <Pagination
+                  currentPage={hPage}
+                  lastPage={hLastPage}
+                  total={history.length}
+                  from={(hPage - 1) * PAGE_SIZE + 1}
+                  to={Math.min(hPage * PAGE_SIZE, history.length)}
+                  unit="permohonan"
+                  onPageChange={setHPage}
+                />
               </div>
             )}
           </div>
