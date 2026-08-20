@@ -6,6 +6,11 @@ export interface PaginationProps {
     from?: number;
     to?: number;
     unit?: string;
+    /**
+     * "between" (default): label kiri, navigasi kanan (dipakai halaman lain).
+     * "end": label menempel di sebelah navigasi, keduanya rata kanan.
+     */
+    align?: "between" | "end";
 }
 
 /**
@@ -24,6 +29,7 @@ export default function Pagination({
     from,
     to,
     unit = "data",
+    align = "between",
 }: PaginationProps) {
     const canPrev = currentPage > 1;
     const canNext = currentPage < lastPage;
@@ -39,7 +45,10 @@ export default function Pagination({
         "flex items-center justify-center w-9 h-9 rounded-lg border border-[#C2C6D8] text-[#424655] transition-colors disabled:opacity-40 disabled:cursor-not-allowed enabled:hover:bg-[#F6FAFF]";
 
     return (
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 py-3">
+        <div
+            className={`flex flex-col sm:flex-row items-start sm:items-center gap-3 py-3 ${align === "end" ? "sm:justify-end" : "justify-between"
+                }`}
+        >
             <span className="text-sm text-[#767676]">{label}</span>
 
             <div className="flex items-center gap-2">
@@ -69,8 +78,8 @@ export default function Pagination({
                             aria-current={p === currentPage ? "page" : undefined}
                             onClick={() => onPageChange(p)}
                             className={`flex items-center justify-center min-w-9 h-9 px-2 rounded-lg border text-sm font-medium transition-colors ${p === currentPage
-                                    ? "border-[#256EEF] bg-[#256EEF] text-white"
-                                    : "border-[#C2C6D8] text-[#424655] hover:bg-[#F6FAFF]"
+                                ? "border-[#256EEF] bg-[#256EEF] text-white"
+                                : "border-[#C2C6D8] text-[#424655] hover:bg-[#F6FAFF]"
                                 }`}
                         >
                             {p}

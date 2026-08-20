@@ -320,9 +320,6 @@ export default function UserManagementPage() {
                         </div>
                     </div>
                 </details>
-                <span className="text-sm text-[#767676] whitespace-nowrap">
-                    {filtered.length} dari {users.length} pengguna
-                </span>
             </div>
 
             {loadError && (
@@ -340,13 +337,26 @@ export default function UserManagementPage() {
                 renderCell={renderCell}
             />
 
-            {filtered.length > PAGE_SIZE && (
+            {/* Hitungan pengguna dipindah ke bawah, dekat navigasi halaman. */}
+            {filtered.length > PAGE_SIZE ? (
                 <Pagination
                     currentPage={page}
                     lastPage={lastPage}
                     total={filtered.length}
+                    from={(page - 1) * PAGE_SIZE + 1}
+                    to={Math.min(page * PAGE_SIZE, filtered.length)}
+                    unit="pengguna"
+                    align="end"
                     onPageChange={setPage}
                 />
+            ) : (
+                filtered.length > 0 && (
+                    <div className="py-3">
+                        <span className="text-sm text-[#767676]">
+                            Menampilkan {filtered.length} dari {users.length} pengguna
+                        </span>
+                    </div>
+                )
             )}
 
             {/* Modals */}
