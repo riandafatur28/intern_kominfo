@@ -27,6 +27,7 @@ import { addReportAttendance, createReportActivity, createWfhReport,
   getWfhSessionConfig,
   listWfhReports,
   submitWfhReport,
+  updateReportActivity,
   type WfhReport,
   type WfhReportActivity,
 } from "../../api/wfh";
@@ -104,6 +105,7 @@ export default function WfhAbsensi() {
   const [kegRows, setKegRows] = useState<KegFormRow[]>([
     { id: 1, nama: "", start_time: "", end_time: "", link: "" },
   ]);
+  const [editingActId, setEditingActId] = useState<number | null>(null);
 
   function addKegRow() {
     setKegRows((prev) => [...prev, { id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
@@ -115,6 +117,51 @@ export default function WfhAbsensi() {
 
   function removeKegRow(id: number) {
     setKegRows((prev) => prev.filter((r) => r.id !== id));
+  }
+
+  function handleOpenEditActivity(act: WfhReportActivity) {
+    setEditingActId(act.id);
+    setKegRows([{
+      id: act.id,
+      nama: act.activity,
+      start_time: act.start_time && act.start_time !== "00:00" ? act.start_time.slice(0, 5) : "",
+      end_time: act.end_time && act.end_time !== "00:00" ? act.end_time.slice(0, 5) : "",
+      link: act.links?.[0]?.url ?? "",
+    }]);
+    setKegModal(true);
+  }
+
+  async function handleUpdateActivity() {
+    if (!report || !editingActId) return;
+    const row = kegRows[0];
+    if (!row.nama.trim() || !row.start_time || !row.end_time) {
+      showToast("Semua field kegiatan wajib diisi.", "error");
+      return;
+    }
+    setSaving(true);
+    try {
+      await updateReportActivity(report.id, editingActId, {
+        start_time: row.start_time,
+        end_time: row.end_time,
+        activity: row.nama.trim(),
+        links: row.link.trim() ? [{ url: row.link.trim() }] : undefined,
+      });
+      await loadFormForDate(formDate);
+      setEditingActId(null);
+      setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
+      setKegModal(false);
+      showToast("Kegiatan berhasil diperbarui.", "success");
+    } catch (e: unknown) {
+      showToast(extractWfhError(e, "Gagal update kegiatan."), "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleCloseKegModal() {
+    setKegModal(false);
+    setEditingActId(null);
+    setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
   }
 
   /* ── Toast ───────────────────────────────────────────────────── */
@@ -290,6 +337,14 @@ export default function WfhAbsensi() {
   async function handleSaveAllActivities() {
     const filled = kegRows.filter((r) => r.nama.trim());
     if (filled.length === 0) return;
+    
+    for (const row of filled) {
+      if (!row.start_time || !row.end_time) {
+        showToast("Semua field kegiatan wajib diisi (nama, waktu mulai, waktu selesai).", "error");
+        return;
+      }
+    }
+    
     setSaving(true);
     try {
       const rpt = await ensureReport(formDate);
@@ -741,7 +796,7 @@ export default function WfhAbsensi() {
               </h3>
               {!isSubmitted && (
               <button
-                onClick={() => setKegModal(true)}
+                onClick={() => { setEditingActId(null); setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]); setKegModal(true); }}
                 disabled={saving}
                 className="inline-flex items-center gap-1.5 bg-[#1E3A5F] text-white text-xs font-bold px-5 py-2.5 rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
               >
@@ -765,7 +820,7 @@ export default function WfhAbsensi() {
                       <th className="text-left px-4 py-2.5 text-xs font-bold text-[#4B5563]">
                         Bukti Kegiatan
                       </th>
-                      <th className="text-center px-4 py-2.5 text-xs font-bold text-[#4B5563] w-[100px]">
+                      <th className="text-right px-4 py-2.5 text-xs font-bold text-[#4B5563] w-[60px]">
                         Aksi
                       </th>
                     </tr>
@@ -797,16 +852,35 @@ export default function WfhAbsensi() {
                             <span className="text-[#9CA3AF]">-</span>
                           )}
                         </td>
-                        <td className="px-4 py-3 text-center">
+                        <td className="px-4 py-3 text-right">
                           {!isSubmitted && (
-                          <button
-                            onClick={() => handleDeleteActivity(act.id)}
-                            disabled={saving}
-                            className="text-[#F87171] hover:text-red-700"
-                            title="Hapus kegiatan"
-                          >
-                            <TrashIcon size={16} />
-                          </button>
+                          <DropdownMenu
+                            align="end"
+                            trigger={
+                              <button
+                                type="button"
+                                aria-label={`Aksi untuk kegiatan`}
+                                className="flex items-center justify-center w-8 h-8 rounded-lg text-[#424655] hover:bg-[#F6FAFF]"
+                              >
+                                <MoreVerticalIcon size={18} />
+                              </button>
+                            }
+                            items={[
+                              {
+                                label: "Edit",
+                                icon: <EditIcon size={16} />,
+                                disabled: saving,
+                                onClick: () => handleOpenEditActivity(act),
+                              },
+                              {
+                                label: "Hapus",
+                                icon: <TrashIcon size={16} />,
+                                variant: "destructive" as const,
+                                disabled: saving,
+                                onClick: () => handleDeleteActivity(act.id),
+                              },
+                            ]}
+                          />
                           )}
                         </td>
                       </tr>
@@ -825,6 +899,14 @@ export default function WfhAbsensi() {
 
           {/* Action buttons */}
           <div className="flex flex-wrap items-center gap-3">
+            <Button
+              variant="outline"
+              className="!bg-[#e5e7eb] !border-[#e5e7eb] !text-[#374151] hover:!bg-gray-200"
+              disabled={saving}
+              onClick={() => navigate("/wfh/absensi")}
+            >
+              <BackIcon size={16} /> Kembali
+            </Button>
             {isSubmitted && (
               <Button
                 variant="outline"
@@ -853,14 +935,6 @@ export default function WfhAbsensi() {
                 <SendIcon size={16} /> {saving ? "Mengirim..." : "Kirim Laporan"}
               </Button>
             )}
-            <Button
-              variant="outline"
-              className="!bg-[#e5e7eb] !border-[#e5e7eb] !text-[#374151] hover:!bg-gray-200"
-              disabled={saving}
-              onClick={() => navigate("/wfh/absensi")}
-            >
-              <BackIcon size={16} /> Kembali
-            </Button>
           </div>
         </div>
       )}
@@ -874,11 +948,11 @@ export default function WfhAbsensi() {
         onChange={handleFileChange}
       />
 
-      {/* ── Modal: Tambah Kegiatan Baru ──────────────────────────── */}
-      <Modal open={kegModal} onClose={() => setKegModal(false)} maxWidth="max-w-4xl" className="bg-[#EFF6FF]">
+      {/* ── Modal: Tambah / Edit Kegiatan ──────────────────────────── */}
+      <Modal open={kegModal} onClose={handleCloseKegModal} maxWidth="max-w-4xl" className="bg-[#EFF6FF]">
         <div className="p-6">
           <h3 className="text-base font-bold text-[#1E293B] mb-5">
-            Tambah Kegiatan Baru
+            {editingActId ? "Edit Kegiatan" : "Tambah Kegiatan Baru"}
           </h3>
 
           {/* ── Scrollable form rows ────────────────────────────── */}
@@ -941,6 +1015,7 @@ export default function WfhAbsensi() {
 
           {/* ── Tambah row (rapat ke form) + Simpan/Batal (selalu terlihat) ── */}
           <div className="pt-4">
+            {!editingActId && (
             <div className="flex justify-end">
               <button
                 onClick={addKegRow}
@@ -950,20 +1025,18 @@ export default function WfhAbsensi() {
                 Tambah Kegiatan
               </button>
             </div>
+            )}
             <div className="flex items-center justify-end gap-3 mt-10">
               <button
-                onClick={() => {
-                  setKegModal(false);
-                  setKegRows([{ id: Date.now(), nama: "", start_time: "", end_time: "", link: "" }]);
-                }}
+                onClick={handleCloseKegModal}
                 className="inline-flex items-center gap-1.5 bg-[#E2E8F0] text-[#475569] text-sm font-bold px-9 py-2.5 rounded-lg hover:opacity-80 transition-opacity"
               >
                 <XIcon size={15} />
                 Batal
               </button>
               <button
-                disabled={saving || !kegRows.some((r) => r.nama.trim())}
-                onClick={handleSaveAllActivities}
+                disabled={saving || !kegRows.every((r) => r.nama.trim() && r.start_time && r.end_time)}
+                onClick={editingActId ? handleUpdateActivity : handleSaveAllActivities}
                 className="inline-flex items-center gap-1.5 bg-[#2563EB] text-white text-sm font-bold px-10 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <SaveIcon size={15} />
